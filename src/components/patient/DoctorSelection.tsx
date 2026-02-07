@@ -32,11 +32,10 @@ const DoctorSelection: React.FC<DoctorSelectionProps> = ({
         {doctors.map((doctor: Doctor) => (
           <Card
             key={doctor.id}
-            className={`cursor-pointer transform transition-all duration-200 ${
-              selectedDoctor === doctor.id
+            className={`cursor-pointer transform transition-all duration-200 ${selectedDoctor === doctor.id
                 ? 'ring-2 ring-blue-500 shadow-md scale-[1.02]'
                 : 'hover:shadow-md hover:scale-[1.01]'
-            }`}
+              }`}
             onClick={() => onSelectDoctor(doctor.id)}
           >
             <CardContent className="p-4 flex items-center space-x-4">
@@ -53,7 +52,7 @@ const DoctorSelection: React.FC<DoctorSelectionProps> = ({
                 </h4>
                 <p className="text-sm text-gray-500 truncate">{doctor.specialization}</p>
                 <div className="mt-1 text-xs text-gray-600">
-                  {Object.keys(doctor.availability).length > 0 ? (
+                  {doctor.availability && Object.keys(doctor.availability).length > 0 ? (
                     <p>Available on: {Object.keys(doctor.availability).join(', ')}</p>
                   ) : (
                     <p>No availability information</p>

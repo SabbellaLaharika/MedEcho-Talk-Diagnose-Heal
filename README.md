@@ -15,17 +15,24 @@ You will need to run 3 separate terminals for the full application.
 
 ### Terminal 1: Database & Backend Setup
 
-1. **Navigate to the backend:**
+1. **Start PostgreSQL (Windows):**
+   Open PowerShell as Administrator and run:
+   ```powershell
+   Start-Service -Name "postgresql-x64-18"
+   ```
+   *Note: Adjust the service name if your version differs (e.g., `postgresql-x64-16`)*
+
+2. **Navigate to the backend:**
    ```bash
    cd backend
    ```
 
-2. **Install Dependencies:**
+3. **Install Dependencies:**
    ```bash
    npm install
    ```
 
-3. **Configure Environment:**
+4. **Configure Environment:**
    - Ensure a `.env` file exists in `backend/` with your `DATABASE_URL` and `JWT_SECRET`.
    - Example .env:
      ```env
@@ -34,21 +41,29 @@ You will need to run 3 separate terminals for the full application.
      PORT=5000
      ```
 
-4. **Initialize Database:**
+5. **Initialize Database:**
    ```bash
-   npx prisma generate
+   # Sync schema directly (recommended for dev)
    npx prisma db push
+   
+   # OR generate connection client
+   npx prisma generate
    ```
 
-5. **Seed Initial Data:**
-   (Run this only once to populate doctors and departments)
+6. **Seed Initial Data:**
+   (Run this to populate doctors, departments, and default users)
    ```bash
    node seed.js
    ```
 
-6. **Start the Backend Server:**
+7. **Verify Database Content (Optional):**
    ```bash
-   node server.js
+   node verify_db.js
+   ```
+
+8. **Start the Backend Server:**
+   ```bash
+   npm run start
    ```
    > The server will run on `http://localhost:5000`
 
@@ -64,6 +79,8 @@ You will need to run 3 separate terminals for the full application.
 2. **Install Python Dependencies:**
    ```bash
    pip install -r requirements.txt
+   # If 'pip' is not recognized, try:
+   python -m pip install -r requirements.txt
    ```
 
 3. **Train the Model (First Time Only):**
@@ -105,3 +122,35 @@ You will need to run 3 separate terminals for the full application.
 - **/src**: React Frontend code (Pages, Components, Context).
 - **/backend**: Node.js Express server, Prisma ORM, Controllers, and Routes.
 - **/ml_service**: Python Flask server for Disease Prediction model.
+
+---
+
+## 🔧 Troubleshooting
+
+### 1. Database Connection Failed
+**Error:** `Can't reach database server at localhost:5432`
+**Fix:**
+- Ensure PostgreSQL service is running.
+- **Windows:** Run `Get-Service *postgres*` in PowerShell. If stopped, run `Start-Service -Name "postgresql-x64-18"` (Admin).
+- Check your `.env` file `DATABASE_URL` credentials.
+
+### 2. Prisma Migration/Seed Errors
+**Error:** `Unique constraint failed` or `Migration drift detected`
+**Fix:**
+- Reset the database (Warning: Deletes all data):
+  ```bash
+  cd backend
+  npx prisma migrate reset --force
+  ```
+- Or force-push the schema:
+  ```bash
+  npx prisma db push
+  ```
+
+### 3. "EPERM: operation not permitted"
+**Error:** File locking issues in `node_modules/.prisma`
+**Fix:**
+- Stop the server (Ctrl+C).
+- Close other terminals/VS Code instances if necessary.
+- Run `npm install` inside `backend/` to refresh dependencies.
+

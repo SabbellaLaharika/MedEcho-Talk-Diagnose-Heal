@@ -19,7 +19,7 @@ export type Doctor = {
   departmentId: string;
   specialization: string;
   imageUrl: string;
-  availability: {
+  availability?: {
     [day: string]: {
       start: string;
       end: string;

@@ -1,8 +1,18 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const bcrypt = require('bcryptjs');
 
 const seed = async () => {
     try {
+        // Clear existing data (Order matters due to foreign keys)
+        await prisma.appointment.deleteMany({});
+        await prisma.diagnosis.deleteMany({});
+        await prisma.doctor.deleteMany({});
+        await prisma.user.deleteMany({});
+        await prisma.department.deleteMany({});
+
+        console.log('Cleared existing data');
+
         // Departments
         const dept1 = await prisma.department.create({
             data: {
@@ -78,7 +88,6 @@ const seed = async () => {
         });
 
         // 3. Create Login Users (Auth)
-        const bcrypt = require('bcryptjs');
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash('123456', salt); // Default password
 
@@ -109,6 +118,7 @@ const seed = async () => {
         console.log('Seed data created successfully');
     } catch (error) {
         console.error(error);
+        process.exit(1);
     } finally {
         await prisma.$disconnect();
     }
