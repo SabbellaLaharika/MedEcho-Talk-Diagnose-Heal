@@ -2,10 +2,11 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const path = require('path');
 
 // Import Controllers directly
 const { registerUser, loginUser } = require('./controllers/authController');
-const { getUserAppointments } = require('./controllers/appointmentController');
+
 const { protect } = require('./middleware/authMiddleware');
 
 dotenv.config();
@@ -43,16 +44,27 @@ app.post('/api/auth/register', (req, res) => {
     console.log('[DEBUG] Route Matched: POST /api/auth/register');
     registerUser(req, res);
 });
+// --- AUTH ROUTES --- (These direct calls are replaced by authRoutes)
+// app.post('/api/auth/register', (req, res) => {
+//     console.log('[DEBUG] Route Matched: POST /api/auth/register');
+//     registerUser(req, res);
+// });
 
-app.post('/api/auth/login', (req, res) => {
-    console.log('[DEBUG] Route Matched: POST /api/auth/login');
-    loginUser(req, res);
-});
+// app.post('/api/auth/login', (req, res) => {
+//     console.log('[DEBUG] Route Matched: POST /api/auth/login');
+//     loginUser(req, res);
+// });
 
-// --- APPOINTMENT ROUTES ---
-const appointmentRouter = express.Router();
-appointmentRouter.get('/my-appointments', protect, getUserAppointments);
-app.use('/api/appointments', appointmentRouter);
+// --- ROUTES ---
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/appointments', require('./routes/appointmentRoutes'));
+app.use('/api/diagnosis', require('./routes/diagnosisRoutes'));
+app.use('/api/doctors', require('./routes/doctorRoutes'));
+app.use('/api/departments', require('./routes/departmentRoutes'));
+app.use('/api/upload', require('./routes/uploadRoutes'));
+
+// Make uploads folder static
+app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
 
 // Root Route
 app.get('/', (req, res) => {

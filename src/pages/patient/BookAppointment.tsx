@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
-import Header from '../../components/layout/Header';
-import PatientSidebar from '../../components/layout/PatientSidebar';
 import PageContainer from '../../components/layout/PageContainer';
 import DepartmentList from '../../components/patient/DepartmentList';
 import DoctorSelection from '../../components/patient/DoctorSelection';
@@ -15,8 +13,7 @@ const BookAppointment: React.FC = () => {
   const { departmentId } = useParams<{ departmentId?: string }>();
   const { currentUser, data, createAppointment } = useData();
   const navigate = useNavigate();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
+
   // Form state
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(departmentId || null);
   const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null);
@@ -25,43 +22,45 @@ const BookAppointment: React.FC = () => {
   const [reason, setReason] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
-  
+
+  // Sync state with URL params
+  useEffect(() => {
+    if (departmentId) {
+      setSelectedDepartment(departmentId);
+      setActiveStep(2);
+    } else {
+      setSelectedDepartment(null);
+      setActiveStep(1);
+    }
+  }, [departmentId]);
+
   // Reset doctor when department changes
   useEffect(() => {
     setSelectedDoctor(null);
     setSelectedDate(null);
     setSelectedTime(null);
   }, [selectedDepartment]);
-  
+
   // Reset date and time when doctor changes
   useEffect(() => {
     setSelectedDate(null);
     setSelectedTime(null);
   }, [selectedDoctor]);
-  
+
   // Reset time when date changes
   useEffect(() => {
     setSelectedTime(null);
   }, [selectedDate]);
-  
-  // Advance to step 2 if department is pre-selected
-  useEffect(() => {
-    if (departmentId) {
-      setActiveStep(2);
-    }
-  }, [departmentId]);
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-  
+
+
   const handleSubmit = async () => {
     if (!currentUser || !selectedDepartment || !selectedDoctor || !selectedDate || !selectedTime) {
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       const appointmentData = {
         patientId: currentUser.id,
@@ -71,7 +70,7 @@ const BookAppointment: React.FC = () => {
         time: selectedTime,
         reason: reason.trim() || 'General consultation',
       };
-      
+
       await createAppointment(appointmentData);
       navigate('/patient/appointments');
     } catch (error) {
@@ -80,7 +79,7 @@ const BookAppointment: React.FC = () => {
       setIsSubmitting(false);
     }
   };
-  
+
   const getStepContent = () => {
     switch (activeStep) {
       case 1:
@@ -94,9 +93,9 @@ const BookAppointment: React.FC = () => {
         );
       case 2:
         if (!selectedDepartment) return null;
-        
+
         const department = data.departments.find(dept => dept.id === selectedDepartment);
-        
+
         return (
           <Card>
             <CardHeader>
@@ -104,14 +103,14 @@ const BookAppointment: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-8">
-                <DoctorSelection 
+                <DoctorSelection
                   departmentId={selectedDepartment}
                   selectedDoctor={selectedDoctor}
                   onSelectDoctor={setSelectedDoctor}
                 />
-                
+
                 {selectedDoctor && (
-                  <AppointmentCalendar 
+                  <AppointmentCalendar
                     doctorId={selectedDoctor}
                     selectedDate={selectedDate}
                     onSelectDate={setSelectedDate}
@@ -119,7 +118,7 @@ const BookAppointment: React.FC = () => {
                     onSelectTime={setSelectedTime}
                   />
                 )}
-                
+
                 {selectedDate && selectedTime && (
                   <div>
                     <h3 className="text-lg font-medium text-gray-800 mb-2">Appointment Reason</h3>
@@ -134,9 +133,9 @@ const BookAppointment: React.FC = () => {
               </div>
             </CardContent>
             <CardFooter className="flex justify-between">
-              <Button 
-                variant="outline" 
-                onClick={() => setActiveStep(1)}
+              <Button
+                variant="outline"
+                onClick={() => navigate('/patient/book')}
               >
                 Back to Departments
               </Button>
@@ -156,19 +155,12 @@ const BookAppointment: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header toggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
-      <PatientSidebar isOpen={isSidebarOpen} />
-      
-      <div className="lg:pl-64 pt-16">
-        <PageContainer
-          title="Book an Appointment"
-          subtitle="Schedule a consultation with our specialists"
-        >
-          {getStepContent()}
-        </PageContainer>
-      </div>
-    </div>
+    <PageContainer
+      title="Book an Appointment"
+      subtitle="Schedule a consultation with our specialists"
+    >
+      {getStepContent()}
+    </PageContainer>
   );
 };
 

@@ -13,11 +13,14 @@ model User {
   email     String   @unique
   password  String
   phone     String?
+  age       Int?
+  gender    String?  // 'Male', 'Female', 'Other'
   role      Role     @default(patient)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   appointments Appointment[]
+  diagnoses    Diagnosis[]
 }
 
 enum Role {
@@ -28,21 +31,29 @@ enum Role {
 
 model Doctor {
   id          String   @id @default(uuid())
+  email       String   @unique
   name        String
+  imageUrl    String?
   specialization String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   appointments Appointment[]
+  
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
 }
 
 model Department {
   id          String   @id @default(uuid())
   name        String
+  description String?
+  imageUrl    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   appointments Appointment[]
+  doctors      Doctor[]
 }
 
 model Appointment {
@@ -71,4 +82,21 @@ enum AppointmentStatus {
   confirmed
   completed
   cancelled
+}
+
+model Diagnosis {
+  id        String   @id @default(uuid())
+  
+  patientId String
+  patient   User     @relation(fields: [patientId], references: [id])
+  
+  symptoms  String   // Comma separated list of symptoms
+  disease   String   // Predicted disease
+  confidence String  // Confidence score (e.g., "95%")
+  
+  history   String   // JSON string containing Q&A (Appetite, Sleep, etc.)
+  
+  doctorVisible Boolean @default(true)
+  
+  createdAt DateTime @default(now())
 }

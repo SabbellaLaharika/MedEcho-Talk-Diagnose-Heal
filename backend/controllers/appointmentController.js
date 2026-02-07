@@ -38,5 +38,50 @@ const getUserAppointments = async (req, res) => {
   }
 };
 
-module.exports = { getUserAppointments };
+const createAppointment = async (req, res) => {
+  try {
+    const { doctorId, departmentId, date, time, reason } = req.body;
+    const patientId = req.user.id;
+
+    if (!doctorId || !departmentId || !date || !time) {
+      return res.status(400).json({ message: 'Please calculate all fields' });
+    }
+
+    const appointment = await prisma.appointment.create({
+      data: {
+        patientId,
+        doctorId,
+        departmentId,
+        date,
+        time,
+        reason: reason || '',
+        status: 'pending'
+      }
+    });
+
+    res.status(201).json(appointment);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+const updateAppointmentStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const { id } = req.params;
+
+    const appointment = await prisma.appointment.update({
+      where: { id },
+      data: { status }
+    });
+
+    res.json(appointment);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+module.exports = { getUserAppointments, createAppointment, updateAppointmentStatus };
 

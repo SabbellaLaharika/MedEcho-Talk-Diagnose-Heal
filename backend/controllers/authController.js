@@ -30,6 +30,8 @@ const registerUser = async (req, res) => {
         email,
         password: hashedPassword,
         phone,
+        age: req.body.age ? parseInt(req.body.age) : null,
+        gender: req.body.gender,
         role: 'patient',
       },
     });

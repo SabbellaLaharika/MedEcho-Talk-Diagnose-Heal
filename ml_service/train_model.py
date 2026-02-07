@@ -3,28 +3,41 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 import pickle
+import os
 
-# Create a dummy dataset for demonstration
-# In a real scenario, this would load a CSV like 'dataset.csv'
-data = {
-    'Symptom_1': ['fever', 'cough', 'headache', 'stomach_pain', 'chest_pain', 'fever', 'cough', 'headache', 'vomiting', 'nausea'],
-    'Symptom_2': ['cough', 'fever', 'nausea', 'vomiting', 'breathlessness', 'headache', 'cold', 'dizziness', 'stomach_pain', 'fever'],
-    'Symptom_3': ['fatigue', 'headache', 'dizziness', 'fatigue', 'sweating', 'shivering', 'sore_throat', 'anxiety', 'diarrhea', 'fatigue'],
-    'Disease': ['Flu', 'Flu', 'Migraine', 'Food Poisoning', 'Heart Issue', 'Malaria', 'Common Cold', 'Hypertension', 'Gastroenteritis', 'Typhoid']
-}
+# Define paths
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATASET_PATH = os.path.join(BASE_DIR, 'dataset.csv')
+MODEL_PATH = os.path.join(BASE_DIR, 'disease_model.pkl')
+SYMPTOMS_PATH = os.path.join(BASE_DIR, 'symptoms_list.pkl')
 
-# Convert to DataFrame
-df = pd.DataFrame(data)
+print("Loading dataset from:", DATASET_PATH)
 
-# Get all unique symptoms to create a bag-of-words vector
-all_symptoms = set(df['Symptom_1']).union(set(df['Symptom_2'])).union(set(df['Symptom_3']))
+try:
+    df = pd.read_csv(DATASET_PATH)
+except FileNotFoundError:
+    print(f"Error: dataset.csv not found at {DATASET_PATH}")
+    exit(1)
+
+# Clean dataset: fill NaNs with empty string
+df = df.fillna('')
+
+# Extract all unique symptoms
+all_symptoms = set()
+for col in df.columns:
+    if col != 'Disease':
+        unique_vals = df[col].unique()
+        for val in unique_vals:
+            val = str(val).strip()
+            if val:
+                all_symptoms.add(val)
+
 all_symptoms = sorted(list(all_symptoms))
+print(f"Total unique symptoms found: {len(all_symptoms)}")
 
 # Save the list of symptoms
-with open('symptoms_list.pkl', 'wb') as f:
+with open(SYMPTOMS_PATH, 'wb') as f:
     pickle.dump(all_symptoms, f)
-
-print(f"Total symptoms: {len(all_symptoms)}")
 
 # Prepare Training Data
 X = []
@@ -32,7 +45,15 @@ y = df['Disease']
 
 for index, row in df.iterrows():
     vector = []
-    current_symptoms = [row['Symptom_1'], row['Symptom_2'], row['Symptom_3']]
+    # Collect symptoms for this row
+    current_symptoms = set()
+    for col in df.columns:
+        if col != 'Disease':
+            val = str(row[col]).strip()
+            if val:
+                current_symptoms.add(val)
+    
+    # Create binary vector
     for symptom in all_symptoms:
         if symptom in current_symptoms:
             vector.append(1)
@@ -41,11 +62,12 @@ for index, row in df.iterrows():
     X.append(vector)
 
 # Train Model
+print("Training Random Forest Model...")
 clf = RandomForestClassifier(n_estimators=100, random_state=42)
 clf.fit(X, y)
 
 # Save Model
-with open('disease_model.pkl', 'wb') as f:
+with open(MODEL_PATH, 'wb') as f:
     pickle.dump(clf, f)
 
-print("Model trained and saved as 'disease_model.pkl'")
+print(f"Model trained and saved successfully to {MODEL_PATH}")

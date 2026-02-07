@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Calendar, FileText, Bell, Settings } from 'lucide-react';
+import { Home, Calendar, FileText, Bell, Settings, Bot, Activity } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 
 interface SidebarProps {
@@ -9,18 +9,20 @@ interface SidebarProps {
 
 const PatientSidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const { currentUser, getUserNotifications } = useData();
-  
-  const unreadNotifications = currentUser 
+
+  const unreadNotifications = currentUser
     ? getUserNotifications(currentUser.id).filter(n => !n.read).length
     : 0;
-    
+
   const menuItems = [
     { icon: <Home size={20} />, text: 'Home', path: '/patient' },
+    { icon: <Bot size={20} />, text: 'AI Assistant', path: '/patient/assistant' },
     { icon: <Calendar size={20} />, text: 'Book Appointment', path: '/patient/book' },
     { icon: <FileText size={20} />, text: 'My Appointments', path: '/patient/appointments' },
-    { 
-      icon: <Bell size={20} />, 
-      text: 'Notifications', 
+    { icon: <Activity size={20} />, text: 'Medical Reports', path: '/patient/reports' },
+    {
+      icon: <Bell size={20} />,
+      text: 'Notifications',
       path: '/patient/notifications',
       badge: unreadNotifications > 0 ? unreadNotifications : undefined
     },

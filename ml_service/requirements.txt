@@ -1,7 +1,8 @@
-
 flask
 flask-cors
-scikit-learn
-pandas
 numpy
+scikit-learn
+deep-translator
+langdetect
+pandas
 gunicorn
