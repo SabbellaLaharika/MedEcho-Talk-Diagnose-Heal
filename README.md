@@ -1,20 +1,67 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# MedEcho - Talk. Diagnose. Heal.
 
-# Run and deploy your AI Studio app
+MedEcho is an advanced health ecosystem that integrates AI-driven symptom analysis, multilingual support, and a comprehensive doctor-patient appointment management system.
 
-This contains everything you need to run your app locally.
+## Project Structure
 
-View your app in AI Studio: https://ai.studio/apps/drive/1Z4UR7GLbgpCw1ssPJaTDBMiekbrTRw6t
+- **`/` (Root)**: Frontend React application.
+- **`/server`**: Backend Node.js service with PostgreSQL & Prisma.
+- **`/ml_service`**: FastAPI service for AI Chat, Disease Prediction, and Speech-to-Text.
 
-## Run Locally
+---
 
-**Prerequisites:**  Node.js
+## Getting Started
 
+### 1. ML Service (Python)
+The ML Service handles the "Talk" part of the ecosystem using FastAPI.
+```bash
+cd ml_service
+pip install -r requirements.txt
+python main.py
+```
+*Runs on `http://localhost:8000`*
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 2. Backend Server (Node.js)
+The core logic for users, schedules, and appointments.
+```bash
+cd server
+npm install
+```
+**Setup Environment**: Create a `.env` file in `/server` with your `DATABASE_URL` (PostgreSQL).
+```bash
+# Update database schema
+npx prisma db push
+
+# Seed the database with doctors and demo users
+npx prisma db seed
+
+# Start server
+npm run dev
+```
+*Runs on `http://localhost:5000`*
+
+### 3. Frontend App (React)
+The modern UI for patients and clinical staff.
+```bash
+# In the root directory
+npm install
+npm run dev
+```
+*Runs on `http://localhost:3000`*
+
+---
+
+## Key Features
+- **Multi-Slot Weekly Hours**: Doctors can define multiple availability segments per day (e.g., Morning/Evening shifts).
+- **Dynamic Slot Freezing**: Block specific time ranges (ranges, not just slots) with reasons to prevent bookings during emergencies or surgeries.
+- **Bulk Apply Tool**: Create a schedule template and apply it to multiple days of the week instantly.
+- **Multilingual AI Chat**: Diagnose symptoms using voice or text in multiple languages with real-time translation.
+- **Intelligent Booking**: Automated conflict detection ensures zero double-bookings.
+
+---
+
+## Demo Credentials
+| Role | Email | Password |
+|------|-------|----------|
+| Doctor | `sarah@medecho.com` | `123456` |
+| Patient | `patient@medecho.com` | `123456` |
