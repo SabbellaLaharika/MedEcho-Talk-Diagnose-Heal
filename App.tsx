@@ -10,12 +10,13 @@ import ReportsList from './components/ReportsList';
 import AIChatAssistant from './components/AIChatAssistant';
 import VirtualDoctor from './components/VirtualDoctor';
 import FloatingAIChat from './components/FloatingAIChat';
-import { 
-  UserIcon, 
-  BriefcaseIcon, 
-  ShieldCheckIcon, 
-  ClockIcon, 
-  NoSymbolIcon, 
+import DoctorScheduleManager from './components/DoctorScheduleManager';
+import {
+  UserIcon,
+  BriefcaseIcon,
+  ShieldCheckIcon,
+  ClockIcon,
+  NoSymbolIcon,
   PlusIcon,
   TrashIcon,
   BoltIcon,
@@ -39,10 +40,10 @@ const App: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
-  
+
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [authRole, setAuthRole] = useState<'PATIENT' | 'DOCTOR'>('PATIENT');
-  
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -52,13 +53,13 @@ const App: React.FC = () => {
   const generateReminders = useCallback((user: User, apts: Appointment[]) => {
     const today = new Date();
     const oneDayInMs = 24 * 60 * 60 * 1000;
-    
+
     const newNotifications: AppNotification[] = [];
     apts.forEach(apt => {
       if (apt.status !== 'PENDING') return;
       const aptDate = new Date(apt.date);
       const timeDiff = aptDate.getTime() - today.getTime();
-      
+
       if (timeDiff > 0 && timeDiff <= oneDayInMs) {
         newNotifications.push({
           id: `reminder-${apt.id}`,
@@ -94,7 +95,7 @@ const App: React.FC = () => {
           dbService.appointments.getAll(),
           dbService.reports.getAll()
         ]);
-        
+
         if (user.role === 'DOCTOR') {
           setAppointments(apts.filter(a => a.doctorId === user.id));
           // For doctors, we might show all patient reports they've generated
@@ -114,7 +115,7 @@ const App: React.FC = () => {
     setAuthLoading(true);
     try {
       if (authMode === 'LOGIN') {
-        const loggedUser = await dbService.auth.login(formData.email);
+        const loggedUser = await dbService.auth.login(formData.email, formData.password);
         if (loggedUser.role !== authRole) throw new Error(`Role mismatch. Use ${loggedUser.role} portal.`);
         setUser(loggedUser);
       } else {
@@ -125,10 +126,10 @@ const App: React.FC = () => {
           role: authRole,
           avatar: `https://picsum.photos/200?random=${Math.random()}`,
           isAvailable: true,
-          daySchedules: Array.from({length: 7}, (_, i) => ({ dayIndex: i, slots: [{ startTime: '09:00', endTime: '17:00' }], isActive: i >= 1 && i <= 5 })),
+          daySchedules: Array.from({ length: 7 }, (_, i) => ({ dayIndex: i, slots: [{ startTime: '09:00', endTime: '17:00' }], isActive: i >= 1 && i <= 5 })),
           blockedSlots: []
         };
-        const registered = await dbService.auth.register(newUser);
+        const registered = await dbService.auth.register(newUser, formData.password);
         setUser(registered);
       }
       setActiveTab('dashboard');
@@ -168,14 +169,14 @@ const App: React.FC = () => {
 
           <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden w-full max-w-lg mx-auto">
             <div className="p-1 flex border-b bg-slate-50">
-              <button 
+              <button
                 onClick={() => setAuthRole('PATIENT')}
                 className={`flex-1 py-5 flex flex-col items-center space-y-2 transition-all ${authRole === 'PATIENT' ? 'bg-white border-b-4 border-blue-600' : 'opacity-40 hover:opacity-100'}`}
               >
                 <UserIcon className={`w-6 h-6 ${authRole === 'PATIENT' ? 'text-blue-600' : 'text-slate-400'}`} />
                 <span className="text-[10px] font-black uppercase tracking-widest">Patient Portal</span>
               </button>
-              <button 
+              <button
                 onClick={() => setAuthRole('DOCTOR')}
                 className={`flex-1 py-5 flex flex-col items-center space-y-2 transition-all ${authRole === 'DOCTOR' ? 'bg-white border-b-4 border-indigo-600' : 'opacity-40 hover:opacity-100'}`}
               >
@@ -192,10 +193,10 @@ const App: React.FC = () => {
               </div>
               <form onSubmit={handleAuth} className="space-y-4">
                 {authMode === 'REGISTER' && (
-                  <input required type="text" placeholder="Legal Full Name" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})}/>
+                  <input required type="text" placeholder="Legal Full Name" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
                 )}
-                <input required type="email" placeholder="Email Address" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})}/>
-                <input required type="password" placeholder="Account Password" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})}/>
+                <input required type="email" placeholder="Email Address" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                <input required type="password" placeholder="Account Password" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
                 <button type="submit" disabled={authLoading} className={`w-full py-5 rounded-2xl text-white font-black uppercase text-xs shadow-xl tracking-widest ${authRole === 'PATIENT' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
                   {authLoading ? 'Verifying...' : (authMode === 'LOGIN' ? 'Sign In' : 'Register')}
                 </button>
@@ -213,18 +214,18 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-inter relative">
       {/* Mobile Drawer Overlay */}
-      <div 
+      <div
         className={`fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 lg:hidden transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsSidebarOpen(false)}
       ></div>
 
       {/* Responsive Sidebar */}
       <div className={`fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-[60] lg:z-30 h-full`}>
-        <Sidebar 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
-          onLogout={handleLogout} 
-          role={user.role} 
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onLogout={handleLogout}
+          role={user.role}
           onClose={() => setIsSidebarOpen(false)}
         />
       </div>
@@ -232,50 +233,93 @@ const App: React.FC = () => {
       <main className="flex-1 overflow-y-auto custom-scrollbar relative flex flex-col h-full">
         {/* Responsive Header */}
         <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md px-6 sm:px-10 py-5 sm:py-6 border-b border-slate-100 flex justify-between items-center flex-shrink-0">
-           <div className="flex items-center space-x-4">
-              <button 
-                onClick={() => setIsSidebarOpen(true)}
-                className="lg:hidden p-2.5 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
-              >
-                <Bars3Icon className="w-6 h-6" />
-              </button>
-              <h1 className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-800">{activeTab.replace('-', ' ')}</h1>
-           </div>
-           
-           <div className="flex items-center space-x-2 sm:space-x-4">
-              <button 
-                onClick={() => setShowNotifications(!showNotifications)}
-                className={`p-3 rounded-2xl transition-all relative ${showNotifications ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
-              >
-                <BellIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-                {notifications.some(n => !n.isRead) && (
-                  <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-rose-600 rounded-full border-2 border-white"></span>
-                )}
-              </button>
-              <div className="hidden sm:flex items-center space-x-3 bg-slate-50 p-1.5 pr-4 rounded-2xl border border-slate-100">
-                <img src={user.avatar} className="w-8 h-8 rounded-xl object-cover" alt={user.name} />
-                <span className="text-[10px] font-black uppercase text-slate-700 truncate max-w-[100px]">{user.name}</span>
-              </div>
-           </div>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2.5 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+            >
+              <Bars3Icon className="w-6 h-6" />
+            </button>
+            <h1 className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-800">{activeTab.replace('-', ' ')}</h1>
+          </div>
+
+          <div className="flex items-center space-x-2 sm:space-x-4">
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className={`p-3 rounded-2xl transition-all relative ${showNotifications ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+            >
+              <BellIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+              {notifications.some(n => !n.isRead) && (
+                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-rose-600 rounded-full border-2 border-white"></span>
+              )}
+            </button>
+            <div className="hidden sm:flex items-center space-x-3 bg-slate-50 p-1.5 pr-4 rounded-2xl border border-slate-100">
+              <img src={user.avatar} className="w-8 h-8 rounded-xl object-cover" alt={user.name} />
+              <span className="text-[10px] font-black uppercase text-slate-700 truncate max-w-[100px]">{user.name}</span>
+            </div>
+          </div>
         </header>
 
         {/* Tab Content Container */}
         <div className="flex-1">
           {activeTab === 'dashboard' && (
-            user.role === 'DOCTOR' 
-              ? <DoctorDashboard doctor={user} appointments={appointments} reports={reports} onUpdateUser={setUser} onUpdateAppointment={(u) => setAppointments(p => p.map(a => a.id === u.id ? u : a))} onDeleteAppointment={(id) => setAppointments(p => p.filter(a => a.id !== id))} />
+            user.role === 'DOCTOR'
+              ? <DoctorDashboard 
+                  doctor={user} 
+                  appointments={appointments} 
+                  reports={reports} 
+                  onUpdateUser={async (u) => {
+                    try {
+                      const updated = await dbService.auth.updateUser(u);
+                      setUser(updated);
+                    } catch (e) {
+                      console.error("Failed to update user:", e);
+                    }
+                  }} 
+                  onUpdateAppointment={async (u) => {
+                    try {
+                      const updated = await dbService.appointments.update(u);
+                      setAppointments(p => p.map(a => a.id === updated.id ? updated : a));
+                    } catch (e) {
+                      console.error("Failed to update appointment:", e);
+                    }
+                  }} 
+                  onDeleteAppointment={async (id) => {
+                    try {
+                      await dbService.appointments.delete(id);
+                      setAppointments(p => p.filter(a => a.id !== id));
+                    } catch (e) {
+                      console.error("Failed to delete appointment:", e);
+                    }
+                  }} 
+                />
               : <PatientDashboard user={user} appointments={appointments} reports={reports} />
           )}
-          {activeTab === 'appointments' && <AppointmentBooking onBook={(apt) => {
-            const newApt = { ...apt, id: Date.now().toString(), patientId: user.id, patientName: user.name, status: 'PENDING' } as Appointment;
-            setAppointments(prev => [newApt, ...prev]);
-            setActiveTab('dashboard');
+          {activeTab === 'appointments' && <AppointmentBooking onBook={async (apt) => {
+            const newApt = { ...apt, patientId: user.id, patientName: user.name, status: 'PENDING' } as Appointment;
+            try {
+              const saved = await dbService.appointments.create(newApt);
+              setAppointments(prev => [saved, ...prev]);
+              setActiveTab('dashboard');
+            } catch (e) {
+              console.error("Booking failed:", e);
+              alert("Wait, there was an issue booking this appointment.");
+            }
           }} />}
+          {activeTab === 'schedule' && <DoctorScheduleManager doctor={user} />}
           {activeTab === 'reports' && <ReportsList reports={reports} />}
           {activeTab === 'chat' && <AIChatAssistant onReportGenerated={(report) => setReports(prev => [report, ...prev])} />}
-          {activeTab === 'virtual-doc' && <VirtualDoctor patientId={user.id} onSessionComplete={(r) => { setReports(prev => [r, ...prev]); setActiveTab('reports'); }} />}
+          {activeTab === 'virtual-doc' && <VirtualDoctor patientId={user.id} onSessionComplete={async (r) => { 
+            try {
+              const saved = await dbService.reports.create(r);
+              setReports(prev => [saved, ...prev]); 
+              setActiveTab('reports'); 
+            } catch (e) {
+              console.error("Saving report failed:", e);
+            }
+          }} />}
         </div>
-        
+
         <FloatingAIChat onReportGenerated={(report) => setReports(prev => [report, ...prev])} />
       </main>
     </div>

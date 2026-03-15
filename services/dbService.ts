@@ -1,133 +1,94 @@
-
 import { User, Appointment, MedicalReport } from '../types';
-import { MOCK_DOCTORS, MOCK_PATIENTS, MOCK_APPOINTMENTS, MOCK_REPORTS } from '../constants';
+import api from './api';
 
 const KEYS = {
-  USERS: 'medecho_users',
-  APPOINTMENTS: 'medecho_appointments',
-  REPORTS: 'medecho_reports',
   CURRENT_USER: 'medecho_session'
 };
 
-const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-
 export const dbService = {
   init: () => {
-    const storedUsers = localStorage.getItem(KEYS.USERS);
-    if (!storedUsers) {
-      localStorage.setItem(KEYS.USERS, JSON.stringify([...MOCK_DOCTORS, ...MOCK_PATIENTS]));
-    } else {
-      // Logic to force update physician avatars to ensure broken links are replaced automatically
-      const users = JSON.parse(storedUsers);
-      const updatedUsers = users.map((u: User) => {
-        const mockMatch = MOCK_DOCTORS.find(m => m.id === u.id);
-        if (mockMatch) {
-          return { ...u, avatar: mockMatch.avatar };
-        }
-        return u;
-      });
-      localStorage.setItem(KEYS.USERS, JSON.stringify(updatedUsers));
-      
-      // Also update the current session if the logged-in user is a doctor
-      const currentSession = localStorage.getItem(KEYS.CURRENT_USER);
-      if (currentSession) {
-        const user = JSON.parse(currentSession);
-        const mockMatch = MOCK_DOCTORS.find(m => m.id === user.id);
-        if (mockMatch) {
-          localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify({ ...user, avatar: mockMatch.avatar }));
-        }
-      }
-    }
-
-    if (!localStorage.getItem(KEYS.APPOINTMENTS)) {
-      localStorage.setItem(KEYS.APPOINTMENTS, JSON.stringify(MOCK_APPOINTMENTS));
-    }
-    if (!localStorage.getItem(KEYS.REPORTS)) {
-      localStorage.setItem(KEYS.REPORTS, JSON.stringify(MOCK_REPORTS));
-    }
+    // No init needed for API, potentially check session
   },
 
   auth: {
-    register: async (user: User): Promise<User> => {
-      await delay(800);
-      const users = JSON.parse(localStorage.getItem(KEYS.USERS) || '[]');
-      if (users.find((u: User) => u.email === user.email)) {
-        throw new Error('User already exists');
-      }
-      users.push(user);
-      localStorage.setItem(KEYS.USERS, JSON.stringify(users));
-      localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(user));
-      return user;
+    register: async (user: User, password?: string): Promise<User> => {
+      // Send password with user data
+      const payload = { ...user, password: password || '123456' };
+      const { data } = await api.post('/auth/register', payload);
+      localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(data)); // Save { token, user }
+      return data.user;
     },
-    login: async (email: string): Promise<User> => {
-      await delay(600);
-      const users = JSON.parse(localStorage.getItem(KEYS.USERS) || '[]');
-      const user = users.find((u: User) => u.email === email);
-      if (!user) throw new Error('User not found. Check credentials.');
-      localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(user));
-      return user;
+    login: async (email: string, password?: string): Promise<User> => {
+      // For now, sending email as password for simplicity in existing mock flow
+      // In real app, we need password field in UI
+      // Use provided password or default to '123456' for demo accounts
+      const defaultPassword = '123456';
+      const { data } = await api.post('/auth/login', { email, password: password || defaultPassword });
+      localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(data)); // Save { token, user }
+      return data.user;
     },
     updateUser: async (updatedUser: User): Promise<User> => {
-      await delay(400);
-      const users = JSON.parse(localStorage.getItem(KEYS.USERS) || '[]');
-      const index = users.findIndex((u: User) => u.id === updatedUser.id);
-      if (index !== -1) {
-        users[index] = updatedUser;
-        localStorage.setItem(KEYS.USERS, JSON.stringify(users));
-        localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(updatedUser));
-      }
-      return updatedUser;
+      const { data } = await api.put(`/users/${updatedUser.id}`, updatedUser);
+      // We might need to handle token persistence if valid, or just update user part
+      // For simplicity, let's assume update returns User. 
+      // Current session handling might need logic to merge, but let's stick to simple first.
+      const currentSession = JSON.parse(localStorage.getItem(KEYS.CURRENT_USER) || '{}');
+      const newSession = { ...currentSession, user: data };
+      localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(newSession));
+      return data;
     },
     logout: () => {
       localStorage.removeItem(KEYS.CURRENT_USER);
     },
     getCurrentUser: (): User | null => {
       const data = localStorage.getItem(KEYS.CURRENT_USER);
-      return data ? JSON.parse(data) : null;
+      return data ? JSON.parse(data).user : null;
     }
   },
 
   appointments: {
     getAll: async (): Promise<Appointment[]> => {
-      await delay(300);
-      return JSON.parse(localStorage.getItem(KEYS.APPOINTMENTS) || '[]');
+      const user = dbService.auth.getCurrentUser();
+      if (!user) return [];
+      const { data } = await api.get(`/appointments/${user.id}?role=${user.role}`);
+      return data;
     },
     create: async (apt: Appointment): Promise<Appointment> => {
-      await delay(500);
-      const appointments = JSON.parse(localStorage.getItem(KEYS.APPOINTMENTS) || '[]');
-      appointments.unshift(apt);
-      localStorage.setItem(KEYS.APPOINTMENTS, JSON.stringify(appointments));
-      return apt;
+      const { data } = await api.post('/appointments', apt);
+      return data;
     },
     update: async (updatedApt: Appointment): Promise<Appointment> => {
-      await delay(300);
-      const appointments = JSON.parse(localStorage.getItem(KEYS.APPOINTMENTS) || '[]');
-      const index = appointments.findIndex((a: Appointment) => a.id === updatedApt.id);
-      if (index !== -1) {
-        appointments[index] = updatedApt;
-        localStorage.setItem(KEYS.APPOINTMENTS, JSON.stringify(appointments));
-      }
-      return updatedApt;
+      const { data } = await api.put(`/appointments/${updatedApt.id}`, updatedApt);
+      return data;
     },
     delete: async (id: string): Promise<void> => {
-      await delay(300);
-      const appointments = JSON.parse(localStorage.getItem(KEYS.APPOINTMENTS) || '[]');
-      const filtered = appointments.filter((a: Appointment) => a.id !== id);
-      localStorage.setItem(KEYS.APPOINTMENTS, JSON.stringify(filtered));
+      await api.delete(`/appointments/${id}`);
     }
   },
 
   reports: {
     getAll: async (): Promise<MedicalReport[]> => {
-      await delay(300);
-      return JSON.parse(localStorage.getItem(KEYS.REPORTS) || '[]');
+      const user = dbService.auth.getCurrentUser();
+      if (!user) return [];
+
+      if (user.role === 'PATIENT') {
+        const { data } = await api.get(`/reports/patient/${user.id}`);
+        return data;
+      }
+
+      // TODO: Implement getDoctorReports in backend
+      return [];
     },
     create: async (report: MedicalReport): Promise<MedicalReport> => {
-      await delay(500);
-      const reports = JSON.parse(localStorage.getItem(KEYS.REPORTS) || '[]');
-      reports.unshift(report);
-      localStorage.setItem(KEYS.REPORTS, JSON.stringify(reports));
-      return report;
+      const { data } = await api.post('/reports', report);
+      return data;
+    }
+  },
+
+  users: {
+    getDoctors: async (): Promise<User[]> => {
+      const { data } = await api.get('/users/doctors/list');
+      return data;
     }
   }
 };

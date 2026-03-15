@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { dbService } from '../services/dbService';
+import api from '../services/api';
 import { User, Appointment } from '../types';
 import { 
   CalendarIcon, 
@@ -11,7 +12,8 @@ import {
   CheckCircleIcon,
   UserIcon,
   VideoCameraIcon,
-  MapPinIcon
+  MapPinIcon,
+  NoSymbolIcon
 } from '@heroicons/react/24/solid';
 
 interface AppointmentBookingProps {
@@ -24,20 +26,48 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook }) => {
   const [selectedDoc, setSelectedDoc] = useState<User | null>(null);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [type, setType] = useState<'VIRTUAL' | 'IN-PERSON'>('IN-PERSON');
+  const [type, setType] = useState<'VIRTUAL' | 'IN_PERSON'>('IN_PERSON');
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [bookedAptSummary, setBookedAptSummary] = useState<(Partial<Appointment> & { doctorAvatar?: string }) | null>(null);
 
+  // Doctor schedule data
+  const [doctorSchedule, setDoctorSchedule] = useState<any[]>([]);
+  const [blockedSlots, setBlockedSlots] = useState<any[]>([]);
+
   useEffect(() => {
     const loadData = async () => {
-      const users = JSON.parse(localStorage.getItem('medecho_users') || '[]');
-      const apts = await dbService.appointments.getAll();
-      setDoctors(users.filter((u: User) => u.role === 'DOCTOR'));
-      setAllAppointments(apts);
+      try {
+        const [doctorsList, apts] = await Promise.all([
+          dbService.users.getDoctors(),
+          dbService.appointments.getAll()
+        ]);
+        setDoctors(doctorsList);
+        setAllAppointments(apts);
+      } catch (err) {
+        console.error("Failed to load booking data:", err);
+      }
     };
     loadData();
   }, []);
+
+  // When a doctor is selected, fetch their schedule + blocked slots
+  useEffect(() => {
+    if (!selectedDoc) return;
+    const fetchSchedule = async () => {
+      try {
+        const [schedRes, blockedRes] = await Promise.all([
+          api.get(`/schedules/${selectedDoc.id}`),
+          api.get(`/schedules/${selectedDoc.id}/blocked`)
+        ]);
+        setDoctorSchedule(schedRes.data);
+        setBlockedSlots(blockedRes.data);
+      } catch (err) {
+        console.error("Failed to fetch doctor schedule:", err);
+      }
+    };
+    fetchSchedule();
+  }, [selectedDoc]);
 
   const filteredDoctors = doctors.filter(doc => 
     doc.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -61,20 +91,56 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook }) => {
     return slots;
   };
 
+  const DEFAULT_SCHEDULE = Array.from({ length: 7 }, (_, i) => ({
+    dayIndex: i,
+    startTime: '09:00',
+    endTime: '18:00',
+    isActive: i >= 1 && i <= 5
+  }));
+
   const availableSlots = useMemo(() => {
     if (!selectedDoc || !date) return [];
     const bookingDate = new Date(date);
     const dayOfWeek = bookingDate.getUTCDay();
-    const daySched = selectedDoc.daySchedules?.find(s => s.dayIndex === dayOfWeek);
-    if (!daySched || !daySched.isActive) return [];
-    let slots: string[] = [];
-    daySched.slots.forEach(range => {
-      slots = [...slots, ...generateSlots(range.startTime, range.endTime)];
+
+    // 1. Get doctor's schedule for this day (can be multiple segments)
+    const schedules = doctorSchedule.filter((s: any) => s.dayIndex === dayOfWeek && s.isActive);
+    if (schedules.length === 0 && doctorSchedule.length === 0) {
+      // Use defaults only if NO schedule is set at all for any day
+      const defaultDay = DEFAULT_SCHEDULE.find(s => s.dayIndex === dayOfWeek);
+      if (defaultDay?.isActive) schedules.push(defaultDay);
+    }
+    
+    if (schedules.length === 0) return [];
+
+    // 2. Generate all possible slots from all segments
+    let allSlots: string[] = [];
+    schedules.forEach(sched => {
+      allSlots = [...allSlots, ...generateSlots(sched.startTime, sched.endTime)];
     });
-    const booked = allAppointments.filter(a => a.doctorId === selectedDoc.id && a.date === date && a.status !== 'CANCELLED');
-    slots = slots.filter(slotTime => !booked.some(a => a.time === slotTime));
+
+    // Remove duplicates if segments overlap
+    let slots = Array.from(new Set(allSlots)).sort();
+
+    // 3. Remove slots blocked by doctor (range-based)
+    const blockedForDate = blockedSlots.filter(b => b.date === date);
+    slots = slots.filter(slotTime => {
+      return !blockedForDate.some(b => {
+        // Check if slotTime is between [b.startTime, b.endTime)
+        return slotTime >= b.startTime && slotTime < b.endTime;
+      });
+    });
+
+    // 4. Remove slots already booked by other patients
+    const bookedForDate = allAppointments.filter(
+      a => a.doctorId === selectedDoc.id && 
+      (a.date === date || new Date(a.date).toISOString().split('T')[0] === date) && 
+      a.status !== 'CANCELLED'
+    );
+    slots = slots.filter(slotTime => !bookedForDate.some(a => a.time === slotTime));
+
     return slots;
-  }, [selectedDoc, date, allAppointments]);
+  }, [selectedDoc, date, doctorSchedule, blockedSlots, allAppointments]);
 
   const handleBookClick = () => {
     if (!selectedDoc || !selectedTime) return;
@@ -154,7 +220,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook }) => {
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl sm:text-2xl font-black text-slate-800 truncate">{selectedDoc.name}</h3>
                   <div className="flex gap-2">
-                    <button onClick={() => setType('IN-PERSON')} className={`text-[8px] sm:text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'IN-PERSON' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-400'}`}>In-Person</button>
+                    <button onClick={() => setType('IN_PERSON')} className={`text-[8px] sm:text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'IN_PERSON' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-400'}`}>In-Person</button>
                     <button onClick={() => setType('VIRTUAL')} className={`text-[8px] sm:text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'VIRTUAL' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-400'}`}>Virtual</button>
                   </div>
                 </div>

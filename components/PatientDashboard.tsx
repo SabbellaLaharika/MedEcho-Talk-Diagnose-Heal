@@ -41,7 +41,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
           </div>
           <div>
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">PATIENT ID</p>
-            <span className="font-black text-slate-700 text-xs">{user.id.toUpperCase()}</span>
+            <span className="font-black text-slate-700 text-xs">P{user.id.replace(/\D/g, '').slice(0, 5).padStart(5, '0')}</span>
           </div>
         </div>
       </header>
@@ -76,25 +76,28 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
               <span className="text-[9px] font-black bg-white/10 px-3 py-1 rounded-full text-blue-300 uppercase tracking-widest">Real-time</span>
             </div>
             <div className="space-y-4">
-              {upcoming.length > 0 ? upcoming.map(apt => (
+              {upcoming.length > 0 ? upcoming.map(apt => {
+                const doctorDisplayName = apt.doctorName || apt.doctor?.name || 'Doctor';
+                const dateStr = new Date(apt.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                return (
                 <div key={apt.id} className="bg-white/5 border border-white/10 p-4 sm:p-6 rounded-[2rem] flex items-center justify-between group hover:bg-white/10 transition-colors">
                   <div className="flex items-center space-x-4 sm:space-x-5">
                     <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-500 rounded-2xl flex items-center justify-center text-white">
                       <VideoCameraIcon className="w-6 h-6 sm:w-8 sm:h-8" />
                     </div>
                     <div>
-                      <p className="font-black text-sm sm:text-lg">{apt.doctorName}</p>
-                      <p className="text-[10px] sm:text-xs text-white/40 font-bold uppercase tracking-widest">{apt.date} • {apt.time}</p>
+                      <p className="font-black text-sm sm:text-lg">{doctorDisplayName}</p>
+                      <p className="text-[10px] sm:text-xs text-white/40 font-bold uppercase tracking-widest">{dateStr} • {apt.time || 'TBD'}</p>
                     </div>
                   </div>
                   <button 
-                    onClick={() => setActiveCall(apt.doctorName)}
+                    onClick={() => setActiveCall(doctorDisplayName)}
                     className="p-3.5 sm:p-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl sm:rounded-2xl shadow-lg transition-transform active:scale-95"
                   >
                     <PhoneIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 </div>
-              )) : (
+              )}) : (
                 <div className="text-center py-10 text-white/20 font-black uppercase tracking-widest text-[10px]">No appointments booked</div>
               )}
             </div>

@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, MedicalReport, User } from '../types';
-import { getAIChatResponse, analyzeSymptoms } from '../services/geminiService';
+import { Message, MedicalReport } from '../types';
+import api from '../services/api';
 import { dbService } from '../services/dbService';
 import { PaperAirplaneIcon, ExclamationTriangleIcon, SparklesIcon, MicrophoneIcon, SpeakerWaveIcon, CheckCircleIcon } from '@heroicons/react/24/solid';
 
@@ -18,103 +17,165 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [reportSaved, setReportSaved] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const user = dbService.auth.getCurrentUser();
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [conversationState, setConversationState] = useState<any>({}); // Store backend state
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const speakText = (text: string) => {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    window.speechSynthesis.speak(utterance);
-  };
-
-  const handleSpeechInput = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Voice recognition is not supported in this browser.");
-      return;
+  const speakText = (base64Audio: string) => {
+    try {
+      const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+      audio.play();
+    } catch (e) {
+      console.error("Error playing audio", e);
     }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US'; 
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setInput(transcript);
-      if (transcript.trim()) {
-        processMessage(transcript, true);
-      }
-    };
-    recognition.start();
   };
 
-  const saveToMedicalFiles = async (transcript: string) => {
-    if (!user || reportSaved) return;
-    
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        await handleAudioUpload(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsListening(true);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      alert("Could not access microphone.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isListening) {
+      mediaRecorderRef.current.stop();
+      setIsListening(false);
+    }
+  };
+
+  const handleAudioUpload = async (audioBlob: Blob) => {
     setIsTyping(true);
-    const analysis = await analyzeSymptoms(transcript);
-    setIsTyping(false);
-    
-    if (!analysis) return;
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'recording.wav');
+    formData.append('language', 'en'); // Default to English for now
 
-    const newReport: MedicalReport = {
-      id: 'ai-rpt-' + Date.now(),
-      patientId: user.id,
-      doctorId: 'medecho-ai',
-      doctorName: 'MedEcho AI Assistant',
-      date: new Date().toISOString().split('T')[0],
-      diagnosis: analysis.condition || 'Clinical Intake',
-      summary: analysis.summary || 'Clinical session completed via chat.',
-      prescription: [analysis.advice || 'General health monitoring and hydration advised.'],
-      aiConfidence: analysis.confidence || 90,
-      vitals: {}
-    };
-
-    await dbService.reports.create(newReport);
-    setReportSaved(true);
-    if (onReportGenerated) {
-      onReportGenerated(newReport);
+    try {
+      const { data } = await api.post('/ml/stt', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (data.text) {
+        setInput(data.text);
+        processMessage(data.text);
+      }
+    } catch (error) {
+      console.error("STT Error:", error);
+      alert("Error processing speech.");
+    } finally {
+      setIsTyping(false);
     }
   };
 
-  const processMessage = async (text: string, wasVoice: boolean) => {
+  const processMessage = async (text: string) => {
     const userMsg: Message = { id: Date.now().toString(), sender: 'user', text, timestamp: new Date() };
-    const historyText = messages.map(m => `${m.sender}: ${m.text}`).join('\n');
-    
+
+    // Construct history for context (simplified)
+    const history = messages.map(m => m.text);
+
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
 
-    const aiResponse = await getAIChatResponse(text, historyText);
-    const aiMsg: Message = { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponse || '', timestamp: new Date() };
-    
-    setMessages(prev => [...prev, aiMsg]);
-    setIsTyping(false);
 
-    const textToSpeak = aiMsg.text.replace(/\[GENERATING CLINICAL REPORT\]/gi, '');
-    if (wasVoice && aiMsg.text) {
-      speakText(textToSpeak);
+    // ... (inside processMessage)
+    try {
+      const { data } = await api.post('/ml/chat', {
+        message: text,
+        history: history,
+        language: 'en',
+        state: conversationState // Send current state
+      });
+
+      const aiResponseText = data.message;
+      const aiAudio = data.audio;
+
+      // Update state for next turn
+      if (data.next_state) {
+        setConversationState({
+          state: data.next_state,
+          collected_symptoms: data.collected_symptoms || conversationState.collected_symptoms || []
+        });
+      }
+
+      const aiMsg: Message = { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponseText || '', timestamp: new Date() };
+      setMessages(prev => [...prev, aiMsg]);
+
+      if (aiAudio) {
+        speakText(aiAudio);
+      }
+
+      // Update state based on backend response
+      if (data.next_state === 'END' && data.diagnosis) {
+        // Auto-save report if diagnosis is reached
+        saveToMedicalFiles(data);
+      }
+
+    } catch (error) {
+      console.error("Chat Error:", error);
+      setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'ai', text: "Sorry, I'm having trouble connecting to the server.", timestamp: new Date() }]);
+    } finally {
+      setIsTyping(false);
     }
+  };
 
-    // Logic to detect if the session is concluding via the trigger phrase
-    if (aiMsg.text.includes("[GENERATING CLINICAL REPORT]")) {
-      const fullTranscript = [...messages, userMsg, aiMsg].map(m => `${m.sender}: ${m.text}`).join('\n');
-      saveToMedicalFiles(fullTranscript);
+  const saveToMedicalFiles = async (data: any) => {
+    if (!user || reportSaved) return;
+
+    const newReport: MedicalReport = {
+      id: 'rpt-' + Date.now(),
+      patientId: user.id,
+      doctorId: 'medecho-ai',
+      doctorName: 'MedEcho AI',
+      date: new Date().toISOString().split('T')[0],
+      diagnosis: data.diagnosis,
+      summary: `AI Consultation. Confidence: ${data.confidence}%`,
+      prescription: data.precautions || [],
+      aiConfidence: data.confidence,
+      vitals: {}
+    };
+
+    try {
+      await dbService.reports.create(newReport);
+      setReportSaved(true);
+      if (onReportGenerated) {
+        onReportGenerated(newReport);
+      }
+    } catch (err) {
+      console.error("Error saving report", err);
     }
   };
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!input.trim() || isTyping || reportSaved) return;
-    processMessage(input, false);
+    processMessage(input);
   };
 
   return (
@@ -132,11 +193,11 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
         {reportSaved && (
           <div className="flex items-center space-x-2 bg-emerald-500/20 px-3 py-1.5 rounded-full border border-emerald-500/30 animate-bounce">
             <CheckCircleIcon className="w-4 h-4 text-emerald-400" />
-            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Filing Report</span>
+            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Report Filed</span>
           </div>
         )}
       </div>
-      
+
       <div ref={scrollRef} className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 custom-scrollbar bg-slate-50">
         {messages.map((m) => (
           <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -145,15 +206,6 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
               <p className={`text-[8px] sm:text-[10px] mt-1 ${m.sender === 'user' ? 'text-blue-200' : 'text-slate-400'}`}>
                 {m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
-              {m.sender === 'ai' && (
-                <button 
-                  onClick={() => speakText(m.text)}
-                  className={`absolute -right-8 top-1 p-2 text-slate-300 hover:text-blue-600 transition-opacity opacity-100 sm:opacity-0 sm:group-hover:opacity-100`}
-                  title="Speak Response"
-                >
-                  <SpeakerWaveIcon className="w-4 h-4" />
-                </button>
-              )}
             </div>
           </div>
         ))}
@@ -176,12 +228,15 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       </div>
 
       <form onSubmit={handleSend} className="p-3 sm:p-4 bg-white flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
-        <button 
+        <button
           type="button"
           disabled={reportSaved}
-          onClick={handleSpeechInput}
+          onMouseDown={startRecording}
+          onMouseUp={stopRecording}
+          onTouchStart={startRecording}
+          onTouchEnd={stopRecording}
           className={`p-3 sm:p-4 rounded-2xl transition-all ${reportSaved ? 'opacity-20 bg-slate-100' : isListening ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-          title="Voice Input"
+          title="Hold to Speak"
         >
           <MicrophoneIcon className="w-5 h-5" />
         </button>

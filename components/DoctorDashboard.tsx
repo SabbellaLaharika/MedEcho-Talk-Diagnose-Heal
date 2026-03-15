@@ -72,7 +72,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
             <h1 className="text-xl sm:text-3xl font-black text-slate-800 tracking-tight truncate">{doctor.name}</h1>
             <div className="flex flex-wrap items-center gap-2 mt-1 sm:mt-2">
               <span className="bg-indigo-50 text-indigo-600 text-[8px] sm:text-[9px] font-black px-2 py-0.5 rounded-full uppercase truncate max-w-[120px]">{doctor.specialization}</span>
-              <span className="text-slate-400 text-[10px] font-bold">ID: {doctor.id.toUpperCase()}</span>
+              <span className="text-slate-400 text-[10px] font-bold">ID: D{doctor.id.replace(/\D/g, '').slice(0, 3).padStart(3, '0')}</span>
             </div>
           </div>
         </div>
@@ -132,10 +132,10 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
               <div key={apt.id} className="p-5 sm:p-6 bg-slate-50/50 border border-slate-100 rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center space-x-4 sm:space-x-6">
                   <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center font-black text-indigo-600 border border-indigo-50 flex-shrink-0">
-                    {apt.patientName[0]}
+                    {(apt.patientName || apt.patient?.name || 'P')[0]}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-black text-slate-800 text-base sm:text-lg truncate">{apt.patientName}</p>
+                    <p className="font-black text-slate-800 text-base sm:text-lg truncate">{apt.patientName || apt.patient?.name || 'Patient'}</p>
                     <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-1">
                        <span className="font-bold">{apt.time}</span>
                        <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 font-black uppercase text-[8px]">{apt.type}</span>
@@ -144,7 +144,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                 </div>
                 <div className="flex space-x-2 w-full sm:w-auto">
                   <button 
-                    onClick={() => handleStartCall(apt.patientName)}
+                    onClick={() => handleStartCall(apt.patientName || apt.patient?.name || 'Patient')}
                     className="flex-1 sm:flex-none p-3.5 bg-indigo-600 text-white rounded-xl shadow-md"
                   >
                     <VideoCameraIcon className="w-5 h-5 mx-auto" />

@@ -1,0 +1,120 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum AppointmentType {
+  IN_PERSON
+  VIRTUAL
+}
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  passwordHash      String
+  name              String
+  role              Role      @default(PATIENT)
+  avatar            String?
+  specialization    String?   // For doctors
+  contact           String?
+  isAvailable       Boolean   @default(true)
+  preferredLanguage String?   @default("en")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  doctorAppointments  Appointment[] @relation("DoctorAppointments")
+  patientAppointments Appointment[] @relation("PatientAppointments")
+  patientReports      Report[]
+  doctorReports       Report[]      @relation("DoctorReports")
+  notifications       Notification[]
+  doctorSchedules     DoctorSchedule[] @relation("DoctorSchedules")
+  blockedSlots        BlockedSlot[]    @relation("BlockedSlots")
+}
+
+model Appointment {
+  id          String            @id @default(uuid())
+  doctorId    String
+  patientId   String
+  date        DateTime
+  time        String?           // "09:00" format
+  status      AppointmentStatus @default(PENDING)
+  type        AppointmentType   @default(VIRTUAL)
+  meetingLink String?           // For virtual meetings
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  doctor  User @relation("DoctorAppointments", fields: [doctorId], references: [id])
+  patient User @relation("PatientAppointments", fields: [patientId], references: [id])
+}
+
+model Report {
+  id              String   @id @default(uuid())
+  patientId       String
+  diagnosis       String
+  confidenceScore Float
+  precautions     Json     // Stored as JSON array or object
+  chatTranscript  Json     // Stored as JSON object for conversation history
+  summary         String?
+  createdAt       DateTime @default(now())
+
+  // Relations
+  patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor  User? @relation("DoctorReports", fields: [doctorId], references: [id]) 
+  doctorId String?
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DoctorSchedule {
+  id        String  @id @default(uuid())
+  doctorId  String
+  dayIndex  Int     // 0=Sun, 1=Mon, ..., 6=Sat
+  startTime String  // "09:00"
+  endTime   String  // "18:00"
+  isActive  Boolean @default(true)
+
+  doctor User @relation("DoctorSchedules", fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+model BlockedSlot {
+  id        String @id @default(uuid())
+  doctorId  String
+  date      String // "2026-03-17"
+  startTime String // "10:00"
+  endTime   String // "12:00"
+  reason    String // "Surgery", "Personal Leave"
+
+  doctor User @relation("BlockedSlots", fields: [doctorId], references: [id], onDelete: Cascade)
+}

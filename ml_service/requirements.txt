@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+scikit-learn
+pandas
+numpy
+SpeechRecognition
+pyttsx3
+pydub
+googletrans==4.0.0-rc1
+httpx==0.13.3
+httpcore==0.9.1
+python-multipart
+requests
