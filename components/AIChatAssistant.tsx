@@ -1,0 +1,308 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Message, MedicalReport } from '../types';
+import api from '../services/api';
+import { dbService } from '../services/dbService';
+import { PaperAirplaneIcon, ExclamationTriangleIcon, SparklesIcon, MicrophoneIcon, SpeakerWaveIcon, CheckCircleIcon } from '@heroicons/react/24/solid';
+
+interface AIChatAssistantProps {
+  initialContext?: string;
+  isModal?: boolean;
+  onReportGenerated?: (report: MedicalReport) => void;
+}
+
+const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isModal, onReportGenerated }) => {
+  const [messages, setMessages] = useState<Message[]>([
+    { id: '1', sender: 'ai', text: initialContext ? `I've received the patient context. How can I assist?` : 'Hello! I am your MedEcho health assistant. How are you feeling today?', timestamp: new Date() }
+  ]);
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [reportSaved, setReportSaved] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const user = dbService.auth.getCurrentUser();
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [conversationState, setConversationState] = useState<any>({}); // Store backend state
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages, isTyping]);
+
+  const speakText = (base64Audio: string) => {
+    try {
+      const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+      audio.play();
+    } catch (e) {
+      console.error("Error playing audio", e);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        await handleAudioUpload(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsListening(true);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      alert("Could not access microphone.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isListening) {
+      mediaRecorderRef.current.stop();
+      setIsListening(false);
+    }
+  };
+
+  const handleAudioUpload = async (audioBlob: Blob) => {
+    setIsTyping(true);
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'recording.wav');
+    formData.append('language', 'en'); // Default to English for now
+
+    try {
+      const { data } = await api.post('/ml/stt', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (data.text) {
+        setInput(data.text);
+        processMessage(data.text);
+      }
+    } catch (error) {
+      console.error("STT Error:", error);
+      alert("Error processing speech.");
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const processMessage = async (text: string) => {
+    const userMsg: Message = { id: Date.now().toString(), sender: 'user', text, timestamp: new Date() };
+
+    // Construct history for context (simplified)
+    const history = messages.map(m => m.text);
+
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setIsTyping(true);
+
+
+    // ... (inside processMessage)
+    try {
+      const { data } = await api.post('/ml/chat', {
+        message: text,
+        history: history,
+        language: 'en',
+        state: conversationState // Send current state
+      });
+
+      const aiResponseText = data.message;
+      const aiAudio = data.audio;
+
+      // Update state for next turn
+      if (data.next_state) {
+        setConversationState({
+          state: data.next_state,
+          collected_symptoms: data.collected_symptoms || conversationState.collected_symptoms || []
+        });
+      }
+
+      const aiMsg: Message = { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponseText || '', timestamp: new Date() };
+      setMessages(prev => [...prev, aiMsg]);
+
+      if (aiAudio) {
+        speakText(aiAudio);
+      }
+
+      // Update state based on backend response
+      if (data.next_state === 'END' && data.diagnosis) {
+        // Auto-save report if diagnosis is reached
+        saveToMedicalFiles(data);
+      }
+
+    } catch (error) {
+      console.error("Chat Error:", error);
+      setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'ai', text: "Sorry, I'm having trouble connecting to the server.", timestamp: new Date() }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const saveToMedicalFiles = async (data: any) => {
+    if (!user || reportSaved) return;
+
+    const newReport: MedicalReport = {
+      id: 'rpt-' + Date.now(),
+      patientId: user.id,
+      doctorId: 'medecho-ai',
+      doctorName: 'MedEcho AI',
+      date: new Date().toISOString().split('T')[0],
+      diagnosis: data.diagnosis,
+      summary: `AI Consultation. Confidence: ${data.confidence}%`,
+      prescription: data.precautions || [],
+      aiConfidence: data.confidence,
+      vitals: {}
+    };
+
+    try {
+      // Map frontend fields to backend fields
+      // Use null for doctorId since AI doesn't have a real user ID
+      const reportPayload = {
+        patientId: newReport.patientId,
+        doctorId: null, // AI-generated, no real doctor
+        diagnosis: newReport.diagnosis,
+        confidenceScore: newReport.aiConfidence || 0,
+        preventions: newReport.prescription || [],
+        summary: newReport.summary
+      };
+
+      console.log("Submitting report payload:", reportPayload);
+      
+      const response = await api.post('/reports', reportPayload);
+      console.log("Report saved successfully:", response.data);
+      
+      setReportSaved(true);
+      
+      // Notify parent to update reports list
+      if (onReportGenerated) {
+        onReportGenerated(newReport);
+      }
+      
+      // Add confirmation message
+      const confirmMsg: Message = {
+        id: (Date.now() + 2).toString(),
+        sender: 'ai',
+        text: '✓ Your medical report has been filed and is now visible in your dashboard under "Latest Report".',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, confirmMsg]);
+    } catch (err: any) {
+      console.error("Error saving report:", err.response?.data || err.message);
+      
+      let errorText = 'There was an issue filing your report. Please try again.';
+      if (err.response?.data?.error) {
+        errorText = `Error: ${err.response.data.error}`;
+      } else if (err.response?.data?.message) {
+        errorText = `Error: ${err.response.data.message}`;
+      } else if (err.response?.status === 401) {
+        errorText = 'Your session has expired. Please log in again.';
+      }
+      
+      const errorMsg: Message = {
+        id: (Date.now() + 2).toString(),
+        sender: 'ai',
+        text: errorText,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMsg]);
+    }
+  };
+
+  const handleSend = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!input.trim() || isTyping || reportSaved) return;
+    processMessage(input);
+  };
+
+  return (
+    <div className={`${isModal ? 'h-full w-full' : 'max-w-4xl mx-auto h-[calc(100vh-140px)] m-4 sm:m-8'} flex flex-col bg-white sm:rounded-3xl shadow-xl border-x sm:border overflow-hidden animate-in zoom-in-95 duration-500`}>
+      <div className="bg-slate-900 p-4 sm:p-6 text-white flex justify-between items-center flex-shrink-0">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-blue-600 rounded-lg">
+            <SparklesIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+          </div>
+          <div>
+            <h2 className="text-sm sm:text-xl font-bold tracking-tight">AI Intake Assistant</h2>
+            <p className="text-slate-400 text-[8px] sm:text-[10px] font-black uppercase tracking-widest">Interactive Multilingual Intake</p>
+          </div>
+        </div>
+        {reportSaved && (
+          <div className="flex items-center space-x-2 bg-emerald-500/20 px-3 py-1.5 rounded-full border border-emerald-500/30 animate-bounce">
+            <CheckCircleIcon className="w-4 h-4 text-emerald-400" />
+            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Report Filed</span>
+          </div>
+        )}
+      </div>
+
+      <div ref={scrollRef} className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 custom-scrollbar bg-slate-50">
+        {messages.map((m) => (
+          <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[85%] sm:max-w-[75%] p-3 sm:p-4 rounded-2xl shadow-sm relative group ${m.sender === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white text-slate-800 border rounded-tl-none'}`}>
+              <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-line">{m.text}</p>
+              <p className={`text-[8px] sm:text-[10px] mt-1 ${m.sender === 'user' ? 'text-blue-200' : 'text-slate-400'}`}>
+                {m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          </div>
+        ))}
+        {isTyping && (
+          <div className="flex justify-start">
+            <div className="bg-white border p-3 rounded-2xl rounded-tl-none flex space-x-1 shadow-sm">
+              <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce"></div>
+              <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce delay-100"></div>
+              <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce delay-200"></div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-amber-50 border-y border-amber-100 px-4 py-2 flex items-center space-x-2 flex-shrink-0">
+        <ExclamationTriangleIcon className="w-3 h-3 text-amber-600 flex-shrink-0" />
+        <p className="text-[8px] sm:text-[10px] text-amber-800 font-bold uppercase tracking-tight">
+          Assistant: I'll ask one symptom at a time. Harmless advice is provided at the very end.
+        </p>
+      </div>
+
+      <form onSubmit={handleSend} className="p-3 sm:p-4 bg-white flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+        <button
+          type="button"
+          disabled={reportSaved}
+          onMouseDown={startRecording}
+          onMouseUp={stopRecording}
+          onTouchStart={startRecording}
+          onTouchEnd={stopRecording}
+          className={`p-3 sm:p-4 rounded-2xl transition-all ${reportSaved ? 'opacity-20 bg-slate-100' : isListening ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+          title="Hold to Speak"
+        >
+          <MicrophoneIcon className="w-5 h-5" />
+        </button>
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={reportSaved}
+            placeholder={reportSaved ? "Consultation filed successfully." : isListening ? "Listening..." : "Tell me what you're experiencing..."}
+            className="w-full pl-4 pr-12 py-3.5 sm:pl-6 sm:pr-14 sm:py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-xs sm:text-sm text-slate-800 shadow-inner"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || isTyping || reportSaved}
+            className="absolute right-1.5 top-1.5 bottom-1.5 bg-blue-600 text-white px-3 sm:px-4 rounded-xl flex items-center justify-center transition-all disabled:opacity-20 shadow-lg hover:bg-blue-700 active:scale-95"
+          >
+            <PaperAirplaneIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default AIChatAssistant;

@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+scikit-learn
+pandas
+numpy
+SpeechRecognition
+pyttsx3
+pydub
+python-multipart
+requests
