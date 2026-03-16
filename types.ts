@@ -31,6 +31,7 @@ export interface User {
   contact?: string;
   preferredLanguage?: string;
   isAvailable?: boolean; // Live status toggle
+  isApproved?: boolean;
   workingHours?: string; // Legacy field
   daySchedules?: DaySchedule[];
   blockedSlots?: BlockedSlot[];
@@ -51,7 +52,11 @@ export interface Appointment {
 export interface MedicalReport {
   id: string;
   patientId: string;
+<<<<<<< HEAD
   doctorId: string | null; // Can be null for AI-generated reports
+=======
+  doctorId: string; // Linked to doctor
+>>>>>>> 3196f8a1728df2c3dfbe7bf7b822066379870ff6
   date: string;
   doctorName: string;
   summary: string;

@@ -10,13 +10,13 @@ const mapBackendReportToFrontend = (report: any): MedicalReport => {
   try {
     // Ensure diagnosis is a valid string
     const diagnosis = String(report.diagnosis || 'Pending diagnosis').trim();
-    
+
     return {
       id: String(report.id || ''),
       patientId: String(report.patientId || ''),
       doctorId: report.doctorId || null,
-      date: report.createdAt 
-        ? new Date(report.createdAt).toISOString().split('T')[0] 
+      date: report.createdAt
+        ? new Date(report.createdAt).toISOString().split('T')[0]
         : (report.date || new Date().toISOString().split('T')[0]),
       doctorName: String(report.doctor?.name || report.doctorName || 'MedEcho AI').trim(),
       summary: String(report.summary || 'No summary available').trim(),
@@ -112,7 +112,7 @@ export const dbService = {
         try {
           const { data } = await api.get(`/reports/patient/${user.id}`);
           const reportsArray = Array.isArray(data) ? data : (data.value || []);
-          
+
           // Map each report using the helper function
           return reportsArray.map((report: any) => mapBackendReportToFrontend(report));
         } catch (error) {

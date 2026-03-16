@@ -174,17 +174,17 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       };
 
       console.log("Submitting report payload:", reportPayload);
-      
+
       const response = await api.post('/reports', reportPayload);
       console.log("Report saved successfully:", response.data);
-      
+
       setReportSaved(true);
-      
+
       // Notify parent to update reports list
       if (onReportGenerated) {
         onReportGenerated(newReport);
       }
-      
+
       // Add confirmation message
       const confirmMsg: Message = {
         id: (Date.now() + 2).toString(),
@@ -195,7 +195,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       setMessages(prev => [...prev, confirmMsg]);
     } catch (err: any) {
       console.error("Error saving report:", err.response?.data || err.message);
-      
+
       let errorText = 'There was an issue filing your report. Please try again.';
       if (err.response?.data?.error) {
         errorText = `Error: ${err.response.data.error}`;
@@ -204,7 +204,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       } else if (err.response?.status === 401) {
         errorText = 'Your session has expired. Please log in again.';
       }
-      
+
       const errorMsg: Message = {
         id: (Date.now() + 2).toString(),
         sender: 'ai',

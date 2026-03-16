@@ -9,7 +9,13 @@
         "rootDir": "./src",
         "strict": true,
         "esModuleInterop": true,
+<<<<<<< HEAD
         "types": ["node"],
+=======
+        "types": [
+            "node"
+        ],
+>>>>>>> 3196f8a1728df2c3dfbe7bf7b822066379870ff6
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
         "moduleResolution": "node",

@@ -2,7 +2,11 @@ import axios from 'axios';
 import { dbService } from './dbService';
 
 // Backend Base URL
+<<<<<<< HEAD
 const API_URL = 'http://localhost:5000/api';
+=======
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+>>>>>>> 3196f8a1728df2c3dfbe7bf7b822066379870ff6
 
 const api = axios.create({
     baseURL: API_URL,

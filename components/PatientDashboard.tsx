@@ -114,14 +114,15 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
               className="flex-1 bg-slate-50 p-6 sm:p-8 rounded-[2rem] border border-slate-100 flex flex-col justify-between hover:bg-blue-50 hover:border-blue-100 transition-all text-left group"
             >
               <div>
-                <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest bg-blue-100/50 px-3 py-1 rounded-full border border-blue-200">{latestReport.diagnosis}</span>
-                <p className="text-base sm:text-lg font-bold text-slate-800 mt-6 leading-relaxed">"{latestReport.summary.substring(0, 100)}..."</p>
+                <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest bg-blue-100/50 px-3 py-1 rounded-full border border-blue-200">Latest Report</span>
+                <p className="text-base sm:text-lg font-bold text-slate-800 mt-6 leading-relaxed">{latestReport.diagnosis}</p>
                 <div className="mt-4 flex items-center space-x-2 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
                   <span className="text-[10px] font-black uppercase tracking-widest">See Full Details</span>
                   <ArrowRightCircleIcon className="w-4 h-4" />
                 </div>
               </div>
-              <div className="flex items-center justify-between mt-10 pt-6 border-t border-slate-200">
+              <div className="flex items-center justify-between mt-10 pt-6 border-t border-slate-
+              200">
                 <span className="text-[11px] font-black text-slate-700 uppercase">{latestReport.doctorName}</span>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{latestReport.date}</span>
               </div>
