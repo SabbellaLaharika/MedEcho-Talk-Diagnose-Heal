@@ -162,7 +162,6 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
     };
 
     try {
-<<<<<<< HEAD
       // Map frontend fields to backend fields
       // Use null for doctorId since AI doesn't have a real user ID
       const reportPayload = {
@@ -213,15 +212,6 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMsg]);
-=======
-      await dbService.reports.create(newReport);
-      setReportSaved(true);
-      if (onReportGenerated) {
-        onReportGenerated(newReport);
-      }
-    } catch (err) {
-      console.error("Error saving report", err);
->>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
     }
   };
 

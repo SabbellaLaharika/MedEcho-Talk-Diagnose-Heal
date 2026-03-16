@@ -16,12 +16,8 @@ MedEcho is an advanced health ecosystem that integrates AI-driven symptom analys
 The ML Service handles the "Talk" part of the ecosystem using FastAPI.
 ```bash
 cd ml_service
-<<<<<<< HEAD
 # pip install -r requirements.txt
 python -m pip install -r requirements.txt
-=======
-pip install -r requirements.txt
->>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
 python main.py
 ```
 *Runs on `http://localhost:8000`*

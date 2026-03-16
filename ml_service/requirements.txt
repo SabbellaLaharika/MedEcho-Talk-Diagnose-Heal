@@ -6,11 +6,5 @@ numpy
 SpeechRecognition
 pyttsx3
 pydub
-<<<<<<< HEAD
-=======
-googletrans==4.0.0-rc1
-httpx==0.13.3
-httpcore==0.9.1
->>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
 python-multipart
 requests

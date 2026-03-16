@@ -4,7 +4,6 @@ import os
 import pickle
 import numpy as np
 import base64
-<<<<<<< HEAD
 import pyttsx3
 
 # Try to import googletrans, fall back to mock if it fails
@@ -28,11 +27,6 @@ except Exception as e:
                 lang = 'en'
             return Detection()
 
-=======
-from googletrans import Translator
-import pyttsx3
-
->>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
 # Load Model & Vectorizer
 MODEL_PATH = os.path.join(os.path.dirname(__file__), 'model/model.pkl')
 VECTORIZER_PATH = os.path.join(os.path.dirname(__file__), 'model/vectorizer.pkl')

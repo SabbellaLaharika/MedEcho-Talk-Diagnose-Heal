@@ -1,13 +1,19 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
+const getGeminiApiKey = () => {
+  // Use VITE_ prefix for client-side environment variables in Vite
+  const key = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!key) {
+    throw new Error('GEMINI_API_KEY is not configured. Please set VITE_GEMINI_API_KEY in your .env file');
+  }
+  return key;
+};
+
 export const getAIChatResponse = async (message: string, history: string = "") => {
   try {
-<<<<<<< HEAD
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-=======
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
->>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
+    const apiKey = getGeminiApiKey();
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `System Instruction: You are the MedEcho Clinical Assistant. 
@@ -43,11 +49,8 @@ export const getAIChatResponse = async (message: string, history: string = "") =
 
 export const analyzeSymptoms = async (text: string) => {
   try {
-<<<<<<< HEAD
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-=======
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
->>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
+    const apiKey = getGeminiApiKey();
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Transform the following clinical intake transcript into a professional medical report.
@@ -83,11 +86,8 @@ export const analyzeSymptoms = async (text: string) => {
 
 export const getNearbyHospitals = async (lat: number, lng: number) => {
   try {
-<<<<<<< HEAD
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-=======
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
->>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
+    const apiKey = getGeminiApiKey();
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: "Find the top 3 best hospitals nearby for common ailments.",

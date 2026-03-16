@@ -2,10 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Message, MedicalReport } from '../types';
 import { getAIChatResponse, analyzeSymptoms } from '../services/geminiService';
 import { dbService } from '../services/dbService';
-<<<<<<< HEAD
 import api from '../services/api';
-=======
->>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
 import { 
   PaperAirplaneIcon, 
   ChatBubbleLeftRightIcon, 
@@ -75,7 +72,6 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
     const analysis = await analyzeSymptoms(transcript);
     setIsTyping(false);
     
-<<<<<<< HEAD
     if (!analysis) {
       const errorMsg: Message = {
         id: Date.now().toString(),
@@ -127,34 +123,26 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
       setMessages(prev => [...prev, successMsg]);
     } catch (err) {
       console.error("Error saving report", err);
+      let errorText = 'There was an error filing your report.';
+      
+      if (err instanceof Error) {
+        if (err.message.includes('GEMINI_API_KEY')) {
+          errorText = '⚠️ Gemini API not configured. Please add VITE_GEMINI_API_KEY to your .env file.';
+        } else if (err.message.includes('network') || err.message.includes('ERR_')) {
+          errorText = '❌ Cannot reach server. Make sure backend is running on port 5000.';
+        } else {
+          errorText = `Error: ${err.message}`;
+        }
+      }
+      
       const errorMsg: Message = {
         id: Date.now().toString(),
         sender: 'ai',
-        text: 'There was an error filing your report. Please try again.',
+        text: errorText,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMsg]);
     }
-=======
-    if (!analysis) return;
-
-    const newReport: MedicalReport = {
-      id: 'ai-rpt-float-' + Date.now(),
-      patientId: user.id,
-      doctorId: 'medecho-ai',
-      doctorName: 'MedEcho AI Assistant',
-      date: new Date().toISOString().split('T')[0],
-      diagnosis: analysis.condition || 'Floating Consultation',
-      summary: analysis.summary || 'Clinical intake via quick chat.',
-      prescription: [analysis.advice || 'Standard precautions advised.'],
-      aiConfidence: analysis.confidence || 85,
-      vitals: {}
-    };
-
-    await dbService.reports.create(newReport);
-    setReportSaved(true);
-    if (onReportGenerated) onReportGenerated(newReport);
->>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
   };
 
   const processMessage = async (text: string, wasVoice: boolean) => {
@@ -165,20 +153,42 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
     setInput('');
     setIsTyping(true);
 
-    const aiResponse = await getAIChatResponse(text, currentHistory);
-    const aiMsg: Message = { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponse || '', timestamp: new Date() };
-    
-    setMessages(prev => [...prev, aiMsg]);
-    setIsTyping(false);
+    try {
+      const aiResponse = await getAIChatResponse(text, currentHistory);
+      const aiMsg: Message = { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponse || '', timestamp: new Date() };
+      
+      setMessages(prev => [...prev, aiMsg]);
+      setIsTyping(false);
 
-    if (wasVoice && aiMsg.text) {
-      const textToSpeak = aiMsg.text.replace(/\[GENERATING CLINICAL REPORT\]/gi, '');
-      speakText(textToSpeak);
-    }
+      if (wasVoice && aiMsg.text) {
+        const textToSpeak = aiMsg.text.replace(/\[GENERATING CLINICAL REPORT\]/gi, '');
+        speakText(textToSpeak);
+      }
 
-    if (aiMsg.text.includes("[GENERATING CLINICAL REPORT]")) {
-      const fullTranscript = [...messages, userMsg, aiMsg].map(m => `${m.sender}: ${m.text}`).join('\n');
-      saveToMedicalFiles(fullTranscript);
+      if (aiMsg.text.includes("[GENERATING CLINICAL REPORT]")) {
+        const fullTranscript = [...messages, userMsg, aiMsg].map(m => `${m.sender}: ${m.text}`).join('\n');
+        saveToMedicalFiles(fullTranscript);
+      }
+    } catch (error) {
+      console.error("Chat Error:", error);
+      setIsTyping(false);
+      
+      let errorText = '❌ Error connecting to AI service.';
+      if (error instanceof Error) {
+        if (error.message.includes('GEMINI_API_KEY')) {
+          errorText = '⚠️ Gemini API not configured. Please add VITE_GEMINI_API_KEY to your .env file.';
+        } else if (error.message.includes('network') || error.message.includes('Failed')) {
+          errorText = '❌ Network error. Check your internet connection and ensure backend is running on port 5000.';
+        }
+      }
+      
+      const errorMsg: Message = {
+        id: Date.now().toString(),
+        sender: 'ai',
+        text: errorText,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMsg]);
     }
   };
 
