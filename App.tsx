@@ -99,12 +99,19 @@ const App: React.FC = () => {
         if (user.role === 'DOCTOR') {
           setAppointments(apts.filter(a => a.doctorId === user.id));
           // For doctors, we might show all patient reports they've generated
+<<<<<<< HEAD
           const doctorReports = reps.filter(r => r.doctorId === user.id);
           setReports(doctorReports.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
         } else {
           setAppointments(apts.filter(a => a.patientId === user.id));
           const patientReports = reps.filter(r => r.patientId === user.id);
           setReports(patientReports.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+=======
+          setReports(reps.filter(r => r.doctorId === user.id));
+        } else {
+          setAppointments(apts.filter(a => a.patientId === user.id));
+          setReports(reps.filter(r => r.patientId === user.id));
+>>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
         }
         generateReminders(user, apts);
       };

@@ -2,7 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Message, MedicalReport } from '../types';
 import { getAIChatResponse, analyzeSymptoms } from '../services/geminiService';
 import { dbService } from '../services/dbService';
+<<<<<<< HEAD
 import api from '../services/api';
+=======
+>>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
 import { 
   PaperAirplaneIcon, 
   ChatBubbleLeftRightIcon, 
@@ -72,6 +75,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
     const analysis = await analyzeSymptoms(transcript);
     setIsTyping(false);
     
+<<<<<<< HEAD
     if (!analysis) {
       const errorMsg: Message = {
         id: Date.now().toString(),
@@ -131,6 +135,26 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
       };
       setMessages(prev => [...prev, errorMsg]);
     }
+=======
+    if (!analysis) return;
+
+    const newReport: MedicalReport = {
+      id: 'ai-rpt-float-' + Date.now(),
+      patientId: user.id,
+      doctorId: 'medecho-ai',
+      doctorName: 'MedEcho AI Assistant',
+      date: new Date().toISOString().split('T')[0],
+      diagnosis: analysis.condition || 'Floating Consultation',
+      summary: analysis.summary || 'Clinical intake via quick chat.',
+      prescription: [analysis.advice || 'Standard precautions advised.'],
+      aiConfidence: analysis.confidence || 85,
+      vitals: {}
+    };
+
+    await dbService.reports.create(newReport);
+    setReportSaved(true);
+    if (onReportGenerated) onReportGenerated(newReport);
+>>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
   };
 
   const processMessage = async (text: string, wasVoice: boolean) => {

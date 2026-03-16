@@ -5,6 +5,7 @@ const KEYS = {
   CURRENT_USER: 'medecho_session'
 };
 
+<<<<<<< HEAD
 // Helper function to safely map report data
 const mapBackendReportToFrontend = (report: any): MedicalReport => {
   try {
@@ -42,6 +43,8 @@ const mapBackendReportToFrontend = (report: any): MedicalReport => {
   }
 };
 
+=======
+>>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
 export const dbService = {
   init: () => {
     // No init needed for API, potentially check session
@@ -109,6 +112,7 @@ export const dbService = {
       if (!user) return [];
 
       if (user.role === 'PATIENT') {
+<<<<<<< HEAD
         try {
           const { data } = await api.get(`/reports/patient/${user.id}`);
           const reportsArray = Array.isArray(data) ? data : (data.value || []);
@@ -119,12 +123,17 @@ export const dbService = {
           console.error('Error fetching reports:', error);
           return [];
         }
+=======
+        const { data } = await api.get(`/reports/patient/${user.id}`);
+        return data;
+>>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
       }
 
       // TODO: Implement getDoctorReports in backend
       return [];
     },
     create: async (report: MedicalReport): Promise<MedicalReport> => {
+<<<<<<< HEAD
       // Ensure all required fields are set before sending
       const reportPayload = {
         ...report,
@@ -133,6 +142,10 @@ export const dbService = {
       };
       const { data } = await api.post('/reports', reportPayload);
       return mapBackendReportToFrontend(data);
+=======
+      const { data } = await api.post('/reports', report);
+      return data;
+>>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
     }
   },
 

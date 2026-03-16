@@ -73,7 +73,6 @@ Generated on: ${new Date().toLocaleString()}
       alert('Failed to download report. Please try again.');
     }
   };
-
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
       <div className="bg-white w-full max-w-2xl rounded-[2.5rem] sm:rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
@@ -172,6 +171,12 @@ Generated on: ${new Date().toLocaleString()}
               <div className="flex items-center space-x-2 bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl border border-emerald-100">
                 <ShieldCheckIcon className="w-4 h-4" />
                 <span className="text-[10px] font-black uppercase tracking-widest">{validatedReport.aiConfidence}% AI Analysis</span>
+              </div>
+            )}
+            {report.inputLanguage && (
+              <div className="flex items-center space-x-2 text-slate-400 px-3 py-1 rounded-lg bg-slate-50 border border-slate-100">
+                <GlobeAltIcon className="w-3 h-3" />
+                <span className="text-[9px] font-black uppercase tracking-widest">{report.inputLanguage}</span>
               </div>
             )}
           </div>

@@ -51,7 +51,11 @@ export interface Appointment {
 export interface MedicalReport {
   id: string;
   patientId: string;
+<<<<<<< HEAD
   doctorId: string | null; // Can be null for AI-generated reports
+=======
+  doctorId: string; // Linked to doctor
+>>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
   date: string;
   doctorName: string;
   summary: string;
