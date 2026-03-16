@@ -2,14 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Message, MedicalReport } from '../types';
 import { getAIChatResponse, analyzeSymptoms } from '../services/geminiService';
 import { dbService } from '../services/dbService';
-<<<<<<< HEAD
 import api from '../services/api';
-=======
->>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
-import { 
-  PaperAirplaneIcon, 
-  ChatBubbleLeftRightIcon, 
-  XMarkIcon, 
+import {
+  PaperAirplaneIcon,
+  ChatBubbleLeftRightIcon,
+  XMarkIcon,
   ExclamationTriangleIcon,
   MicrophoneIcon,
   SpeakerWaveIcon,
@@ -70,12 +67,11 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
 
   const saveToMedicalFiles = async (transcript: string) => {
     if (!user || reportSaved) return;
-    
+
     setIsTyping(true);
     const analysis = await analyzeSymptoms(transcript);
     setIsTyping(false);
-    
-<<<<<<< HEAD
+
     if (!analysis) {
       const errorMsg: Message = {
         id: Date.now().toString(),
@@ -101,7 +97,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
 
       const savedReport = await api.post('/reports', reportPayload);
       setReportSaved(true);
-      
+
       if (onReportGenerated) {
         const report: MedicalReport = {
           id: savedReport.data.id,
@@ -117,7 +113,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
         };
         onReportGenerated(report);
       }
-      
+
       const successMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
@@ -135,39 +131,19 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
       };
       setMessages(prev => [...prev, errorMsg]);
     }
-=======
-    if (!analysis) return;
-
-    const newReport: MedicalReport = {
-      id: 'ai-rpt-float-' + Date.now(),
-      patientId: user.id,
-      doctorId: 'medecho-ai',
-      doctorName: 'MedEcho AI Assistant',
-      date: new Date().toISOString().split('T')[0],
-      diagnosis: analysis.condition || 'Floating Consultation',
-      summary: analysis.summary || 'Clinical intake via quick chat.',
-      prescription: [analysis.advice || 'Standard precautions advised.'],
-      aiConfidence: analysis.confidence || 85,
-      vitals: {}
-    };
-
-    await dbService.reports.create(newReport);
-    setReportSaved(true);
-    if (onReportGenerated) onReportGenerated(newReport);
->>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
   };
 
   const processMessage = async (text: string, wasVoice: boolean) => {
     const userMsg: Message = { id: Date.now().toString(), sender: 'user', text, timestamp: new Date() };
     const currentHistory = messages.map(m => `${m.sender}: ${m.text}`).join('\n');
-    
+
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
 
     const aiResponse = await getAIChatResponse(text, currentHistory);
     const aiMsg: Message = { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponse || '', timestamp: new Date() };
-    
+
     setMessages(prev => [...prev, aiMsg]);
     setIsTyping(false);
 
@@ -210,17 +186,16 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
           <div ref={scrollRef} className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50 custom-scrollbar">
             {messages.map((m) => (
               <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] p-3 rounded-2xl shadow-sm text-sm relative group ${
-                  m.sender === 'user' 
-                  ? 'bg-blue-600 text-white rounded-tr-none' 
+                <div className={`max-w-[85%] p-3 rounded-2xl shadow-sm text-sm relative group ${m.sender === 'user'
+                  ? 'bg-blue-600 text-white rounded-tr-none'
                   : 'bg-white text-slate-800 border border-slate-100 rounded-tl-none'
-                }`}>
+                  }`}>
                   <p>{m.text}</p>
                   <p className={`text-[9px] mt-1 ${m.sender === 'user' ? 'text-blue-200' : 'text-slate-400'}`}>
                     {m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                   {m.sender === 'ai' && (
-                    <button 
+                    <button
                       onClick={() => speakText(m.text)}
                       className={`absolute -right-8 top-1 p-1 text-slate-300 hover:text-blue-600 transition-opacity opacity-100 sm:opacity-0 sm:group-hover:opacity-100`}
                     >
@@ -252,7 +227,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
           </div>
 
           <form onSubmit={handleSend} className="p-3 bg-white border-t border-slate-100 flex items-center space-x-2">
-            <button 
+            <button
               type="button"
               onClick={handleSpeechInput}
               disabled={reportSaved}
@@ -283,9 +258,8 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
 
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`p-4 rounded-full shadow-2xl transition-all transform hover:scale-110 active:scale-95 ${
-          isOpen ? 'bg-slate-800' : 'bg-gradient-to-tr from-blue-600 to-indigo-600'
-        } text-white`}
+        className={`p-4 rounded-full shadow-2xl transition-all transform hover:scale-110 active:scale-95 ${isOpen ? 'bg-slate-800' : 'bg-gradient-to-tr from-blue-600 to-indigo-600'
+          } text-white`}
       >
         {isOpen ? <XMarkIcon className="w-8 h-8" /> : <ChatBubbleLeftRightIcon className="w-8 h-8" />}
       </button>

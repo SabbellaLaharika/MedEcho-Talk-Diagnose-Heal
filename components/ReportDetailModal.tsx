@@ -1,13 +1,13 @@
 
 import React from 'react';
 import { MedicalReport } from '../types';
-import { 
-  XMarkIcon, 
-  HeartIcon, 
-  ScaleIcon, 
-  FireIcon, 
-  DocumentTextIcon, 
-  GlobeAltIcon, 
+import {
+  XMarkIcon,
+  HeartIcon,
+  ScaleIcon,
+  FireIcon,
+  DocumentTextIcon,
+  GlobeAltIcon,
   ClipboardDocumentCheckIcon,
   ShieldCheckIcon,
   ArrowDownTrayIcon

@@ -3,11 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 export const getAIChatResponse = async (message: string, history: string = "") => {
   try {
-<<<<<<< HEAD
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-=======
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
->>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `System Instruction: You are the MedEcho Clinical Assistant. 
@@ -43,11 +39,7 @@ export const getAIChatResponse = async (message: string, history: string = "") =
 
 export const analyzeSymptoms = async (text: string) => {
   try {
-<<<<<<< HEAD
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-=======
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
->>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Transform the following clinical intake transcript into a professional medical report.
@@ -83,11 +75,7 @@ export const analyzeSymptoms = async (text: string) => {
 
 export const getNearbyHospitals = async (lat: number, lng: number) => {
   try {
-<<<<<<< HEAD
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-=======
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
->>>>>>> 26fb91a424690380f5fc5fcabc7db33ed75eebe6
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: "Find the top 3 best hospitals nearby for common ailments.",
