@@ -38,8 +38,4 @@
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 3196f8a1728df2c3dfbe7bf7b822066379870ff6

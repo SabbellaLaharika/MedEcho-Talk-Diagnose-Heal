@@ -3,17 +3,10 @@ import { Message, MedicalReport } from '../types';
 import { getAIChatResponse, analyzeSymptoms } from '../services/geminiService';
 import { dbService } from '../services/dbService';
 import api from '../services/api';
-<<<<<<< HEAD
 import { 
   PaperAirplaneIcon, 
   ChatBubbleLeftRightIcon, 
   XMarkIcon, 
-=======
-import {
-  PaperAirplaneIcon,
-  ChatBubbleLeftRightIcon,
-  XMarkIcon,
->>>>>>> 3196f8a1728df2c3dfbe7bf7b822066379870ff6
   ExclamationTriangleIcon,
   MicrophoneIcon,
   SpeakerWaveIcon,
@@ -78,11 +71,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
     setIsTyping(true);
     const analysis = await analyzeSymptoms(transcript);
     setIsTyping(false);
-<<<<<<< HEAD
     
-=======
-
->>>>>>> 3196f8a1728df2c3dfbe7bf7b822066379870ff6
     if (!analysis) {
       const errorMsg: Message = {
         id: Date.now().toString(),
@@ -164,20 +153,12 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
     setInput('');
     setIsTyping(true);
 
-<<<<<<< HEAD
     try {
       const aiResponse = await getAIChatResponse(text, currentHistory);
       const aiMsg: Message = { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponse || '', timestamp: new Date() };
       
       setMessages(prev => [...prev, aiMsg]);
       setIsTyping(false);
-=======
-    const aiResponse = await getAIChatResponse(text, currentHistory);
-    const aiMsg: Message = { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponse || '', timestamp: new Date() };
-
-    setMessages(prev => [...prev, aiMsg]);
-    setIsTyping(false);
->>>>>>> 3196f8a1728df2c3dfbe7bf7b822066379870ff6
 
       if (wasVoice && aiMsg.text) {
         const textToSpeak = aiMsg.text.replace(/\[GENERATING CLINICAL REPORT\]/gi, '');

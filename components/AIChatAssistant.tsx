@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Message, MedicalReport } from '../types';
 import api from '../services/api';
 import { dbService } from '../services/dbService';
+import { getAIChatResponse, analyzeSymptoms } from '../services/geminiService';
 import { PaperAirplaneIcon, ExclamationTriangleIcon, SparklesIcon, MicrophoneIcon, SpeakerWaveIcon, CheckCircleIcon } from '@heroicons/react/24/solid';
 
 interface AIChatAssistantProps {
@@ -22,7 +23,6 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
   const user = dbService.auth.getCurrentUser();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const [conversationState, setConversationState] = useState<any>({}); // Store backend state
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -95,118 +95,119 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
 
   const processMessage = async (text: string) => {
     const userMsg: Message = { id: Date.now().toString(), sender: 'user', text, timestamp: new Date() };
-
-    // Construct history for context (simplified)
-    const history = messages.map(m => m.text);
+    const currentHistory = messages.map(m => `${m.sender}: ${m.text}`).join('\n');
 
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
 
-
-    // ... (inside processMessage)
     try {
-      const { data } = await api.post('/ml/chat', {
-        message: text,
-        history: history,
-        language: 'en',
-        state: conversationState // Send current state
-      });
-
-      const aiResponseText = data.message;
-      const aiAudio = data.audio;
-
-      // Update state for next turn
-      if (data.next_state) {
-        setConversationState({
-          state: data.next_state,
-          collected_symptoms: data.collected_symptoms || conversationState.collected_symptoms || []
-        });
-      }
-
-      const aiMsg: Message = { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponseText || '', timestamp: new Date() };
+      const aiResponse = await getAIChatResponse(text, currentHistory);
+      const aiMsg: Message = { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponse || '', timestamp: new Date() };
+      
       setMessages(prev => [...prev, aiMsg]);
+      setIsTyping(false);
 
-      if (aiAudio) {
-        speakText(aiAudio);
+      if (aiMsg.text.includes("[GENERATING CLINICAL REPORT]")) {
+        const fullTranscript = [...messages, userMsg, aiMsg].map(m => `${m.sender}: ${m.text}`).join('\n');
+        saveToMedicalFiles(fullTranscript);
       }
-
-      // Update state based on backend response
-      if (data.next_state === 'END' && data.diagnosis) {
-        // Auto-save report if diagnosis is reached
-        saveToMedicalFiles(data);
-      }
-
     } catch (error) {
       console.error("Chat Error:", error);
-      setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'ai', text: "Sorry, I'm having trouble connecting to the server.", timestamp: new Date() }]);
-    } finally {
       setIsTyping(false);
+      
+      let errorText = '❌ Error connecting to AI service.';
+      if (error instanceof Error) {
+        if (error.message.includes('GEMINI_API_KEY')) {
+          errorText = '⚠️ Gemini API not configured. Please add VITE_GEMINI_API_KEY to your .env file.';
+        } else if (error.message.includes('network') || error.message.includes('Failed')) {
+          errorText = '❌ Network error. Check your internet connection.';
+        } else {
+          errorText = `Error: ${error.message}`;
+        }
+      }
+      
+      const errorMsg: Message = {
+        id: Date.now().toString(),
+        sender: 'ai',
+        text: errorText,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMsg]);
     }
   };
 
-  const saveToMedicalFiles = async (data: any) => {
+  const saveToMedicalFiles = async (transcript: string) => {
     if (!user || reportSaved) return;
-
-    const newReport: MedicalReport = {
-      id: 'rpt-' + Date.now(),
-      patientId: user.id,
-      doctorId: 'medecho-ai',
-      doctorName: 'MedEcho AI',
-      date: new Date().toISOString().split('T')[0],
-      diagnosis: data.diagnosis,
-      summary: `AI Consultation. Confidence: ${data.confidence}%`,
-      prescription: data.precautions || [],
-      aiConfidence: data.confidence,
-      vitals: {}
-    };
+    
+    setIsTyping(true);
+    const analysis = await analyzeSymptoms(transcript);
+    setIsTyping(false);
+    
+    if (!analysis) {
+      const errorMsg: Message = {
+        id: Date.now().toString(),
+        sender: 'ai',
+        text: 'I could not analyze your symptoms. Please describe them more clearly.',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMsg]);
+      return;
+    }
 
     try {
       // Map frontend fields to backend fields
-      // Use null for doctorId since AI doesn't have a real user ID
       const reportPayload = {
-        patientId: newReport.patientId,
+        patientId: user.id,
         doctorId: null, // AI-generated, no real doctor
-        diagnosis: newReport.diagnosis,
-        confidenceScore: newReport.aiConfidence || 0,
-        preventions: newReport.prescription || [],
-        summary: newReport.summary
+        diagnosis: analysis.condition || 'Consultation',
+        confidenceScore: analysis.confidence || 85,
+        preventions: [analysis.advice || 'Standard precautions advised.'],
+        summary: analysis.summary || 'Clinical intake via AI assistant.'
       };
 
-      console.log("Submitting report payload:", reportPayload);
-
-      const response = await api.post('/reports', reportPayload);
-      console.log("Report saved successfully:", response.data);
-
+      const savedReport = await api.post('/reports', reportPayload);
       setReportSaved(true);
-
-      // Notify parent to update reports list
+      
       if (onReportGenerated) {
-        onReportGenerated(newReport);
+        const report: MedicalReport = {
+          id: savedReport.data.id,
+          patientId: user.id,
+          doctorId: null,
+          doctorName: 'MedEcho AI Assistant',
+          date: new Date().toISOString().split('T')[0],
+          diagnosis: analysis.condition || 'Consultation',
+          summary: analysis.summary || 'Clinical intake via AI assistant.',
+          prescription: [analysis.advice || 'Standard precautions advised.'],
+          aiConfidence: analysis.confidence || 85,
+          vitals: {}
+        };
+        onReportGenerated(report);
       }
-
-      // Add confirmation message
-      const confirmMsg: Message = {
-        id: (Date.now() + 2).toString(),
+      
+      const successMsg: Message = {
+        id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: '✓ Your medical report has been filed and is now visible in your dashboard under "Latest Report".',
+        text: `✓ Report filed: ${analysis.condition}. Check your dashboard for details.`,
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, confirmMsg]);
-    } catch (err: any) {
-      console.error("Error saving report:", err.response?.data || err.message);
-
-      let errorText = 'There was an issue filing your report. Please try again.';
-      if (err.response?.data?.error) {
-        errorText = `Error: ${err.response.data.error}`;
-      } else if (err.response?.data?.message) {
-        errorText = `Error: ${err.response.data.message}`;
-      } else if (err.response?.status === 401) {
-        errorText = 'Your session has expired. Please log in again.';
+      setMessages(prev => [...prev, successMsg]);
+    } catch (err) {
+      console.error("Error saving report", err);
+      let errorText = 'There was an error filing your report.';
+      
+      if (err instanceof Error) {
+        if (err.message.includes('GEMINI_API_KEY')) {
+          errorText = '⚠️ Gemini API not configured. Please add VITE_GEMINI_API_KEY to your .env file.';
+        } else if (err.message.includes('network') || err.message.includes('ERR_')) {
+          errorText = '❌ Cannot reach server. Make sure backend is running on port 5000.';
+        } else {
+          errorText = `Error: ${err.message}`;
+        }
       }
-
+      
       const errorMsg: Message = {
-        id: (Date.now() + 2).toString(),
+        id: Date.now().toString(),
         sender: 'ai',
         text: errorText,
         timestamp: new Date()
