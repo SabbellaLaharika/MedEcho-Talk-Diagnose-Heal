@@ -2,8 +2,29 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Message, MedicalReport } from '../types';
 import api from '../services/api';
 import { dbService } from '../services/dbService';
-import { getAIChatResponse, analyzeSymptoms } from '../services/geminiService';
-import { PaperAirplaneIcon, ExclamationTriangleIcon, SparklesIcon, MicrophoneIcon, SpeakerWaveIcon, CheckCircleIcon } from '@heroicons/react/24/solid';
+import { 
+  PaperAirplaneIcon, 
+  ExclamationTriangleIcon, 
+  SparklesIcon, 
+  MicrophoneIcon, 
+  SpeakerWaveIcon, 
+  CheckCircleIcon,
+  GlobeAltIcon
+} from '@heroicons/react/24/solid';
+
+const LANGUAGES = [
+  { code: 'en-US', name: 'English', label: 'English' },
+  { code: 'hi-IN', name: 'Hindi', label: 'हिन्दी (Hindi)' },
+  { code: 'te-IN', name: 'Telugu', label: 'తెలుగు (Telugu)' },
+  { code: 'ta-IN', name: 'Tamil', label: 'தமிழ் (Tamil)' },
+  { code: 'bn-IN', name: 'Bengali', label: 'বাংলা (Bengali)' },
+  { code: 'gu-IN', name: 'Gujarati', label: 'ગુજરાતી (Gujarati)' },
+  { code: 'kn-IN', name: 'Kannada', label: 'ಕನ್ನಡ (Kannada)' },
+  { code: 'ml-IN', name: 'Malayalam', label: 'മലയാളം (Malayalam)' },
+  { code: 'pa-IN', name: 'Punjabi', label: 'ਪੰਜਾਬੀ (Punjabi)' },
+  { code: 'mr-IN', name: 'Marathi', label: 'मराठी (Marathi)' },
+  { code: 'ur-IN', name: 'Urdu', label: 'اردو (Urdu)' }
+];
 
 interface AIChatAssistantProps {
   initialContext?: string;
@@ -19,63 +40,102 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [reportSaved, setReportSaved] = useState(false);
+  const [selectedLang, setSelectedLang] = useState('en-US');
+  const [conversationContext, setConversationContext] = useState<any>({ state: 'GREETING' });
   const scrollRef = useRef<HTMLDivElement>(null);
   const user = dbService.auth.getCurrentUser();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Initialize Web Speech API for better real-time results
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = selectedLang;
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInput(transcript);
+        processMessage(transcript);
+      };
+
+      recognitionRef.current.onend = () => setIsListening(false);
+      recognitionRef.current.onerror = () => setIsListening(false);
+    }
+  }, [selectedLang]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const speakText = (base64Audio: string) => {
+  const speakText = (text: string, langCode: string = selectedLang) => {
     try {
-      const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
-      audio.play();
+      const synth = window.speechSynthesis;
+      synth.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      if (langCode.length === 2) {
+        const fullLang = LANGUAGES.find(l => l.code.startsWith(langCode));
+        if (fullLang) utterance.lang = fullLang.code;
+      } else {
+        utterance.lang = langCode;
+      }
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      synth.speak(utterance);
     } catch (e) {
-      console.error("Error playing audio", e);
+      console.error("TTS Error", e);
     }
   };
 
-  const startRecording = async () => {
+  const startRecording = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = selectedLang;
+      recognitionRef.current.start();
+      setIsListening(true);
+    } else {
+      startMediaRecorder();
+    }
+  };
+
+  const startMediaRecorder = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
-
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
-
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
         await handleAudioUpload(audioBlob);
         stream.getTracks().forEach(track => track.stop());
       };
-
       mediaRecorder.start();
       setIsListening(true);
     } catch (err) {
-      console.error("Error accessing microphone:", err);
-      alert("Could not access microphone.");
+      alert("Microphone access denied.");
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isListening) {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+    } else if (mediaRecorderRef.current && isListening) {
       mediaRecorderRef.current.stop();
-      setIsListening(false);
     }
+    setIsListening(false);
   };
 
   const handleAudioUpload = async (audioBlob: Blob) => {
     setIsTyping(true);
     const formData = new FormData();
     formData.append('file', audioBlob, 'recording.wav');
-    formData.append('language', 'en'); // Default to English for now
+    formData.append('language', selectedLang.split('-')[0]);
 
     try {
       const { data } = await api.post('/ml/stt', formData, {
@@ -94,92 +154,88 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
   };
 
   const processMessage = async (text: string) => {
+    if (!text.trim()) return;
+    
     const userMsg: Message = { id: Date.now().toString(), sender: 'user', text, timestamp: new Date() };
-    const currentHistory = messages.map(m => `${m.sender}: ${m.text}`).join('\n');
-
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
 
     try {
-      const aiResponse = await getAIChatResponse(text, currentHistory);
-      const aiMsg: Message = { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponse || '', timestamp: new Date() };
+      const langShort = selectedLang.split('-')[0];
+      const { data } = await api.post('/ml/chat', {
+        text,
+        context: conversationContext,
+        lang: langShort
+      });
+
+      const aiMsg: Message = { 
+        id: (Date.now() + 1).toString(), 
+        sender: 'ai', 
+        text: data.response || '', 
+        timestamp: new Date() 
+      };
       
       setMessages(prev => [...prev, aiMsg]);
+      setConversationContext(data.context);
       setIsTyping(false);
+      
+      // Auto-speak response in the detected/target language
+      speakText(data.response, data.lang || langShort);
 
-      if (aiMsg.text.includes("[GENERATING CLINICAL REPORT]")) {
-        const fullTranscript = [...messages, userMsg, aiMsg].map(m => `${m.sender}: ${m.text}`).join('\n');
-        saveToMedicalFiles(fullTranscript);
+      // Check if report should be filed
+      if (data.context?.final_report) {
+        saveToMedicalFiles(data.context);
       }
     } catch (error) {
       console.error("Chat Error:", error);
       setIsTyping(false);
-      
-      let errorText = '❌ Error connecting to AI service.';
-      if (error instanceof Error) {
-        if (error.message.includes('GEMINI_API_KEY')) {
-          errorText = '⚠️ Gemini API not configured. Please add VITE_GEMINI_API_KEY to your .env file.';
-        } else if (error.message.includes('network') || error.message.includes('Failed')) {
-          errorText = '❌ Network error. Check your internet connection.';
-        } else {
-          errorText = `Error: ${error.message}`;
-        }
-      }
-      
       const errorMsg: Message = {
         id: Date.now().toString(),
         sender: 'ai',
-        text: errorText,
+        text: "I'm having trouble connecting to my central brain. Please check if the ML service is running.",
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMsg]);
     }
   };
 
-  const saveToMedicalFiles = async (transcript: string) => {
+  const saveToMedicalFiles = async (mlContext: any) => {
     if (!user || reportSaved) return;
     
     setIsTyping(true);
-    const analysis = await analyzeSymptoms(transcript);
-    setIsTyping(false);
-    
-    if (!analysis) {
-      const errorMsg: Message = {
-        id: Date.now().toString(),
-        sender: 'ai',
-        text: 'I could not analyze your symptoms. Please describe them more clearly.',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMsg]);
-      return;
-    }
-
     try {
-      // Map frontend fields to backend fields
+      // Build transcript for the record
+      const transcript = messages.map(m => ({
+        role: m.sender,
+        content: m.text,
+        time: m.timestamp.toISOString()
+      }));
+
       const reportPayload = {
         patientId: user.id,
-        doctorId: null, // AI-generated, no real doctor
-        diagnosis: analysis.condition || 'Consultation',
-        confidenceScore: analysis.confidence || 85,
-        preventions: [analysis.advice || 'Standard precautions advised.'],
-        summary: analysis.summary || 'Clinical intake via AI assistant.'
+        doctorId: null,
+        diagnosis: mlContext.diagnosis || 'Clinical Consultation',
+        confidenceScore: parseFloat(mlContext.confidence) || 85,
+        preventions: mlContext.precautions ? [mlContext.precautions] : ['Please consult a human doctor for confirmation.'],
+        summary: mlContext.history ? JSON.stringify(mlContext.history) : 'Intake completed via AI assistant.',
+        chatTranscript: transcript
       };
 
-      const savedReport = await api.post('/reports', reportPayload);
+      const { data: savedReport } = await api.post('/reports', reportPayload);
       setReportSaved(true);
       
       if (onReportGenerated) {
         const report: MedicalReport = {
-          id: savedReport.data.id,
+          id: savedReport.id,
           patientId: user.id,
           doctorId: null,
           doctorName: 'MedEcho AI Assistant',
           date: new Date().toISOString().split('T')[0],
-          diagnosis: analysis.condition || 'Consultation',
-          summary: analysis.summary || 'Clinical intake via AI assistant.',
-          prescription: [analysis.advice || 'Standard precautions advised.'],
-          aiConfidence: analysis.confidence || 85,
+          diagnosis: mlContext.diagnosis || 'Consultation',
+          summary: 'Intake completed. Symptoms: ' + (mlContext.collected_symptoms?.join(', ') || 'N/A'),
+          prescription: mlContext.precautions ? [mlContext.precautions] : ['Standard care advised.'],
+          aiConfidence: parseFloat(mlContext.confidence) || 85,
           vitals: {}
         };
         onReportGenerated(report);
@@ -188,28 +244,18 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       const successMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: `✓ Report filed: ${analysis.condition}. Check your dashboard for details.`,
+        text: `✓ Digital Medical Report filed under **${mlContext.diagnosis}**. You can view it in your clinical records.`,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, successMsg]);
+      setIsTyping(false);
     } catch (err) {
       console.error("Error saving report", err);
-      let errorText = 'There was an error filing your report.';
-      
-      if (err instanceof Error) {
-        if (err.message.includes('GEMINI_API_KEY')) {
-          errorText = '⚠️ Gemini API not configured. Please add VITE_GEMINI_API_KEY to your .env file.';
-        } else if (err.message.includes('network') || err.message.includes('ERR_')) {
-          errorText = '❌ Cannot reach server. Make sure backend is running on port 5000.';
-        } else {
-          errorText = `Error: ${err.message}`;
-        }
-      }
-      
+      setIsTyping(false);
       const errorMsg: Message = {
         id: Date.now().toString(),
         sender: 'ai',
-        text: errorText,
+        text: "I couldn't save your report to the server. Please check your connection.",
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -224,6 +270,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
 
   return (
     <div className={`${isModal ? 'h-full w-full' : 'max-w-4xl mx-auto h-[calc(100vh-140px)] m-4 sm:m-8'} flex flex-col bg-white sm:rounded-3xl shadow-xl border-x sm:border overflow-hidden animate-in zoom-in-95 duration-500`}>
+      {/* Header */}
       <div className="bg-slate-900 p-4 sm:p-6 text-white flex justify-between items-center flex-shrink-0">
         <div className="flex items-center space-x-3">
           <div className="p-2 bg-blue-600 rounded-lg">
@@ -231,17 +278,33 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
           </div>
           <div>
             <h2 className="text-sm sm:text-xl font-bold tracking-tight">AI Intake Assistant</h2>
-            <p className="text-slate-400 text-[8px] sm:text-[10px] font-black uppercase tracking-widest">Interactive Multilingual Intake</p>
+            <div className="flex items-center space-x-2 mt-0.5">
+              <span className="text-slate-400 text-[8px] sm:text-[10px] font-black uppercase tracking-widest leading-none">Multilingual AI</span>
+              <div className="h-2 w-px bg-slate-700"></div>
+              <div className="flex items-center space-x-1">
+                <GlobeAltIcon className="w-3 h-3 text-blue-400" />
+                <select 
+                  value={selectedLang} 
+                  onChange={(e) => setSelectedLang(e.target.value)}
+                  className="bg-transparent border-none text-[8px] sm:text-[10px] font-bold text-blue-400 uppercase tracking-widest p-0 focus:ring-0 outline-none cursor-pointer hover:text-blue-300 transition-colors"
+                >
+                  {LANGUAGES.map(l => (
+                    <option key={l.code} value={l.code} className="bg-slate-800 text-white">{l.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
         </div>
         {reportSaved && (
-          <div className="flex items-center space-x-2 bg-emerald-500/20 px-3 py-1.5 rounded-full border border-emerald-500/30 animate-bounce">
+          <div className="flex items-center space-x-2 bg-emerald-500/20 px-3 py-1.5 rounded-full border border-emerald-500/30 animate-pulse">
             <CheckCircleIcon className="w-4 h-4 text-emerald-400" />
-            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Report Filed</span>
+            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Digital Record Filed</span>
           </div>
         )}
       </div>
 
+      {/* Messages */}
       <div ref={scrollRef} className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 custom-scrollbar bg-slate-50">
         {messages.map((m) => (
           <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -264,13 +327,15 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
         )}
       </div>
 
+      {/* Disclaimer */}
       <div className="bg-amber-50 border-y border-amber-100 px-4 py-2 flex items-center space-x-2 flex-shrink-0">
         <ExclamationTriangleIcon className="w-3 h-3 text-amber-600 flex-shrink-0" />
         <p className="text-[8px] sm:text-[10px] text-amber-800 font-bold uppercase tracking-tight">
-          Assistant: I'll ask one symptom at a time. Harmless advice is provided at the very end.
+          Assistant: I'm collecting clinical data. Professional medical advice is provided at conclusion.
         </p>
       </div>
 
+      {/* Input */}
       <form onSubmit={handleSend} className="p-3 sm:p-4 bg-white flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
         <button
           type="button"
@@ -289,8 +354,8 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            disabled={reportSaved}
-            placeholder={reportSaved ? "Consultation filed successfully." : isListening ? "Listening..." : "Tell me what you're experiencing..."}
+            disabled={reportSaved || isTyping}
+            placeholder={reportSaved ? "Consultation completed." : isListening ? "Listening..." : "Tell me your symptoms..."}
             className="w-full pl-4 pr-12 py-3.5 sm:pl-6 sm:pr-14 sm:py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-xs sm:text-sm text-slate-800 shadow-inner"
           />
           <button

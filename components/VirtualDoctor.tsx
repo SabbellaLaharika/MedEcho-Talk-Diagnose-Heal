@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { MedicalReport } from '../types';
-import { analyzeSymptoms } from '../services/geminiService';
+import api from '../services/api';
 import { 
   StopIcon, 
   VideoCameraIcon, 
@@ -143,18 +143,27 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, onSessionCompl
     if (sessionPromiseRef.current) (await sessionPromiseRef.current).close();
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     setIsActive(false);
-    const analysis = await analyzeSymptoms(transcriptionRef.current);
+    
+    // Call custom ML service analysis instead of Gemini
+    let analysis = null;
+    try {
+      const response = await api.post('/ml/analyze', { text: transcriptionRef.current });
+      analysis = response.data;
+    } catch (err) {
+      console.error("Analysis Error:", err);
+    }
+
     const newReport: MedicalReport = {
       id: 'r-' + Math.random().toString(36).substr(2, 9),
       patientId: patientId,
-      doctorId: 'ai-assistant', 
+      doctorId: null, 
       date: new Date().toISOString().split('T')[0],
       doctorName: `AI-Doc (${persona})`,
       diagnosis: analysis?.condition || 'Checkup Completed',
       aiConfidence: analysis?.confidence || 80,
       inputLanguage: language,
-      summary: analysis?.advice || transcriptionRef.current || 'Session recorded.',
-      prescription: ['Follow-up as advised'],
+      summary: analysis?.summary || transcriptionRef.current || 'Session recorded.',
+      prescription: analysis?.advice ? [analysis.advice] : ['Follow-up as advised'],
       vitals: { temperature: '98.6F' }
     };
     onSessionComplete(newReport);

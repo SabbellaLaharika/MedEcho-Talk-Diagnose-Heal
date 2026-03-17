@@ -8,14 +8,13 @@ const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 // Proxy Chat/Predict Request
 export const chatWithAI = async (req: Request, res: Response) => {
     try {
-        const { message, history, language, state } = req.body;
+        const { text, context, lang } = req.body;
 
         // Forward to Python Service
         const response = await axios.post(`${ML_SERVICE_URL}/chat`, {
-            message,
-            history,
-            language: language || 'en', // Default to English
-            state: state || {}
+            text,
+            context: context || {},
+            lang: lang || 'en'
         });
 
         res.json(response.data);
@@ -62,5 +61,17 @@ export const speechToText = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('STT Error:', error);
         res.status(500).json({ message: 'Server error processing audio' });
+    }
+};
+
+export const analyzeSymptoms = async (req: Request, res: Response) => {
+    try {
+        const { text } = req.body;
+        
+        const response = await axios.post(`${ML_SERVICE_URL}/analyze`, { text });
+        res.json(response.data);
+    } catch (error) {
+        console.error('Analysis Proxy Error:', error);
+        res.status(500).json({ message: 'Error analyzing symptoms via AI service' });
     }
 };

@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Message, MedicalReport } from '../types';
-import { getAIChatResponse, analyzeSymptoms } from '../services/geminiService';
 import { dbService } from '../services/dbService';
 import api from '../services/api';
 import { 
@@ -10,8 +9,23 @@ import {
   ExclamationTriangleIcon,
   MicrophoneIcon,
   SpeakerWaveIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  GlobeAltIcon
 } from '@heroicons/react/24/solid';
+
+const LANGUAGES = [
+  { code: 'en-US', name: 'English', label: 'English' },
+  { code: 'hi-IN', name: 'Hindi', label: 'हिन्दी (Hindi)' },
+  { code: 'te-IN', name: 'Telugu', label: 'తెలుగు (Telugu)' },
+  { code: 'ta-IN', name: 'Tamil', label: 'தமிழ் (Tamil)' },
+  { code: 'bn-IN', name: 'Bengali', label: 'বাংলা (Bengali)' },
+  { code: 'gu-IN', name: 'Gujarati', label: 'ગુજરાતી (Gujarati)' },
+  { code: 'kn-IN', name: 'Kannada', label: 'ಕನ್ನಡ (Kannada)' },
+  { code: 'ml-IN', name: 'Malayalam', label: 'മലയാളం (Malayalam)' },
+  { code: 'pa-IN', name: 'Punjabi', label: 'ਪੰਜਾਬੀ (Punjabi)' },
+  { code: 'mr-IN', name: 'Marathi', label: 'మరాठी (Marathi)' },
+  { code: 'ur-IN', name: 'Urdu', label: 'اردو (Urdu)' }
+];
 
 interface FloatingAIChatProps {
   onReportGenerated?: (report: MedicalReport) => void;
@@ -25,10 +39,32 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [reportSaved, setReportSaved] = useState(false);
+  const [selectedLang, setSelectedLang] = useState('en-US');
+  const [conversationContext, setConversationContext] = useState<any>({ state: 'GREETING' });
+  
   const scrollRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
   const user = dbService.auth.getCurrentUser();
+
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = selectedLang;
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInput(transcript);
+        processMessage(transcript);
+      };
+
+      recognitionRef.current.onend = () => setIsListening(false);
+      recognitionRef.current.onerror = () => setIsListening(false);
+    }
+  }, [selectedLang]);
 
   useEffect(() => {
     if (isOpen) {
@@ -36,79 +72,71 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
     }
   }, [messages, isTyping, isOpen]);
 
-  const handleSpeechInput = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Voice recognition is not supported in this browser.");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setInput(transcript);
-      if (transcript.trim()) {
-        processMessage(transcript, true);
+  const speakText = (text: string, langCode: string = selectedLang) => {
+    try {
+      const synth = window.speechSynthesis;
+      synth.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      if (langCode.length === 2) {
+        const fullLang = LANGUAGES.find(l => l.code.startsWith(langCode));
+        if (fullLang) utterance.lang = fullLang.code;
+      } else {
+        utterance.lang = langCode;
       }
-    };
-    recognition.start();
+      
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      synth.speak(utterance);
+    } catch (e) {
+      console.error("TTS Error", e);
+    }
   };
 
-  const speakText = (text: string) => {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    window.speechSynthesis.speak(utterance);
+  const handleSpeechInput = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.start();
+      setIsListening(true);
+    } else {
+      alert("Voice recognition is not supported in this browser.");
+    }
   };
 
-  const saveToMedicalFiles = async (transcript: string) => {
+  const saveToMedicalFiles = async (mlContext: any) => {
     if (!user || reportSaved) return;
 
     setIsTyping(true);
-    const analysis = await analyzeSymptoms(transcript);
-    setIsTyping(false);
-    
-    if (!analysis) {
-      const errorMsg: Message = {
-        id: Date.now().toString(),
-        sender: 'ai',
-        text: 'I could not analyze your symptoms. Please describe them more clearly.',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMsg]);
-      return;
-    }
-
     try {
-      // Map frontend fields to backend fields
-      // Use null for doctorId since AI doesn't have a real user ID
+      const transcript = messages.map(m => ({
+        role: m.sender,
+        content: m.text,
+        time: m.timestamp.toISOString()
+      }));
+
       const reportPayload = {
         patientId: user.id,
-        doctorId: null, // AI-generated, no real doctor
-        diagnosis: analysis.condition || 'Floating Consultation',
-        confidenceScore: analysis.confidence || 85,
-        preventions: [analysis.advice || 'Standard precautions advised.'],
-        summary: analysis.summary || 'Clinical intake via quick chat.'
+        doctorId: null,
+        diagnosis: mlContext.diagnosis || 'Clinical Consultation',
+        confidenceScore: parseFloat(mlContext.confidence) || 85,
+        preventions: mlContext.precautions ? [mlContext.precautions] : ['Please consult a human doctor for confirmation.'],
+        summary: mlContext.history ? JSON.stringify(mlContext.history) : 'Intake completed via quick chat.',
+        chatTranscript: transcript
       };
 
-      const savedReport = await api.post('/reports', reportPayload);
+      const { data: savedReport } = await api.post('/reports', reportPayload);
       setReportSaved(true);
 
       if (onReportGenerated) {
         const report: MedicalReport = {
-          id: savedReport.data.id,
+          id: savedReport.id,
           patientId: user.id,
           doctorId: null,
           doctorName: 'MedEcho AI Assistant',
           date: new Date().toISOString().split('T')[0],
-          diagnosis: analysis.condition || 'Floating Consultation',
-          summary: analysis.summary || 'Clinical intake via quick chat.',
-          prescription: [analysis.advice || 'Standard precautions advised.'],
-          aiConfidence: analysis.confidence || 85,
+          diagnosis: mlContext.diagnosis || 'Consultation',
+          summary: 'Report generated via quick chat assistant.',
+          prescription: mlContext.precautions ? [mlContext.precautions] : ['Standard precautions advised.'],
+          aiConfidence: parseFloat(mlContext.confidence) || 85,
           vitals: {}
         };
         onReportGenerated(report);
@@ -117,75 +145,64 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
       const successMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: `✓ Report filed: ${analysis.condition}. Check your dashboard for details.`,
+        text: `✓ Record Filed: **${mlContext.diagnosis}**. View details in your Records dashboard.`,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, successMsg]);
+      setIsTyping(false);
     } catch (err) {
       console.error("Error saving report", err);
-      let errorText = 'There was an error filing your report.';
-      
-      if (err instanceof Error) {
-        if (err.message.includes('GEMINI_API_KEY')) {
-          errorText = '⚠️ Gemini API not configured. Please add VITE_GEMINI_API_KEY to your .env file.';
-        } else if (err.message.includes('network') || err.message.includes('ERR_')) {
-          errorText = '❌ Cannot reach server. Make sure backend is running on port 5000.';
-        } else {
-          errorText = `Error: ${err.message}`;
-        }
-      }
-      
+      setIsTyping(false);
       const errorMsg: Message = {
         id: Date.now().toString(),
         sender: 'ai',
-        text: errorText,
+        text: "I couldn't save your report. Please check your network connection.",
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMsg]);
     }
   };
 
-  const processMessage = async (text: string, wasVoice: boolean) => {
+  const processMessage = async (text: string) => {
+    if (!text.trim()) return;
+    
     const userMsg: Message = { id: Date.now().toString(), sender: 'user', text, timestamp: new Date() };
-    const currentHistory = messages.map(m => `${m.sender}: ${m.text}`).join('\n');
-
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
 
     try {
-      const aiResponse = await getAIChatResponse(text, currentHistory);
-      const aiMsg: Message = { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponse || '', timestamp: new Date() };
+      const langShort = selectedLang.split('-')[0];
+      const { data } = await api.post('/ml/chat', {
+        text,
+        context: conversationContext,
+        lang: langShort
+      });
+
+      const aiMsg: Message = { 
+        id: (Date.now() + 1).toString(), 
+        sender: 'ai', 
+        text: data.response || '', 
+        timestamp: new Date() 
+      };
       
       setMessages(prev => [...prev, aiMsg]);
+      setConversationContext(data.context);
       setIsTyping(false);
 
-      if (wasVoice && aiMsg.text) {
-        const textToSpeak = aiMsg.text.replace(/\[GENERATING CLINICAL REPORT\]/gi, '');
-        speakText(textToSpeak);
-      }
+      // Auto-speak response
+      speakText(data.response, data.lang || langShort);
 
-      if (aiMsg.text.includes("[GENERATING CLINICAL REPORT]")) {
-        const fullTranscript = [...messages, userMsg, aiMsg].map(m => `${m.sender}: ${m.text}`).join('\n');
-        saveToMedicalFiles(fullTranscript);
+      if (data.context?.final_report) {
+        saveToMedicalFiles(data.context);
       }
     } catch (error) {
       console.error("Chat Error:", error);
       setIsTyping(false);
-      
-      let errorText = '❌ Error connecting to AI service.';
-      if (error instanceof Error) {
-        if (error.message.includes('GEMINI_API_KEY')) {
-          errorText = '⚠️ Gemini API not configured. Please add VITE_GEMINI_API_KEY to your .env file.';
-        } else if (error.message.includes('network') || error.message.includes('Failed')) {
-          errorText = '❌ Network error. Check your internet connection and ensure backend is running on port 5000.';
-        }
-      }
-      
       const errorMsg: Message = {
         id: Date.now().toString(),
         sender: 'ai',
-        text: errorText,
+        text: "❌ Error connecting to AI service. Please ensure the backend and ML servers are running.",
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -195,7 +212,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isTyping || reportSaved) return;
-    processMessage(input, false);
+    processMessage(input);
   };
 
   return (
@@ -207,9 +224,20 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
               <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md">
                 <ChatBubbleLeftRightIcon className="w-5 h-5 text-white" />
               </div>
-              <div>
+              <div className="flex flex-col">
                 <h3 className="font-bold text-sm">MedEcho Chat</h3>
-                <p className="text-[10px] text-blue-100 uppercase font-black tracking-widest">{reportSaved ? 'Case Saved' : isListening ? 'Listening...' : 'Mirror Mode Active'}</p>
+                <div className="flex items-center space-x-1">
+                  <GlobeAltIcon className="w-3 h-3 text-blue-200" />
+                  <select 
+                    value={selectedLang} 
+                    onChange={(e) => setSelectedLang(e.target.value)}
+                    className="bg-transparent border-none text-[8px] font-bold text-blue-100 uppercase tracking-widest p-0 focus:ring-0 outline-none cursor-pointer"
+                  >
+                    {LANGUAGES.map(l => (
+                      <option key={l.code} value={l.code} className="bg-slate-800 text-white">{l.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
             <button onClick={() => setIsOpen(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
@@ -254,7 +282,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
             <div className="flex items-start space-x-2">
               <ExclamationTriangleIcon className="w-3 h-3 text-amber-600 mt-0.5" />
               <p className="text-[8px] text-amber-800 font-bold leading-tight uppercase">
-                Notice: Automatic reporting on intake conclusion.
+                AI Assistant: Collecting clinical intake data in realtime.
               </p>
             </div>
             {reportSaved && <CheckCircleIcon className="w-4 h-4 text-emerald-600" />}
@@ -274,8 +302,8 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                disabled={reportSaved}
-                placeholder={reportSaved ? "Consultation saved" : isListening ? "Listening..." : "How can I help?"}
+                disabled={reportSaved || isTyping}
+                placeholder={reportSaved ? "Case record saved" : isListening ? "Listening..." : "Describe symptoms..."}
                 className="w-full pl-4 pr-10 py-3 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-800 shadow-inner"
               />
               <button

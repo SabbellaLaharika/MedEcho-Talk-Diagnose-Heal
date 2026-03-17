@@ -92,5 +92,39 @@ def chat():
         'lang': detected_lang
     })
 
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    if not chat_engine:
+        return jsonify({'error': "Model missing"}), 500
+    
+    data = request.json
+    transcript = data.get('text', '')
+    
+    if not transcript:
+        return jsonify({'error': 'No transcript provided'}), 400
+        
+    # Extract symptoms from the entire transcript
+    symptoms = chat_engine._extract_symptoms(transcript.lower())
+    
+    if not symptoms:
+        return jsonify({
+            'condition': 'Undetermined',
+            'confidence': 0,
+            'symptoms_extracted': [],
+            'advice': 'No clear symptoms detected. Please consult a professional.',
+            'summary': 'The system could not identify specific clinical markers in the provided transcript.'
+        })
+        
+    disease, confidence = chat_engine._predict_disease(symptoms)
+    precautions = chat_engine.precautions_map.get(disease, "Consult a medical professional for advice.")
+    
+    return jsonify({
+        'condition': disease,
+        'confidence': float(confidence.replace('%', '')),
+        'symptoms_extracted': symptoms,
+        'advice': precautions,
+        'summary': f"Based on symptoms: {', '.join(symptoms).replace('_', ' ')}. Analysis suggests {disease}."
+    })
+
 if __name__ == '__main__':
     app.run(port=8000, debug=True)

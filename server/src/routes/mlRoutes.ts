@@ -1,5 +1,5 @@
 import express from 'express';
-import { chatWithAI, speechToText } from '../controllers/mlController';
+import { chatWithAI, speechToText, analyzeSymptoms } from '../controllers/mlController';
 import { protect } from '../middleware/authMiddleware';
 import multer from 'multer';
 
@@ -11,5 +11,6 @@ const upload = multer({ storage: storage });
 
 router.post('/chat', protect, chatWithAI);
 router.post('/stt', protect, upload.single('file'), speechToText);
+router.post('/analyze', protect, analyzeSymptoms);
 
 export default router;
