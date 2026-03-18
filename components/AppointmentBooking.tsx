@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { dbService } from '../services/dbService';
 import api from '../services/api';
 import { MedicalReport, User, Appointment } from '../types';
-import { getTranslation, translateClinical } from '../services/translations';
+import { getTranslation } from '../services/translations';
 import { 
   CalendarIcon, 
   MagnifyingGlassIcon,
@@ -16,7 +16,7 @@ import {
   MapPinIcon,
   NoSymbolIcon
 } from '@heroicons/react/24/solid';
-import TranslatedText from './TranslatedText';
+
 
 interface AppointmentBookingProps {
   onBook: (appointment: Partial<Appointment>) => void;
@@ -196,10 +196,10 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                   </div>
                   <div className="text-left min-w-0">
                     <p className="font-black text-slate-800 text-sm sm:text-lg leading-tight truncate">
-                      <TranslatedText text={doc.name} targetLang={user.preferredLanguage} />
+                      {doc.name}
                     </p>
                     <p className="text-[8px] sm:text-[10px] font-black text-indigo-500 uppercase mt-1 truncate">
-                       {translateClinical(doc.specialization, user.preferredLanguage)}
+                       {doc.specialization}
                     </p>
                   </div>
                 </div>
@@ -227,7 +227,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                 </div>
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl sm:text-2xl font-black text-slate-800 truncate">
-                    <TranslatedText text={selectedDoc.name} targetLang={user.preferredLanguage} />
+                    {selectedDoc.name}
                   </h3>
                   <div className="flex gap-2">
                     <button onClick={() => setType('IN_PERSON')} className={`text-[8px] sm:text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'IN_PERSON' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-400'}`}>{t.inPerson}</button>
@@ -298,7 +298,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                 <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-slate-400 font-black uppercase text-[10px]">{t.doctor}</span>
                   <span className="font-black text-slate-800">
-                    <TranslatedText text={bookedAptSummary.doctorName || ''} targetLang={user.preferredLanguage} />
+                    {bookedAptSummary.doctorName}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs sm:text-sm">

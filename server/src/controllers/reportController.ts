@@ -1,5 +1,7 @@
+
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { translationService } from '../services/translationService';
 
 const prisma = new PrismaClient();
 
@@ -37,10 +39,16 @@ export const createReport = async (req: Request, res: Response) => {
     }
 };
 
-// Get Reports for a Patient
+// Get Reports for a Patient (Localized)
 export const getPatientReports = async (req: Request, res: Response) => {
     try {
         const { patientId } = req.params;
+        
+        // Fetch user to get preferred language
+        const user = await prisma.user.findUnique({
+            where: { id: patientId },
+            select: { preferredLanguage: true }
+        });
 
         const reports = await prisma.report.findMany({
             where: { patientId },
@@ -50,6 +58,16 @@ export const getPatientReports = async (req: Request, res: Response) => {
             orderBy: { createdAt: 'desc' }
         });
 
+        // Translate reports if language is not English
+        if (user?.preferredLanguage && user.preferredLanguage !== 'en') {
+            const translatedReports = await translationService.translateArray(
+                reports, 
+                ['diagnosis', 'summary', 'symptoms', 'precautions'], 
+                user.preferredLanguage
+            );
+            return res.json(translatedReports);
+        }
+
         res.json(reports);
     } catch (error) {
         console.error(error);
@@ -57,7 +75,7 @@ export const getPatientReports = async (req: Request, res: Response) => {
     }
 };
 
-// Get Report by ID
+// Get Report by ID (Localized)
 export const getReportById = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
@@ -65,13 +83,24 @@ export const getReportById = async (req: Request, res: Response) => {
         const report = await prisma.report.findUnique({
             where: { id },
             include: {
-                patient: { select: { name: true, email: true } },
+                patient: { select: { name: true, email: true, preferredLanguage: true } },
                 doctor: { select: { name: true } }
             }
         });
 
         if (!report) {
             return res.status(404).json({ message: 'Report not found' });
+        }
+
+        // Translate if needed
+        const lang = report.patient?.preferredLanguage;
+        if (lang && lang !== 'en') {
+            const translatedReport = await translationService.translateObject(
+                report,
+                ['diagnosis', 'summary', 'symptoms', 'precautions'],
+                lang
+            );
+            return res.json(translatedReport);
         }
 
         res.json(report);

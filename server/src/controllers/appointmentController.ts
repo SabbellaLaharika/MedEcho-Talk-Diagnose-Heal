@@ -1,5 +1,7 @@
+
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { translationService } from '../services/translationService';
 
 const prisma = new PrismaClient();
 
@@ -47,11 +49,11 @@ export const createAppointment = async (req: Request, res: Response) => {
     }
 };
 
-// Get Appointments (for a user)
+// Get Appointments (Localized)
 export const getAppointments = async (req: Request, res: Response) => {
     try {
         const userId = req.params.userId;
-        const role = req.query.role as string; // 'doctor' or 'patient'
+        const role = req.query.role as string; // 'DOCTOR' or 'PATIENT'
 
         let whereClause = {};
         if (role === 'DOCTOR') {
@@ -59,6 +61,12 @@ export const getAppointments = async (req: Request, res: Response) => {
         } else {
             whereClause = { patientId: userId };
         }
+
+        // Fetch user to get preferred language
+        const requestingUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { preferredLanguage: true }
+        });
 
         const appointments = await prisma.appointment.findMany({
             where: whereClause,
@@ -68,6 +76,38 @@ export const getAppointments = async (req: Request, res: Response) => {
             },
             orderBy: { date: 'desc' }
         });
+
+        // Localize based on requester's language
+        const lang = requestingUser?.preferredLanguage;
+        if (lang && lang !== 'en') {
+            const translatedAppointments = await Promise.all(appointments.map(async (apt: any) => {
+                const updatedApt = { ...apt };
+
+                // If I am a patient, I want to see doctor details translated
+                if (role !== 'DOCTOR' && updatedApt.doctor) {
+                    updatedApt.doctor = await translationService.translateObject(
+                        updatedApt.doctor,
+                        ['name', 'specialization'],
+                        lang
+                    );
+                    updatedApt.doctorName = updatedApt.doctor.name;
+                }
+
+                // If I am a doctor, I want to see patient name translated (maybe)
+                if (role === 'DOCTOR' && updatedApt.patient) {
+                    updatedApt.patient = await translationService.translateObject(
+                        updatedApt.patient,
+                        ['name'],
+                        lang
+                    );
+                    updatedApt.patientName = updatedApt.patient.name;
+                }
+
+                return updatedApt;
+            }));
+
+            return res.json(translatedAppointments);
+        }
 
         res.json(appointments);
     } catch (error) {
@@ -80,7 +120,7 @@ export const getAppointments = async (req: Request, res: Response) => {
 export const updateAppointmentStatus = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { status } = req.body; // CONFIRMED, CANCELLED, COMPLETED
+        const { status } = req.body;
 
         const updated = await prisma.appointment.update({
             where: { id },
@@ -109,4 +149,3 @@ export const deleteAppointment = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Server error deleting appointment' });
     }
 };
-
