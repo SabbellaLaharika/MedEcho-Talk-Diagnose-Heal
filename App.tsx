@@ -11,6 +11,7 @@ import VirtualDoctor from './components/VirtualDoctor';
 import FloatingAIChat from './components/FloatingAIChat';
 import DoctorScheduleManager from './components/DoctorScheduleManager';
 import ProfilePage from './components/ProfilePage';
+import { getTranslation } from './services/translations';
 import {
   UserIcon,
   BriefcaseIcon,
@@ -32,6 +33,7 @@ import {
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
+  const t = getTranslation(user?.preferredLanguage);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -44,11 +46,7 @@ const App: React.FC = () => {
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [authRole, setAuthRole] = useState<'PATIENT' | 'DOCTOR'>('PATIENT');
 
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-  });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', language: 'en' });
 
   const generateReminders = useCallback((user: User, apts: Appointment[]) => {
     const today = new Date();
@@ -126,6 +124,7 @@ const App: React.FC = () => {
           name: formData.name,
           email: formData.email,
           role: authRole,
+          preferredLanguage: formData.language,
           avatar: `https://picsum.photos/200?random=${Math.random()}`,
           isAvailable: true,
           daySchedules: Array.from({ length: 7 }, (_, i) => ({ dayIndex: i, slots: [{ startTime: '09:00', endTime: '17:00' }], isActive: i >= 1 && i <= 5 })),
@@ -195,10 +194,24 @@ const App: React.FC = () => {
               </div>
               <form onSubmit={handleAuth} className="space-y-4">
                 {authMode === 'REGISTER' && (
-                  <input required type="text" placeholder="Legal Full Name" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                  <>
+                    <input required type="text" placeholder="Legal Full Name" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                    <select className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold appearance-none text-slate-500" value={formData.language} onChange={(e) => setFormData({ ...formData, language: e.target.value })}>
+                      <option value="en">English (Global)</option>
+                      <option value="hi">Hindi (हिन्दी)</option>
+                      <option value="te">Telugu (తెలుగు)</option>
+                      <option value="ta">Tamil (தமிழ்)</option>
+                      <option value="mr">Marathi (मराठी)</option>
+                      <option value="bn">Bengali (বাংলা)</option>
+                      <option value="kn">Kannada (ಕನ್ನಡ)</option>
+                      <option value="ml">Malayalam (മലയാളం)</option>
+                      <option value="gu">Gujarati (ગુજરાતી)</option>
+                      <option value="pa">Punjabi (ਪੰਜਾਬీ)</option>
+                    </select>
+                  </>
                 )}
-                <input required type="email" placeholder="Email Address" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-                <input required type="password" placeholder="Account Password" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
+                <input required type="email" placeholder="Email Address" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                <input required type="password" placeholder="Account Password" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
                 <button type="submit" disabled={authLoading} className={`w-full py-5 rounded-2xl text-white font-black uppercase text-xs shadow-xl tracking-widest ${authRole === 'PATIENT' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
                   {authLoading ? 'Verifying...' : (authMode === 'LOGIN' ? 'Sign In' : 'Register')}
                 </button>
@@ -228,6 +241,7 @@ const App: React.FC = () => {
           setActiveTab={setActiveTab}
           onLogout={handleLogout}
           role={user.role}
+          user={user}
           onClose={() => setIsSidebarOpen(false)}
         />
       </div>
@@ -242,7 +256,14 @@ const App: React.FC = () => {
             >
               <Bars3Icon className="w-6 h-6" />
             </button>
-            <h1 className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-800">{activeTab.replace('-', ' ')}</h1>
+            <h1 className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-800">
+              {activeTab === 'dashboard' ? t.dashboard : 
+               activeTab === 'appointments' ? t.bookVisit : 
+               activeTab === 'reports' ? t.medicalFiles : 
+               activeTab === 'chat' ? t.chatSupport : 
+               activeTab === 'virtual-doc' ? t.virtualDoctor : 
+               activeTab === 'profile' ? t.myProfile : activeTab.replace('-', ' ')}
+            </h1>
           </div>
 
           <div className="flex items-center space-x-2 sm:space-x-4">
@@ -297,7 +318,7 @@ const App: React.FC = () => {
               />
               : <PatientDashboard user={user} appointments={appointments} reports={reports} />
           )}
-          {activeTab === 'appointments' && <AppointmentBooking onBook={async (apt) => {
+          {activeTab === 'appointments' && <AppointmentBooking user={user} onBook={async (apt) => {
             const newApt = { ...apt, patientId: user.id, patientName: user.name, status: 'PENDING' } as Appointment;
             try {
               const saved = await dbService.appointments.create(newApt);
@@ -311,7 +332,7 @@ const App: React.FC = () => {
           {activeTab === 'schedule' && <DoctorScheduleManager doctor={user} />}
           {activeTab === 'reports' && <ReportsList reports={reports} user={user} />}
           {activeTab === 'chat' && <AIChatAssistant onReportGenerated={(report) => setReports(prev => [report, ...prev])} />}
-          {activeTab === 'virtual-doc' && <VirtualDoctor patientId={user.id} onSessionComplete={async (r) => {
+          {activeTab === 'virtual-doc' && <VirtualDoctor patientId={user.id} user={user} onSessionComplete={async (r) => {
             try {
               const saved = await dbService.reports.create(r);
               setReports(prev => [saved, ...prev]);

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Message, MedicalReport } from '../types';
 import api from '../services/api';
@@ -11,6 +12,7 @@ import {
   CheckCircleIcon,
   GlobeAltIcon
 } from '@heroicons/react/24/solid';
+import { getTranslation } from '../services/translations';
 
 const LANGUAGES = [
   { code: 'auto', name: 'Auto Detect', label: 'Auto Detect' },
@@ -21,9 +23,9 @@ const LANGUAGES = [
   { code: 'bn-IN', name: 'Bengali', label: 'বাংলা (Bengali)' },
   { code: 'gu-IN', name: 'Gujarati', label: 'ગુજરાતી (Gujarati)' },
   { code: 'kn-IN', name: 'Kannada', label: 'ಕನ್ನಡ (Kannada)' },
-  { code: 'ml-IN', name: 'Malayalam', label: 'മലയാളം (Malayalam)' },
-  { code: 'pa-IN', name: 'Punjabi', label: 'ਪੰਜਾਬੀ (Punjabi)' },
-  { code: 'mr-IN', name: 'Marathi', label: 'मराठी (Marathi)' },
+  { code: 'ml-IN', name: 'Malayalam', label: 'മലയാളம் (Malayalam)' },
+  { code: 'pa-IN', name: 'Punjabi', label: 'ప్ర్పన్జాబీ (Punjabi)' },
+  { code: 'mr-IN', name: 'Marathi', label: 'మరాఠీ (Marathi)' },
   { code: 'ur-IN', name: 'Urdu', label: 'اردو (Urdu)' }
 ];
 
@@ -34,8 +36,11 @@ interface AIChatAssistantProps {
 }
 
 const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isModal, onReportGenerated }) => {
+  const user = dbService.auth.getCurrentUser();
+  const t = getTranslation(user?.preferredLanguage);
+
   const [messages, setMessages] = useState<Message[]>([
-    { id: '1', sender: 'ai', text: initialContext ? `I've received the patient context. How can I assist?` : 'Hello! I am your MedEcho health assistant. How are you feeling today?', timestamp: new Date() }
+    { id: '1', sender: 'ai', text: initialContext ? `I've received the patient context. How can I assist?` : t.aiGreeting, timestamp: new Date() }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -43,14 +48,14 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
   const [reportSaved, setReportSaved] = useState(false);
   const [selectedLang, setSelectedLang] = useState('auto');
   const [conversationContext, setConversationContext] = useState<any>({ state: 'GREETING' });
+  const [lastInputMethod, setLastInputMethod] = useState<'text' | 'voice'>('text');
+  const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const user = dbService.auth.getCurrentUser();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    // Initialize Web Speech API for better real-time results
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
@@ -94,7 +99,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
 
   const startRecording = () => {
     if (recognitionRef.current) {
-      recognitionRef.current.lang = selectedLang;
+      setLastInputMethod('voice');
       recognitionRef.current.start();
       setIsListening(true);
     } else {
@@ -180,20 +185,20 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       setMessages(prev => [...prev, aiMsg]);
       setConversationContext(data.context);
       
-      // Auto-switch UI language if backend tells us something new (and we are in auto mode)
       if (selectedLang === 'auto' && data.lang && data.lang !== 'en') {
         const found = LANGUAGES.find(l => l.code.startsWith(data.lang));
         if (found) setSelectedLang(found.code);
       }
       
       setIsTyping(false);
-      
-      // Auto-speak response in the detected/target language
       speakText(data.response, data.lang || langShort);
 
-      // Check if report should be filed
       if (data.context?.final_report) {
         saveToMedicalFiles(data.context);
+      }
+
+      if (lastInputMethod === 'text') {
+        setTimeout(() => inputRef.current?.focus(), 100);
       }
     } catch (error) {
       console.error("Chat Error:", error);
@@ -201,7 +206,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       const errorMsg: Message = {
         id: Date.now().toString(),
         sender: 'ai',
-        text: "I'm having trouble connecting to my central brain. Please check if the ML service is running.",
+        text: "Error connecting to AI service.",
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -219,7 +224,6 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
         time: m.timestamp.toISOString()
       }));
 
-      // Extract vitals from conversation history
       const fullText = messages.map(m => m.text).join(' ');
       const vitals = {
         bp: fullText.match(/(\d{2,3}\/\d{2,3})/)?.[1] || mlContext.history?.['bp'],
@@ -232,8 +236,10 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
         doctorId: null,
         diagnosis: mlContext.diagnosis || 'Clinical Consultation',
         confidenceScore: parseFloat(mlContext.confidence) || 85,
-        preventions: mlContext.precautions ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : [mlContext.precautions]) : ['Please consult a human doctor for confirmation.'],
-        summary: mlContext.summary || 'AI Medical Intake Record',
+        preventions: mlContext.precautions 
+           ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : String(mlContext.precautions).split(/,\s*/))
+           : ['Consult a professional.'],
+        summary: mlContext.summary || 'AI Medical Intake',
         symptoms: mlContext.collected_symptoms || [],
         history: mlContext.history || {},
         vitals: vitals,
@@ -248,11 +254,11 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
           id: savedReport.id,
           patientId: user.id,
           doctorId: null,
-          doctorName: 'MedEcho AI Assistant',
+          doctorName: 'MedEcho AI',
           date: new Date().toISOString().split('T')[0],
           diagnosis: mlContext.diagnosis || 'Consultation',
-          summary: 'Intake completed. Symptoms: ' + (mlContext.collected_symptoms?.join(', ') || 'N/A'),
-          prescription: mlContext.precautions ? [mlContext.precautions] : ['Standard care advised.'],
+          summary: mlContext.summary,
+          prescription: mlContext.precautions,
           aiConfidence: parseFloat(mlContext.confidence) || 85,
           vitals: vitals
         };
@@ -262,7 +268,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       const successMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: `✓ Digital Medical Report filed under **${mlContext.diagnosis}**. You can view it in your clinical records.`,
+        text: `✓ Record Filed: **${mlContext.diagnosis}**.`,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, successMsg]);
@@ -270,13 +276,6 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
     } catch (err) {
       console.error("Error saving report", err);
       setIsTyping(false);
-      const errorMsg: Message = {
-        id: Date.now().toString(),
-        sender: 'ai',
-        text: "I couldn't save your report to the server. Please check your connection.",
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMsg]);
     }
   };
 
@@ -286,43 +285,42 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
     processMessage(input);
   };
 
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+    setLastInputMethod('text');
+  };
+
   return (
     <div className={`${isModal ? 'h-full w-full' : 'max-w-4xl mx-auto h-[calc(100vh-140px)] m-4 sm:m-8'} flex flex-col bg-white sm:rounded-3xl shadow-xl border-x sm:border overflow-hidden animate-in zoom-in-95 duration-500`}>
-      {/* Header */}
       <div className="bg-slate-900 p-4 sm:p-6 text-white flex justify-between items-center flex-shrink-0">
         <div className="flex items-center space-x-3">
           <div className="p-2 bg-blue-600 rounded-lg">
             <SparklesIcon className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div>
-            <h2 className="text-sm sm:text-xl font-bold tracking-tight">AI Intake Assistant</h2>
+            <h2 className="text-sm sm:text-lg font-bold tracking-tight uppercase">{t.aiChatTitle}</h2>
             <div className="flex items-center space-x-2 mt-0.5">
-              <span className="text-slate-400 text-[8px] sm:text-[10px] font-black uppercase tracking-widest leading-none">Multilingual AI</span>
+              <span className="text-slate-400 text-[8px] font-black uppercase tracking-widest leading-none">Multilingual AI</span>
               <div className="h-2 w-px bg-slate-700"></div>
               <div className="flex items-center space-x-1">
                 <GlobeAltIcon className="w-3 h-3 text-blue-400" />
                 <select 
                   value={selectedLang} 
                   onChange={(e) => setSelectedLang(e.target.value)}
-                  className="bg-transparent border-none text-[8px] sm:text-[10px] font-bold text-blue-400 uppercase tracking-widest p-0 focus:ring-0 outline-none cursor-pointer hover:text-blue-300 transition-colors"
+                  className="bg-transparent border-none text-[8px] font-bold text-blue-400 uppercase tracking-widest p-0 focus:ring-0 outline-none cursor-pointer"
                 >
                   {LANGUAGES.map(l => (
-                    <option key={l.code} value={l.code} className="bg-slate-800 text-white">{l.label}</option>
+                    <option key={l.code} value={l.code} className="bg-slate-800 text-white">
+                      {l.code === 'auto' ? t.autoDetect : l.name}
+                    </option>
                   ))}
                 </select>
               </div>
             </div>
           </div>
         </div>
-        {reportSaved && (
-          <div className="flex items-center space-x-2 bg-emerald-500/20 px-3 py-1.5 rounded-full border border-emerald-500/30 animate-pulse">
-            <CheckCircleIcon className="w-4 h-4 text-emerald-400" />
-            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Digital Record Filed</span>
-          </div>
-        )}
       </div>
 
-      {/* Messages */}
       <div ref={scrollRef} className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 custom-scrollbar bg-slate-50">
         {messages.map((m) => (
           <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -345,15 +343,13 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
         )}
       </div>
 
-      {/* Disclaimer */}
       <div className="bg-amber-50 border-y border-amber-100 px-4 py-2 flex items-center space-x-2 flex-shrink-0">
         <ExclamationTriangleIcon className="w-3 h-3 text-amber-600 flex-shrink-0" />
-        <p className="text-[8px] sm:text-[10px] text-amber-800 font-bold uppercase tracking-tight">
-          Assistant: I'm collecting clinical data. Professional medical advice is provided at conclusion.
+        <p className="text-[8px] text-amber-800 font-bold uppercase tracking-tight">
+          {t.aiWarning}
         </p>
       </div>
 
-      {/* Input */}
       <form onSubmit={handleSend} className="p-3 sm:p-4 bg-white flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
         <button
           type="button"
@@ -363,23 +359,23 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
           onTouchStart={startRecording}
           onTouchEnd={stopRecording}
           className={`p-3 sm:p-4 rounded-2xl transition-all ${reportSaved ? 'opacity-20 bg-slate-100' : isListening ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-          title="Hold to Speak"
         >
           <MicrophoneIcon className="w-5 h-5" />
         </button>
         <div className="relative flex-1">
           <input
+            ref={inputRef}
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleTextChange}
             disabled={reportSaved || isTyping}
-            placeholder={reportSaved ? "Consultation completed." : isListening ? "Listening..." : "Tell me your symptoms..."}
+            placeholder={reportSaved ? t.caseSaved : isListening ? t.listening : t.describeSymptoms}
             className="w-full pl-4 pr-12 py-3.5 sm:pl-6 sm:pr-14 sm:py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-xs sm:text-sm text-slate-800 shadow-inner"
           />
           <button
             type="submit"
             disabled={!input.trim() || isTyping || reportSaved}
-            className="absolute right-1.5 top-1.5 bottom-1.5 bg-blue-600 text-white px-3 sm:px-4 rounded-xl flex items-center justify-center transition-all disabled:opacity-20 shadow-lg hover:bg-blue-700 active:scale-95"
+            className="absolute right-1.5 top-1.5 bottom-1.5 bg-blue-600 text-white px-3 sm:px-4 rounded-xl flex items-center justify-center transition-all shadow-lg"
           >
             <PaperAirplaneIcon className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>

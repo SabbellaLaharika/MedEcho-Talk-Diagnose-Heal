@@ -1,8 +1,8 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
-import { MedicalReport } from '../types';
+import { MedicalReport, User } from '../types';
 import api from '../services/api';
+import { getTranslation } from '../services/translations';
 import { 
   StopIcon, 
   VideoCameraIcon, 
@@ -13,6 +13,7 @@ import {
 
 interface VirtualDoctorProps {
   patientId: string;
+  user: User;
   onSessionComplete: (report: MedicalReport) => void;
 }
 
@@ -21,13 +22,28 @@ const INDIAN_LANGUAGES = [
   "English", "Hindi", "Telugu", "Tamil", "Bengali", "Marathi", "Gujarati", "Kannada", "Malayalam", "Punjabi"
 ];
 
-const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, onSessionComplete }) => {
+const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessionComplete }) => {
   const [isConnecting, setIsConnecting] = useState(false);
+  const t = getTranslation(user.preferredLanguage);
   const [isActive, setIsActive] = useState(false);
   const [chatOverlay, setChatOverlay] = useState<{sender: string, text: string}[]>([]);
   const [visualizerData, setVisualizerData] = useState<number[]>(Array(20).fill(10));
   const [persona, setPersona] = useState<Persona>('Sarah');
-  const [language, setLanguage] = useState("English");
+  
+  // Map language codes to Virtual Doctor's display names
+  const langMap: Record<string, string> = {
+    'hi': 'Hindi',
+    'te': 'Telugu',
+    'ta': 'Tamil',
+    'mr': 'Marathi',
+    'bn': 'Bengali',
+    'kn': 'Kannada',
+    'ml': 'Malayalam',
+    'gu': 'Gujarati',
+    'pa': 'Punjabi'
+  };
+  const defaultLang = langMap[user.preferredLanguage || 'en'] || 'English';
+  const [language, setLanguage] = useState(defaultLang);
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -128,7 +144,7 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, onSessionCompl
           // Fixed typo: responseModalities
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: personas[persona].voice as any } } },
-          systemInstruction: `You are Dr. Echo. Greeting in ${language}. Ask step-by-step. extracted clinical data later.`,
+          systemInstruction: `You are Dr. Echo. Greeting in ${language}. Ask step-by-step. extracted clinical data later. User preferred language is ${user.preferredLanguage}. Keep response in ${language}.`,
           outputAudioTranscription: {},
           inputAudioTranscription: {},
         }
@@ -174,15 +190,15 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, onSessionCompl
       {!isActive && !isConnecting && (
         <div className="w-full max-w-4xl space-y-8 mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
            <div className="text-center">
-             <h2 className="text-2xl sm:text-4xl font-black text-slate-800 tracking-tight">Virtual Clinic</h2>
-             <p className="text-slate-500 text-sm mt-1">Talk to our AI specialist instantly.</p>
+             <h2 className="text-2xl sm:text-4xl font-black text-slate-800 tracking-tight">{t.virtualClinic}</h2>
+             <p className="text-slate-500 text-sm mt-1">{t.talkToAI}</p>
            </div>
 
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
                <h3 className="text-sm font-black text-slate-700 flex items-center space-x-2 mb-4">
                  <GlobeAltIcon className="w-4 h-4 text-blue-600" />
-                 <span>1. Language</span>
+                 <span>1. {t.dashboard === 'Dashboard' ? 'Language' : t.dashboard.includes('డ్యా') ? 'భాష' : t.dashboard.includes('डै') ? 'भाषा' : 'Language'}</span>
                </h3>
                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                  {INDIAN_LANGUAGES.slice(0, 6).map(lang => (
@@ -200,7 +216,7 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, onSessionCompl
              <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
                <h3 className="text-sm font-black text-slate-700 flex items-center space-x-2 mb-4">
                  <UserCircleIcon className="w-4 h-4 text-indigo-600" />
-                 <span>2. Specialist</span>
+                 <span>2. {t.selectSpecialist}</span>
                </h3>
                <div className="grid grid-cols-2 gap-3">
                  {(Object.keys(personas) as Persona[]).map((name) => (
@@ -264,7 +280,7 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, onSessionCompl
               className="bg-white/95 p-6 sm:p-10 rounded-[2rem] sm:rounded-[4rem] shadow-2xl text-center active:scale-95 transition-all w-full sm:w-auto"
             >
               <VideoCameraIcon className="w-10 h-10 sm:w-12 sm:h-12 text-blue-600 mx-auto mb-4" />
-              <h3 className="text-xl sm:text-3xl font-black text-slate-800">Start Checkup</h3>
+              <h3 className="text-xl sm:text-3xl font-black text-slate-800">{t.startCheckup}</h3>
               <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2">MedEcho AI Ready</p>
             </button>
           </div>
@@ -291,7 +307,7 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, onSessionCompl
       <div className="mt-8 max-w-2xl w-full bg-blue-50/50 p-4 rounded-2xl border border-blue-100 flex items-start space-x-3">
         <ExclamationTriangleIcon className="w-5 h-5 text-blue-600 flex-shrink-0" />
         <p className="text-[10px] font-bold text-blue-800 leading-tight uppercase">
-          ACADEMIC PROJECT: Clinical entities are AI-extracted. Call 102/108 for emergencies.
+          {t.clinicalEntitiesWarning || 'ACADEMIC PROJECT: Clinical entities are AI-extracted. Call 102/108 for emergencies.'}
         </p>
       </div>
     </div>

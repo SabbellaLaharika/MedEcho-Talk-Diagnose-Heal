@@ -2,8 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { getNearbyHospitals } from '../services/geminiService';
 import { MapPinIcon, PhoneIcon, ArrowTopRightOnSquareIcon, BeakerIcon } from '@heroicons/react/24/outline';
+import { User } from '../types';
+import { getTranslation } from '../services/translations';
 
-const HospitalLocator: React.FC = () => {
+interface HospitalLocatorProps {
+  user?: User;
+}
+
+const HospitalLocator: React.FC<HospitalLocatorProps> = ({ user }) => {
+  const t = getTranslation(user?.preferredLanguage);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<{ text: string, groundingChunks: any[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,8 +44,8 @@ const HospitalLocator: React.FC = () => {
     <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Find Nearby Care</h2>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">MedEcho-Powered Hospital Recommendations</p>
+          <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">{t.findNearbyCare}</h2>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">{t.hospitalRecSub}</p>
         </div>
         <button 
           onClick={fetchHospitals}
@@ -48,7 +55,7 @@ const HospitalLocator: React.FC = () => {
           {loading ? (
             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
           ) : <MapPinIcon className="w-4 h-4" />}
-          <span>{loading ? 'LOCATING...' : 'REFRESH LIST'}</span>
+          <span>{loading ? t.locating : t.refreshList}</span>
         </button>
       </div>
 
@@ -80,7 +87,7 @@ const HospitalLocator: React.FC = () => {
                     </div>
                     <div>
                       <p className="font-black text-slate-800 text-sm group-hover:text-blue-700">{chunk.maps.title}</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">Open in Google Maps</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">{t.openMaps}</p>
                     </div>
                   </div>
                   <ArrowTopRightOnSquareIcon className="w-4 h-4 text-slate-300" />
@@ -92,7 +99,7 @@ const HospitalLocator: React.FC = () => {
       ) : !loading && !error && (
         <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 opacity-50">
           <MapPinIcon className="w-16 h-16 text-slate-200" />
-          <p className="text-slate-500 font-bold uppercase text-xs">Allow location to see the best hospitals near you.</p>
+          <p className="text-slate-500 font-bold uppercase text-xs">{t.allowLocation}</p>
         </div>
       )}
     </div>

@@ -11,35 +11,41 @@ import {
   XMarkIcon,
   UserCircleIcon
 } from '@heroicons/react/24/outline';
-import { UserRole } from '../types';
+import { UserRole, User } from '../types';
+import { getTranslation } from '../services/translations';
 
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onLogout: () => void;
   role: UserRole;
+  user: User;
   onClose?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, role, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, role, user, onClose }) => {
+  const t = getTranslation(user?.preferredLanguage);
+  
   const patientItems = [
-    { id: 'dashboard', name: 'Dashboard', icon: HomeIcon },
-    { id: 'appointments', name: 'Book Visit', icon: CalendarIcon },
-    { id: 'reports', name: 'Medical Files', icon: ClipboardDocumentListIcon },
-    { id: 'chat', name: 'Chat Support', icon: ChatBubbleBottomCenterTextIcon },
-    { id: 'virtual-doc', name: 'Virtual Doctor', icon: MicrophoneIcon },
-    { id: 'profile', name: 'My Profile', icon: UserCircleIcon },
+    { id: 'dashboard', name: t.dashboard, icon: HomeIcon },
+    { id: 'appointments', name: t.bookVisit, icon: CalendarIcon },
+    { id: 'reports', name: t.medicalFiles, icon: ClipboardDocumentListIcon },
+    { id: 'chat', name: t.chatSupport, icon: ChatBubbleBottomCenterTextIcon },
+    { id: 'virtual-doc', name: t.virtualDoctor, icon: MicrophoneIcon },
+    { id: 'profile', name: t.myProfile, icon: UserCircleIcon },
   ];
 
   const doctorItems = [
-    { id: 'dashboard', name: 'Overview', icon: HomeIcon },
-    { id: 'schedule', name: 'My Schedule', icon: ClockIcon },
-    { id: 'reports', name: 'Records', icon: ClipboardDocumentListIcon },
-    { id: 'chat', name: 'AI Research', icon: AcademicCapIcon },
+    { id: 'dashboard', name: t.overview, icon: HomeIcon },
+    { id: 'schedule', name: t.mySchedule, icon: ClockIcon },
+    { id: 'reports', name: t.records, icon: ClipboardDocumentListIcon },
+    { id: 'chat', name: t.aiResearch, icon: AcademicCapIcon },
   ];
 
   const menuItems = role === 'DOCTOR' ? doctorItems : patientItems;
   const themeColor = role === 'DOCTOR' ? 'indigo' : 'blue';
+  const roleDisplay = role === 'DOCTOR' ? t.doctor : t.patient;
+  const staffDisplay = role === 'DOCTOR' ? t.staff : t.patient;
 
   return (
     <div className="w-full max-w-[300px] sm:w-72 bg-white border-r border-slate-100 h-full flex flex-col shadow-2xl sm:shadow-sm overflow-y-auto custom-scrollbar">
@@ -49,8 +55,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, ro
             {role === 'DOCTOR' ? 'DR' : 'ME'}
           </div>
           <div>
-            <span className="text-lg sm:text-xl font-black text-slate-800 tracking-tight">MedEcho</span>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{role === 'DOCTOR' ? 'Staff' : 'Patient'}</p>
+            <span className="text-lg sm:text-xl font-black text-slate-800 tracking-tight">{t.medEchoLogo}</span>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{staffDisplay}</p>
           </div>
         </div>
         {onClose && (
@@ -83,7 +89,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, ro
           className="w-full flex items-center space-x-4 px-5 py-4 sm:py-3.5 rounded-2xl text-rose-500 hover:bg-rose-50 transition-all font-black uppercase text-[11px] sm:text-sm tracking-wider"
         >
           <ArrowLeftOnRectangleIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-          <span>Log Out</span>
+          <span>{t.logout}</span>
         </button>
       </div>
     </div>

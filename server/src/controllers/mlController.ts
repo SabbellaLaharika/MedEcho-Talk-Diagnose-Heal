@@ -75,3 +75,22 @@ export const analyzeSymptoms = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Error analyzing symptoms via AI service' });
     }
 };
+
+export const translateText = async (req: Request, res: Response) => {
+    const { text, target_lang, source_lang } = req.body;
+    try {
+        const response = await axios.post(`${ML_SERVICE_URL}/translate`, {
+            text,
+            target_lang: target_lang || 'en',
+            source_lang: source_lang || 'en'
+        });
+        
+        res.json(response.data);
+    } catch (error) {
+        console.error('Translate Proxy Error:', error);
+        res.status(503).json({ 
+            message: 'Translation Service Unavailable',
+            translated: text // Fallback to original
+        });
+    }
+};

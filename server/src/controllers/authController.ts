@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 
 export const register = async (req: Request, res: Response) => {
     try {
-        const { email, password, name, role } = req.body;
+        const { email, password, name, role, preferredLanguage } = req.body;
 
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
@@ -22,6 +22,7 @@ export const register = async (req: Request, res: Response) => {
                 passwordHash: hashedPassword,
                 name,
                 role: role || 'PATIENT',
+                preferredLanguage: preferredLanguage || 'en',
             },
         });
 
@@ -65,7 +66,7 @@ export const login = async (req: Request, res: Response) => {
 
 export const updateProfile = async (req: Request, res: Response) => {
     try {
-        const { id, name, contact, avatar, gender, dob, bloodGroup, address } = req.body;
+        const { id, name, contact, avatar, gender, dob, bloodGroup, address, preferredLanguage } = req.body;
 
         const user = await (prisma.user as any).update({
             where: { id },
@@ -76,6 +77,7 @@ export const updateProfile = async (req: Request, res: Response) => {
                 gender,
                 bloodGroup,
                 address,
+                preferredLanguage,
                 dob: dob ? new Date(dob) : null
             }
         });

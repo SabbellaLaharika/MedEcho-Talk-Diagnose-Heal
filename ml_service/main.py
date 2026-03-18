@@ -126,5 +126,22 @@ def analyze():
         'summary': f"Based on symptoms: {', '.join(symptoms).replace('_', ' ')}. Analysis suggests {disease}."
     })
 
+@app.route('/translate', methods=['POST'])
+def translate():
+    data = request.json
+    text = data.get('text', '')
+    target_lang = data.get('target_lang', 'hi')
+    source_lang = data.get('source_lang', 'en')
+
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+
+    try:
+        translated = GoogleTranslator(source=source_lang, target=target_lang).translate(text)
+        return jsonify({'translated': translated})
+    except Exception as e:
+        print(f"Translation Error (Dedicated): {e}")
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(port=8000, debug=True)

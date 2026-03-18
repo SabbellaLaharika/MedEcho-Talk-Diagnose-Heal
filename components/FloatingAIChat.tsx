@@ -12,6 +12,7 @@ import {
   CheckCircleIcon,
   GlobeAltIcon
 } from '@heroicons/react/24/solid';
+import { getTranslation } from '../services/translations';
 
 const LANGUAGES = [
   { code: 'auto', name: 'Auto Detect', label: 'Auto Detect' },
@@ -34,9 +35,6 @@ interface FloatingAIChatProps {
 
 const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    { id: '1', sender: 'ai', text: 'Hi! I am your MedEcho assistant. How can I help you today?', timestamp: new Date() }
-  ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -47,6 +45,11 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const user = dbService.auth.getCurrentUser();
+  const t = getTranslation(user?.preferredLanguage);
+
+  const [messages, setMessages] = useState<Message[]>([
+    { id: '1', sender: 'ai', text: t.aiGreeting, timestamp: new Date() }
+  ]);
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -80,8 +83,8 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
       const utterance = new SpeechSynthesisUtterance(text);
       
       if (langCode.length === 2) {
-        const fullLang = LANGUAGES.find(l => l.code.startsWith(langCode));
-        if (fullLang) utterance.lang = fullLang.code;
+        const found = LANGUAGES.find(l => l.code.startsWith(langCode));
+        if (found) utterance.lang = found.code;
       } else {
         utterance.lang = langCode;
       }
@@ -127,7 +130,9 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
         doctorId: null,
         diagnosis: mlContext.diagnosis || 'Clinical Consultation',
         confidenceScore: parseFloat(mlContext.confidence) || 85,
-        preventions: mlContext.precautions ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : [mlContext.precautions]) : ['Please consult a human doctor for confirmation.'],
+        preventions: mlContext.precautions 
+           ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : String(mlContext.precautions).split(/,\s*/))
+           : ['Please consult a human doctor for confirmation.'],
         summary: mlContext.summary || 'Quick Chat Intake Record',
         symptoms: mlContext.collected_symptoms || [],
         history: mlContext.history || {},
@@ -147,7 +152,9 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
           date: new Date().toISOString().split('T')[0],
           diagnosis: mlContext.diagnosis || 'Consultation',
           summary: 'Report generated via quick chat assistant.',
-          prescription: mlContext.precautions ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : [mlContext.precautions]) : ['Standard precautions advised.'],
+          prescription: mlContext.precautions 
+             ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : String(mlContext.precautions).split(/,\s*/))
+             : ['Standard precautions advised.'],
           aiConfidence: parseFloat(mlContext.confidence) || 85,
           symptoms: mlContext.collected_symptoms || [],
           history: mlContext.history || {},
@@ -246,7 +253,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
                 <ChatBubbleLeftRightIcon className="w-5 h-5 text-white" />
               </div>
               <div className="flex flex-col">
-                <h3 className="font-bold text-sm">MedEcho Chat</h3>
+                <h3 className="font-bold text-sm">{t.aiChatTitle}</h3>
                 <div className="flex items-center space-x-1">
                   <GlobeAltIcon className="w-3 h-3 text-blue-200" />
                   <select 
@@ -255,7 +262,9 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
                     className="bg-transparent border-none text-[8px] font-bold text-blue-100 uppercase tracking-widest p-0 focus:ring-0 outline-none cursor-pointer"
                   >
                     {LANGUAGES.map(l => (
-                      <option key={l.code} value={l.code} className="bg-slate-800 text-white">{l.name}</option>
+                      <option key={l.code} value={l.code} className="bg-slate-800 text-white">
+                        {l.code === 'auto' ? t.autoDetect : l.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -303,7 +312,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
             <div className="flex items-start space-x-2">
               <ExclamationTriangleIcon className="w-3 h-3 text-amber-600 mt-0.5" />
               <p className="text-[8px] text-amber-800 font-bold leading-tight uppercase">
-                AI Assistant: Collecting clinical intake data in realtime.
+                {t.aiWarning}
               </p>
             </div>
             {reportSaved && <CheckCircleIcon className="w-4 h-4 text-emerald-600" />}
@@ -324,7 +333,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={reportSaved || isTyping}
-                placeholder={reportSaved ? "Case record saved" : isListening ? "Listening..." : "Describe symptoms..."}
+                placeholder={reportSaved ? t.caseSaved : isListening ? t.listening : t.describeSymptoms}
                 className="w-full pl-4 pr-10 py-3 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-800 shadow-inner"
               />
               <button

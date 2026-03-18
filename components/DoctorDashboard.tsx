@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { User, Appointment, MedicalReport } from '../types';
 import AIChatAssistant from './AIChatAssistant';
 import ReportDetailModal from './ReportDetailModal';
+import { getTranslation, translateClinical } from '../services/translations';
 import { 
   UsersIcon, 
   CalendarDaysIcon, 
@@ -17,11 +18,12 @@ import {
   TrashIcon,
   ChevronRightIcon
 } from '@heroicons/react/24/solid';
+import TranslatedText from './TranslatedText';
 
 interface DoctorDashboardProps {
   doctor: User;
   appointments: Appointment[];
-  reports: MedicalReport[]; // Added missing prop
+  reports: MedicalReport[]; 
   onUpdateUser: (updatedUser: User) => void;
   onUpdateAppointment: (updatedApt: Appointment) => void;
   onDeleteAppointment: (id: string) => void;
@@ -35,6 +37,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
   onUpdateAppointment,
   onDeleteAppointment
 }) => {
+  const t = getTranslation(doctor.preferredLanguage);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null);
 
@@ -42,9 +45,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
   const pendingApts = doctorAppointments.filter(a => a.status === 'PENDING');
   
   const stats = [
-    { label: 'Pending Visits', value: pendingApts.length.toString(), icon: ClockIcon, color: 'bg-indigo-500' },
-    { label: 'Patient Count', value: '24', icon: UsersIcon, color: 'bg-slate-800' },
-    { label: 'Finished', value: doctorAppointments.filter(a => a.status === 'COMPLETED').length.toString(), icon: CheckCircleIcon, color: 'bg-emerald-500' },
+    { label: t.pendingVisits, value: pendingApts.length.toString(), icon: ClockIcon, color: 'bg-indigo-500' },
+    { label: t.patientCount, value: '24', icon: UsersIcon, color: 'bg-slate-800' },
+    { label: t.finished, value: doctorAppointments.filter(a => a.status === 'COMPLETED').length.toString(), icon: CheckCircleIcon, color: 'bg-emerald-500' },
   ];
 
   const handleStartCall = (patientName: string) => {
@@ -69,9 +72,13 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
             <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-4 border-white ${doctor.isAvailable ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-3xl font-black text-slate-800 tracking-tight truncate">{doctor.name}</h1>
+            <h1 className="text-xl sm:text-3xl font-black text-slate-800 tracking-tight truncate">
+               <TranslatedText text={doctor.name} targetLang={doctor.preferredLanguage} />
+            </h1>
             <div className="flex flex-wrap items-center gap-2 mt-1 sm:mt-2">
-              <span className="bg-indigo-50 text-indigo-600 text-[8px] sm:text-[9px] font-black px-2 py-0.5 rounded-full uppercase truncate max-w-[120px]">{doctor.specialization}</span>
+              <span className="bg-indigo-50 text-indigo-600 text-[8px] sm:text-[9px] font-black px-2 py-0.5 rounded-full uppercase truncate max-w-[120px]">
+                 {translateClinical(doctor.specialization, doctor.preferredLanguage)}
+              </span>
               <span className="text-slate-400 text-[10px] font-bold">ID: D{doctor.id.replace(/\D/g, '').slice(0, 3).padStart(3, '0')}</span>
             </div>
           </div>
@@ -83,13 +90,13 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
               onClick={() => toggleAvailability(true)}
               className={`flex-1 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all ${doctor.isAvailable ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}
              >
-               Online
+               {t.online}
              </button>
              <button 
               onClick={() => toggleAvailability(false)}
               className={`flex-1 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all ${!doctor.isAvailable ? 'bg-white text-slate-600 shadow-sm' : 'text-slate-400'}`}
              >
-               Away
+               {t.away}
              </button>
           </div>
           
@@ -98,7 +105,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
             className="p-3 sm:px-8 sm:py-4 bg-indigo-600 text-white rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-lg active:scale-95 hover:bg-indigo-700 transition-all"
           >
             <SparklesIcon className="w-5 h-5" />
-            <span className="hidden sm:inline-block font-black text-[10px] uppercase ml-3">AI Support</span>
+            <span className="hidden sm:inline-block font-black text-[10px] uppercase ml-3">{t.aiSupport}</span>
           </button>
         </div>
       </header>
@@ -122,7 +129,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
         <div className="lg:col-span-2 bg-white rounded-[2rem] sm:rounded-[3.5rem] shadow-sm border border-slate-50 overflow-hidden">
           <div className="p-6 sm:p-10 border-b flex justify-between items-center bg-indigo-50/10">
             <div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-800 uppercase tracking-tight">Active Queue</h2>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-800 uppercase tracking-tight">{t.activeQueue}</h2>
             </div>
             <SignalIcon className={`w-5 h-5 ${doctor.isAvailable ? 'text-emerald-500 animate-pulse' : 'text-slate-300'}`} />
           </div>
@@ -135,7 +142,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                     {(apt.patientName || apt.patient?.name || 'P')[0]}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-black text-slate-800 text-base sm:text-lg truncate">{apt.patientName || apt.patient?.name || 'Patient'}</p>
+                    <p className="font-black text-slate-800 text-base sm:text-lg truncate">
+                       <TranslatedText text={apt.patientName || apt.patient?.name || 'Patient'} targetLang={doctor.preferredLanguage} />
+                    </p>
                     <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-1">
                        <span className="font-bold">{apt.time}</span>
                        <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 font-black uppercase text-[8px]">{apt.type}</span>
@@ -160,7 +169,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
             )) : (
               <div className="py-16 text-center text-slate-200">
                 <CalendarDaysIcon className="w-12 h-12 mx-auto mb-3" />
-                <p className="text-[10px] font-black uppercase tracking-widest">Your queue is empty</p>
+                <p className="text-[10px] font-black uppercase tracking-widest">{t.emptyQueue}</p>
               </div>
             )}
           </div>
@@ -169,7 +178,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
         <div className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-sm border border-slate-50 flex flex-col max-h-[600px]">
           <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-6 flex items-center">
             <BoltIcon className="w-4 h-4 text-amber-500 mr-2" />
-            Patient Records
+            {t.patientRecords}
           </h3>
           <div className="space-y-3 overflow-y-auto custom-scrollbar pr-1">
             {reports.map(report => (
@@ -180,7 +189,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
               >
                 <div className="flex justify-between items-start">
                   <div className="min-w-0">
-                    <p className="font-black text-slate-800 text-sm truncate group-hover:text-indigo-600 transition-colors">{report.diagnosis}</p>
+                    <p className="font-black text-slate-800 text-sm truncate group-hover:text-indigo-600 transition-colors">
+                       <TranslatedText text={report.diagnosis} targetLang={doctor.preferredLanguage} />
+                    </p>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{report.date}</p>
                   </div>
                   <ChevronRightIcon className="w-3 h-3 text-slate-300 group-hover:text-indigo-400 transition-colors" />
@@ -188,7 +199,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
               </button>
             ))}
             {reports.length === 0 && (
-              <div className="text-center py-10 text-slate-200 uppercase text-[9px] font-black">No recent records</div>
+              <div className="text-center py-10 text-slate-200 uppercase text-[9px] font-black">{t.noReports}</div>
             )}
           </div>
         </div>
@@ -211,7 +222,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
         <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
           <div className="flex items-center space-x-3">
             <ShieldCheckIcon className="w-6 h-6 text-indigo-400" />
-            <h2 className="text-lg font-black tracking-tight uppercase">AI Clinical Research</h2>
+            <h2 className="text-lg font-black tracking-tight uppercase">{t.aiResearch}</h2>
           </div>
           <button onClick={() => setAiPanelOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-all">
             <XMarkIcon className="w-6 h-6" />
@@ -226,6 +237,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
       {selectedReport && (
         <ReportDetailModal 
           report={selectedReport} 
+          user={doctor}
           onClose={() => setSelectedReport(null)} 
         />
       )}

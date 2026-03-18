@@ -58,7 +58,9 @@ class ChatEngine:
                 # Get symptoms present in this row (disease instance)
                 symptoms_in_row = []
                 for col in symptom_cols:
-                    s = str(row[col]).strip()
+                    # Cast value to string to avoid type index issues with Series[Any]
+                    val = row[col]
+                    s = str(val).strip()
                     if s and s != 'nan' and s in self.symptoms_list:
                         symptoms_in_row.append(s)
                 
@@ -138,7 +140,8 @@ class ChatEngine:
                     
                     if valid_suggestions:
                         # Pick top 2-3
-                        suggest_str = ", ".join(valid_suggestions[:3])
+                        suggest_list: list[str] = valid_suggestions[:3]
+                        suggest_str = ", ".join(suggest_list)
                         return f"I noted **{last_symptom.replace('_', ' ')}**. Do you also experience **{suggest_str}**? (Or tell me what else)", context
                     else:
                         return f"I have noted {', '.join(new_symptoms).replace('_', ' ')}. Do you have any other symptoms? (Or say 'that\\'s all')", context
@@ -163,8 +166,9 @@ class ChatEngine:
                     valid_suggestions = [s.replace('_', ' ') for s in suggestions if s not in collected_symptoms]
                     
                     if valid_suggestions:
-                         suggest_str = ", ".join(valid_suggestions[:3])
-                         return f"I understand you're not feeling well. Based on **{last_symptom.replace('_', ' ')}**, do you also have **{suggest_str}**? If not, please describe any other feelings.", context
+                        suggest_list: list[str] = valid_suggestions[:3]
+                        suggest_str: str = ", ".join(suggest_list)
+                        return f"I understand you're not feeling well. Based on **{last_symptom.replace('_', ' ')}**, do you also have **{suggest_str}**? If not, please describe any other feelings.", context
 
                 # If no symptoms yet and generic "unwell" input
                 unwell_keywords = ["not feeling good", "i am sick", "help me", "pain", "issue", "problem"]
@@ -194,7 +198,7 @@ class ChatEngine:
                     next_key = key
                     break
             
-            if next_key:
+            if next_key and next_key in questions_map:
                 return questions_map[next_key], context
             else:
                 # All questions answered -> DIAGNOSIS
@@ -207,7 +211,8 @@ class ChatEngine:
                 context['final_report'] = True 
                 
                 # Get Precautions
-                precautions = self.precautions_map.get(diagnosis, "Please consult a doctor for advice.")
+                precautions = self.precautions_map.get(diagnosis, "Please consult a human doctor for confirmation.")
+                context['precautions'] = precautions
                 
                 return f"Thank you. Based on your symptoms ({', '.join(collected_symptoms).replace('_', ' ')}) and history, I suspect **{diagnosis}** (Confidence: {confidence}).\n\n**Precautions:** {precautions}\n\nI am generating your medical report now.", context
 
