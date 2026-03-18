@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { dbService } from '../services/dbService';
 import api from '../services/api';
-import { MedicalReport, User, Appointment } from '../types';
+import { User, Appointment } from '../types';
 import { getTranslation, translateClinical } from '../services/translations';
 import { 
   CalendarIcon, 
@@ -35,7 +34,6 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [bookedAptSummary, setBookedAptSummary] = useState<(Partial<Appointment> & { doctorAvatar?: string }) | null>(null);
 
-  // Doctor schedule data
   const [doctorSchedule, setDoctorSchedule] = useState<any[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<any[]>([]);
 
@@ -46,7 +44,27 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
           dbService.users.getDoctors(),
           dbService.appointments.getAll()
         ]);
-        setDoctors(doctorsList);
+
+        // 1. Define the preferred order for Telugu state hierarchy
+        const preferredOrder = [
+          'Dr. L. Chalapathi Rao',
+          'Dr. M. Murali Krishna',
+          'Dr. Kishor'
+        ];
+
+        // 2. Sort logic: Physicians first, then Cardiologist, then others
+        const sortedDoctors = [...doctorsList].sort((a, b) => {
+          let indexA = preferredOrder.findIndex(name => a.name.includes(name));
+          let indexB = preferredOrder.findIndex(name => b.name.includes(name));
+
+          if (indexA === -1) indexA = 99;
+          if (indexB === -1) indexB = 99;
+
+          return indexA - indexB;
+        });
+
+        // 3. SET THE SORTED LIST (This was the missing piece)
+        setDoctors(sortedDoctors);
         setAllAppointments(apts);
       } catch (err) {
         console.error("Failed to load booking data:", err);
@@ -55,7 +73,6 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
     loadData();
   }, []);
 
-  // When a doctor is selected, fetch their schedule + blocked slots
   useEffect(() => {
     if (!selectedDoc) return;
     const fetchSchedule = async () => {
@@ -107,35 +124,25 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
     const bookingDate = new Date(date);
     const dayOfWeek = bookingDate.getUTCDay();
 
-    // 1. Get doctor's schedule for this day (can be multiple segments)
     const schedules = doctorSchedule.filter((s: any) => s.dayIndex === dayOfWeek && s.isActive);
     if (schedules.length === 0 && doctorSchedule.length === 0) {
-      // Use defaults only if NO schedule is set at all for any day
       const defaultDay = DEFAULT_SCHEDULE.find(s => s.dayIndex === dayOfWeek);
       if (defaultDay?.isActive) schedules.push(defaultDay);
     }
     
     if (schedules.length === 0) return [];
 
-    // 2. Generate all possible slots from all segments
     let allSlots: string[] = [];
     schedules.forEach(sched => {
       allSlots = [...allSlots, ...generateSlots(sched.startTime, sched.endTime)];
     });
 
-    // Remove duplicates if segments overlap
     let slots = Array.from(new Set(allSlots)).sort();
-
-    // 3. Remove slots blocked by doctor (range-based)
     const blockedForDate = blockedSlots.filter(b => b.date === date);
     slots = slots.filter(slotTime => {
-      return !blockedForDate.some(b => {
-        // Check if slotTime is between [b.startTime, b.endTime)
-        return slotTime >= b.startTime && slotTime < b.endTime;
-      });
+      return !blockedForDate.some(b => slotTime >= b.startTime && slotTime < b.endTime);
     });
 
-    // 4. Remove slots already booked by other patients
     const bookedForDate = allAppointments.filter(
       a => a.doctorId === selectedDoc.id && 
       (a.date === date || new Date(a.date).toISOString().split('T')[0] === date) && 
@@ -194,13 +201,21 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                     <img src={doc.avatar} alt={doc.name} className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl object-cover border border-slate-50 shadow-sm" />
                     <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${doc.isAvailable ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
                   </div>
+                  {/* PROFESSIONAL QUALIFICATION DISPLAY */}
                   <div className="text-left min-w-0">
                     <p className="font-black text-slate-800 text-sm sm:text-lg leading-tight truncate">
-                      <TranslatedText text={doc.name} targetLang={user.preferredLanguage} />
+                      <TranslatedText text={doc.name.split(',')[0]} targetLang={user.preferredLanguage} />
                     </p>
-                    <p className="text-[8px] sm:text-[10px] font-black text-indigo-500 uppercase mt-1 truncate">
-                       {translateClinical(doc.specialization, user.preferredLanguage)}
-                    </p>
+                    <div className="flex flex-col">
+                      {doc.name.includes(',') && (
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                          {doc.name.split(',')[1]}
+                        </p>
+                      )}
+                      <p className="text-[8px] sm:text-[10px] font-black text-indigo-500 uppercase mt-0.5 truncate">
+                         {translateClinical(doc.specialization, user.preferredLanguage)}
+                      </p>
+                    </div>
                   </div>
                 </div>
                 <ChevronRightIcon className={`w-4 h-4 flex-shrink-0 ${selectedDoc?.id === doc.id ? 'text-indigo-600' : 'text-slate-200'}`} />
@@ -227,7 +242,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                 </div>
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl sm:text-2xl font-black text-slate-800 truncate">
-                    <TranslatedText text={selectedDoc.name} targetLang={user.preferredLanguage} />
+                    <TranslatedText text={selectedDoc.name.split(',')[0]} targetLang={user.preferredLanguage} />
                   </h3>
                   <div className="flex gap-2">
                     <button onClick={() => setType('IN_PERSON')} className={`text-[8px] sm:text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'IN_PERSON' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-400'}`}>{t.inPerson}</button>
@@ -285,7 +300,6 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
         </div>
       </div>
 
-      {/* Success Confirmation Modal - Mobile Optimized */}
       {showSuccessModal && bookedAptSummary && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
           <div className="bg-white w-full max-w-sm rounded-[2.5rem] sm:rounded-[3.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
@@ -298,7 +312,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                 <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-slate-400 font-black uppercase text-[10px]">{t.doctor}</span>
                   <span className="font-black text-slate-800">
-                    <TranslatedText text={bookedAptSummary.doctorName || ''} targetLang={user.preferredLanguage} />
+                    <TranslatedText text={bookedAptSummary.doctorName?.split(',')[0] || ''} targetLang={user.preferredLanguage} />
                   </span>
                 </div>
                 <div className="flex justify-between text-xs sm:text-sm">
