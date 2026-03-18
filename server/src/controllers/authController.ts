@@ -29,7 +29,8 @@ export const register = async (req: Request, res: Response) => {
             expiresIn: '1d',
         });
 
-        res.status(201).json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+        const { passwordHash, ...userWithoutPassword } = user;
+        res.status(201).json({ token, user: userWithoutPassword });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -54,9 +55,35 @@ export const login = async (req: Request, res: Response) => {
             expiresIn: '1d',
         });
 
-        res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+        const { passwordHash, ...userWithoutPassword } = user;
+        res.json({ token, user: userWithoutPassword });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
+    }
+};
+
+export const updateProfile = async (req: Request, res: Response) => {
+    try {
+        const { id, name, contact, avatar, gender, dob, bloodGroup, address } = req.body;
+
+        const user = await (prisma.user as any).update({
+            where: { id },
+            data: {
+                name,
+                contact,
+                avatar,
+                gender,
+                bloodGroup,
+                address,
+                dob: dob ? new Date(dob) : null
+            }
+        });
+
+        const { passwordHash, ...userWithoutPassword } = user;
+        res.json(userWithoutPassword);
+    } catch (error: any) {
+        console.error("Update error:", error);
+        res.status(500).json({ message: 'Server error updating profile', error: error.message });
     }
 };

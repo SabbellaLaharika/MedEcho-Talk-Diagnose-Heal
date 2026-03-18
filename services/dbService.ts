@@ -23,7 +23,32 @@ const mapBackendReportToFrontend = (report: any): MedicalReport => {
       diagnosis: diagnosis, // Ensure it's a valid string
       prescription: Array.isArray(report.precautions) ? report.precautions : (Array.isArray(report.prescription) ? report.prescription : []),
       aiConfidence: Number(report.confidenceScore) || 0,
-      vitals: report.vitals || {}
+      vitals: report.vitals || {},
+      symptoms: (() => {
+        const baseSymptoms = Array.isArray(report.symptoms) ? report.symptoms : [];
+        if (baseSymptoms.length > 0) return baseSymptoms;
+        
+        // If empty, try to derive from history
+        const history = typeof report.history === 'object' && report.history !== null ? report.history : {};
+        const derived = Object.keys(history).filter(k => 
+          ['gastric', 'fever', 'cough', 'headache', 'pain', 'fatigue', 'nausea'].some(term => k.toLowerCase().includes(term))
+        );
+        return derived;
+      })(),
+      history: (() => {
+        if (typeof report.history === 'object' && report.history !== null && Object.keys(report.history).length > 0) {
+          return report.history;
+        }
+        // Fallback: try to parse summary if it looks like JSON
+        if (report.summary && report.summary.startsWith('{')) {
+          try {
+            return JSON.parse(report.summary);
+          } catch (e) {
+            return {};
+          }
+        }
+        return {};
+      })()
     };
   } catch (error) {
     console.error('Error mapping report:', error, report);
@@ -65,10 +90,7 @@ export const dbService = {
       return data.user;
     },
     updateUser: async (updatedUser: User): Promise<User> => {
-      const { data } = await api.put(`/users/${updatedUser.id}`, updatedUser);
-      // We might need to handle token persistence if valid, or just update user part
-      // For simplicity, let's assume update returns User. 
-      // Current session handling might need logic to merge, but let's stick to simple first.
+      const { data } = await api.put('/auth/update', updatedUser);
       const currentSession = JSON.parse(localStorage.getItem(KEYS.CURRENT_USER) || '{}');
       const newSession = { ...currentSession, user: data };
       localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(newSession));
@@ -130,6 +152,8 @@ export const dbService = {
         ...report,
         diagnosis: String(report.diagnosis || 'Pending diagnosis').trim(),
         summary: String(report.summary || '').trim(),
+        symptoms: report.symptoms || [],
+        history: report.history || {}
       };
       const { data } = await api.post('/reports', reportPayload);
       return mapBackendReportToFrontend(data);

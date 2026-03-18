@@ -37,6 +37,10 @@ model User {
   avatar            String?
   specialization    String?   // For doctors
   contact           String?
+  gender            String?
+  dob               DateTime?
+  bloodGroup        String?
+  address           String?
   isAvailable       Boolean   @default(true)
   preferredLanguage String?   @default("en")
   createdAt         DateTime  @default(now())
@@ -77,6 +81,9 @@ model Report {
   precautions     Json     // Stored as JSON array or object
   chatTranscript  Json     // Stored as JSON object for conversation history
   summary         String?
+  symptoms        Json?    // Array of symptoms
+  history         Json?    // Patient Q&A
+  vitals          Json?    // {bp, weight, temperature}
   createdAt       DateTime @default(now())
 
   // Relations

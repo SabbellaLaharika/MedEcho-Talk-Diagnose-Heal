@@ -6,15 +6,15 @@ const prisma = new PrismaClient();
 // Create Medical Report
 export const createReport = async (req: Request, res: Response) => {
     try {
-        const { patientId, doctorId, diagnosis, confidenceScore, preventions, chatTranscript, summary } = req.body;
+        const { patientId, doctorId, diagnosis, confidenceScore, preventions, chatTranscript, summary, symptoms, history, vitals } = req.body;
 
-        console.log("Creating report with payload:", { patientId, doctorId, diagnosis, confidenceScore, preventions, summary });
+        console.log("Creating report with payload:", { patientId, diagnosis, hasVitals: !!vitals });
 
         if (!patientId || !diagnosis) {
             return res.status(400).json({ message: 'Missing required fields: patientId and diagnosis' });
         }
 
-        const report = await prisma.report.create({
+        const report = await (prisma.report as any).create({
             data: {
                 patientId,
                 doctorId: doctorId || null,
@@ -22,7 +22,10 @@ export const createReport = async (req: Request, res: Response) => {
                 confidenceScore: parseFloat(String(confidenceScore)) || 0,
                 precautions: preventions || [],
                 chatTranscript: chatTranscript || {},
-                summary: summary || ''
+                summary: summary || '',
+                symptoms: symptoms || [],
+                history: history || {},
+                vitals: vitals || {}
             }
         });
 

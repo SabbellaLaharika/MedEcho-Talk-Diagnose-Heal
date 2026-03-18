@@ -101,12 +101,16 @@ class ChatEngine:
         
         # 1. GREETING / INITIAL
         if state == 'GREETING':
-            if user_text and user_text.strip():
+            # Generic conversational openers
+            greetings = ["hello", "hi", "hey", "namaste", "good morning", "good evening", "bad", "unwell", "sick", "not well"]
+            if any(word in user_text for word in greetings) or (user_text and user_text.strip()):
                 context['state'] = 'GATHERING_SYMPTOMS'
-                # Fall through...
+                if any(word in user_text for word in ["bad", "unwell", "sick", "not well"]):
+                     return "I am sorry to hear that. I am MedEcho, your health assistant. Please describe exactly what symptoms you are feeling (e.g., fever, cough, headache).", context
+                return "Namaste! I am MedEcho. I can help diagnose your condition by analyzing your symptoms. Please tell me, how can I help you today?", context
             else:
                 context['state'] = 'GATHERING_SYMPTOMS'
-                return "Namaste! I am MedEcho. I can help diagnose your condition. Please describe your symptoms.", context
+                return "Namaste! I am MedEcho. I can help diagnose your condition. Please describe your symptoms to begin.", context
 
         # 2. SYMPTOM GATHERING
         if context.get('state') == 'GATHERING_SYMPTOMS':
@@ -160,9 +164,14 @@ class ChatEngine:
                     
                     if valid_suggestions:
                          suggest_str = ", ".join(valid_suggestions[:3])
-                         return f"I'm not sure I understood. Based on **{last_symptom.replace('_', ' ')}**, do you have **{suggest_str}**?", context
+                         return f"I understand you're not feeling well. Based on **{last_symptom.replace('_', ' ')}**, do you also have **{suggest_str}**? If not, please describe any other feelings.", context
 
-                return "I didn't catch a specific symptom in that. Could you name the symptom directly? (e.g., 'Headache', 'Fever')", context
+                # If no symptoms yet and generic "unwell" input
+                unwell_keywords = ["not feeling good", "i am sick", "help me", "pain", "issue", "problem"]
+                if any(word in user_text for word in unwell_keywords):
+                    return "I'm here to help. To give you an accurate assessment, I need to know specific symptoms. Are you experiencing things like Fever, Body Pain, or a Cough?", context
+
+                return "I'm sorry, I didn't quite catch a specific symptom. Could you please name them directly? For example: 'I have a headache' or 'I feel nauseous'.", context
 
         # 3. GATHERING DETAILS (Smart Questioning)
         if context.get('state') == 'GATHERING_DETAILS':

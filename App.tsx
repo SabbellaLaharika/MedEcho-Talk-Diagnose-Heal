@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Appointment, MedicalReport, BlockedSlot, DaySchedule, TimeSlot, AppNotification } from './types';
 import { dbService } from './services/dbService';
@@ -11,6 +10,7 @@ import AIChatAssistant from './components/AIChatAssistant';
 import VirtualDoctor from './components/VirtualDoctor';
 import FloatingAIChat from './components/FloatingAIChat';
 import DoctorScheduleManager from './components/DoctorScheduleManager';
+import ProfilePage from './components/ProfilePage';
 import {
   UserIcon,
   BriefcaseIcon,
@@ -309,7 +309,7 @@ const App: React.FC = () => {
             }
           }} />}
           {activeTab === 'schedule' && <DoctorScheduleManager doctor={user} />}
-          {activeTab === 'reports' && <ReportsList reports={reports} />}
+          {activeTab === 'reports' && <ReportsList reports={reports} user={user} />}
           {activeTab === 'chat' && <AIChatAssistant onReportGenerated={(report) => setReports(prev => [report, ...prev])} />}
           {activeTab === 'virtual-doc' && <VirtualDoctor patientId={user.id} onSessionComplete={async (r) => {
             try {
@@ -319,6 +319,15 @@ const App: React.FC = () => {
             } catch (e) {
               console.error("Saving report failed:", e);
             }
+          }} />}
+          {activeTab === 'profile' && <ProfilePage user={user} onUpdate={async (u) => {
+             try {
+               const updated = await dbService.auth.updateUser(u);
+               setUser(updated);
+             } catch (e) {
+               console.error("Failed to update user:", e);
+               throw e;
+             }
           }} />}
         </div>
 

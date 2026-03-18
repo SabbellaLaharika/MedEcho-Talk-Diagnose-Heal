@@ -14,6 +14,7 @@ import {
 } from '@heroicons/react/24/solid';
 
 const LANGUAGES = [
+  { code: 'auto', name: 'Auto Detect', label: 'Auto Detect' },
   { code: 'en-US', name: 'English', label: 'English' },
   { code: 'hi-IN', name: 'Hindi', label: 'हिन्दी (Hindi)' },
   { code: 'te-IN', name: 'Telugu', label: 'తెలుగు (Telugu)' },
@@ -21,9 +22,9 @@ const LANGUAGES = [
   { code: 'bn-IN', name: 'Bengali', label: 'বাংলা (Bengali)' },
   { code: 'gu-IN', name: 'Gujarati', label: 'ગુજરાતી (Gujarati)' },
   { code: 'kn-IN', name: 'Kannada', label: 'ಕನ್ನಡ (Kannada)' },
-  { code: 'ml-IN', name: 'Malayalam', label: 'മലയാളం (Malayalam)' },
+  { code: 'ml-IN', name: 'Malayalam', label: 'മലയാളം (Malayalam)' },
   { code: 'pa-IN', name: 'Punjabi', label: 'ਪੰਜਾਬੀ (Punjabi)' },
-  { code: 'mr-IN', name: 'Marathi', label: 'మరాठी (Marathi)' },
+  { code: 'mr-IN', name: 'Marathi', label: 'मराठी (Marathi)' },
   { code: 'ur-IN', name: 'Urdu', label: 'اردو (Urdu)' }
 ];
 
@@ -40,7 +41,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [reportSaved, setReportSaved] = useState(false);
-  const [selectedLang, setSelectedLang] = useState('en-US');
+  const [selectedLang, setSelectedLang] = useState('auto');
   const [conversationContext, setConversationContext] = useState<any>({ state: 'GREETING' });
   
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -113,13 +114,24 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
         time: m.timestamp.toISOString()
       }));
 
+      // Extract vitals from conversation history
+      const fullText = messages.map(m => m.text).join(' ');
+      const vitals = {
+        bp: fullText.match(/(\d{2,3}\/\d{2,3})/)?.[1] || mlContext.history?.['bp'],
+        weight: fullText.match(/(\d{1,3})\s*(kg|kilograms|lbs)/i)?.[0] || mlContext.history?.['weight'],
+        temperature: fullText.match(/(\d{2,3}(\.\d)?)\s*(f|c|fahrenheit|celsius|degree)/i)?.[0] || mlContext.history?.['temperature']
+      };
+
       const reportPayload = {
         patientId: user.id,
         doctorId: null,
         diagnosis: mlContext.diagnosis || 'Clinical Consultation',
         confidenceScore: parseFloat(mlContext.confidence) || 85,
-        preventions: mlContext.precautions ? [mlContext.precautions] : ['Please consult a human doctor for confirmation.'],
-        summary: mlContext.history ? JSON.stringify(mlContext.history) : 'Intake completed via quick chat.',
+        preventions: mlContext.precautions ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : [mlContext.precautions]) : ['Please consult a human doctor for confirmation.'],
+        summary: mlContext.summary || 'Quick Chat Intake Record',
+        symptoms: mlContext.collected_symptoms || [],
+        history: mlContext.history || {},
+        vitals: vitals,
         chatTranscript: transcript
       };
 
@@ -135,9 +147,11 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
           date: new Date().toISOString().split('T')[0],
           diagnosis: mlContext.diagnosis || 'Consultation',
           summary: 'Report generated via quick chat assistant.',
-          prescription: mlContext.precautions ? [mlContext.precautions] : ['Standard precautions advised.'],
+          prescription: mlContext.precautions ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : [mlContext.precautions]) : ['Standard precautions advised.'],
           aiConfidence: parseFloat(mlContext.confidence) || 85,
-          vitals: {}
+          symptoms: mlContext.collected_symptoms || [],
+          history: mlContext.history || {},
+          vitals: vitals
         };
         onReportGenerated(report);
       }
@@ -188,6 +202,13 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
       
       setMessages(prev => [...prev, aiMsg]);
       setConversationContext(data.context);
+
+      // Auto-switch UI language if backend tells us something new (and we are in auto mode)
+      if (selectedLang === 'auto' && data.lang && data.lang !== 'en') {
+        const found = LANGUAGES.find(l => l.code.startsWith(data.lang));
+        if (found) setSelectedLang(found.code);
+      }
+
       setIsTyping(false);
 
       // Auto-speak response

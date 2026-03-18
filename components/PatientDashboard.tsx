@@ -163,6 +163,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
       {viewingReport && (
         <ReportDetailModal 
           report={viewingReport} 
+          user={user}
           onClose={() => setViewingReport(null)} 
         />
       )}

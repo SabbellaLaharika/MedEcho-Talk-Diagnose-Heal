@@ -8,7 +8,8 @@ import {
   ArrowLeftOnRectangleIcon,
   ClockIcon,
   AcademicCapIcon,
-  XMarkIcon
+  XMarkIcon,
+  UserCircleIcon
 } from '@heroicons/react/24/outline';
 import { UserRole } from '../types';
 
@@ -27,6 +28,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, ro
     { id: 'reports', name: 'Medical Files', icon: ClipboardDocumentListIcon },
     { id: 'chat', name: 'Chat Support', icon: ChatBubbleBottomCenterTextIcon },
     { id: 'virtual-doc', name: 'Virtual Doctor', icon: MicrophoneIcon },
+    { id: 'profile', name: 'My Profile', icon: UserCircleIcon },
   ];
 
   const doctorItems = [

@@ -35,6 +35,10 @@ export interface User {
   workingHours?: string; // Legacy field
   daySchedules?: DaySchedule[];
   blockedSlots?: BlockedSlot[];
+  gender?: string;
+  dob?: string;
+  bloodGroup?: string;
+  address?: string;
 }
 
 export interface Appointment {
@@ -52,7 +56,7 @@ export interface Appointment {
 export interface MedicalReport {
   id: string;
   patientId: string;
-  doctorId: string | null; // Can be null for AI-generated reports
+  doctorId: string | null;
   date: string;
   doctorName: string;
   summary: string;
@@ -60,6 +64,8 @@ export interface MedicalReport {
   prescription: string[];
   aiConfidence?: number;
   inputLanguage?: string;
+  symptoms?: string[];
+  history?: Record<string, string>;
   vitals?: {
     bp?: string;
     weight?: string;

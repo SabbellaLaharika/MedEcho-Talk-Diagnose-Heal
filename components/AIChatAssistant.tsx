@@ -13,6 +13,7 @@ import {
 } from '@heroicons/react/24/solid';
 
 const LANGUAGES = [
+  { code: 'auto', name: 'Auto Detect', label: 'Auto Detect' },
   { code: 'en-US', name: 'English', label: 'English' },
   { code: 'hi-IN', name: 'Hindi', label: 'हिन्दी (Hindi)' },
   { code: 'te-IN', name: 'Telugu', label: 'తెలుగు (Telugu)' },
@@ -40,7 +41,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [reportSaved, setReportSaved] = useState(false);
-  const [selectedLang, setSelectedLang] = useState('en-US');
+  const [selectedLang, setSelectedLang] = useState('auto');
   const [conversationContext, setConversationContext] = useState<any>({ state: 'GREETING' });
   const scrollRef = useRef<HTMLDivElement>(null);
   const user = dbService.auth.getCurrentUser();
@@ -178,6 +179,13 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       
       setMessages(prev => [...prev, aiMsg]);
       setConversationContext(data.context);
+      
+      // Auto-switch UI language if backend tells us something new (and we are in auto mode)
+      if (selectedLang === 'auto' && data.lang && data.lang !== 'en') {
+        const found = LANGUAGES.find(l => l.code.startsWith(data.lang));
+        if (found) setSelectedLang(found.code);
+      }
+      
       setIsTyping(false);
       
       // Auto-speak response in the detected/target language
@@ -205,20 +213,30 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
     
     setIsTyping(true);
     try {
-      // Build transcript for the record
       const transcript = messages.map(m => ({
         role: m.sender,
         content: m.text,
         time: m.timestamp.toISOString()
       }));
 
+      // Extract vitals from conversation history
+      const fullText = messages.map(m => m.text).join(' ');
+      const vitals = {
+        bp: fullText.match(/(\d{2,3}\/\d{2,3})/)?.[1] || mlContext.history?.['bp'],
+        weight: fullText.match(/(\d{1,3})\s*(kg|kilograms|lbs)/i)?.[0] || mlContext.history?.['weight'],
+        temperature: fullText.match(/(\d{2,3}(\.\d)?)\s*(f|c|fahrenheit|celsius|degree)/i)?.[0] || mlContext.history?.['temperature']
+      };
+
       const reportPayload = {
         patientId: user.id,
         doctorId: null,
         diagnosis: mlContext.diagnosis || 'Clinical Consultation',
         confidenceScore: parseFloat(mlContext.confidence) || 85,
-        preventions: mlContext.precautions ? [mlContext.precautions] : ['Please consult a human doctor for confirmation.'],
-        summary: mlContext.history ? JSON.stringify(mlContext.history) : 'Intake completed via AI assistant.',
+        preventions: mlContext.precautions ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : [mlContext.precautions]) : ['Please consult a human doctor for confirmation.'],
+        summary: mlContext.summary || 'AI Medical Intake Record',
+        symptoms: mlContext.collected_symptoms || [],
+        history: mlContext.history || {},
+        vitals: vitals,
         chatTranscript: transcript
       };
 
@@ -236,7 +254,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
           summary: 'Intake completed. Symptoms: ' + (mlContext.collected_symptoms?.join(', ') || 'N/A'),
           prescription: mlContext.precautions ? [mlContext.precautions] : ['Standard care advised.'],
           aiConfidence: parseFloat(mlContext.confidence) || 85,
-          vitals: {}
+          vitals: vitals
         };
         onReportGenerated(report);
       }
