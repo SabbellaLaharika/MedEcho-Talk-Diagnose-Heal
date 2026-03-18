@@ -89,7 +89,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
                       <VideoCameraIcon className="w-6 h-6 sm:w-8 sm:h-8" />
                     </div>
                     <div>
-                      <p className="font-black text-sm sm:text-lg">{doctorDisplayName}</p>
+                      <p className="font-black text-sm sm:text-lg">
+                        <TranslatedText text={doctorDisplayName} targetLang={user.preferredLanguage} />
+                      </p>
                       <p className="text-[10px] sm:text-xs text-white/40 font-bold uppercase tracking-widest">{dateStr} • {apt.time || 'TBD'}</p>
                     </div>
                   </div>
@@ -155,7 +157,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
                <div className="w-full h-full flex items-center justify-center text-[10px] text-white font-black uppercase opacity-20">Preview</div>
             </div>
             <div className="absolute top-6 left-6 sm:top-10 sm:left-10 text-white space-y-1 sm:space-y-2">
-              <h4 className="text-xl sm:text-4xl font-black uppercase tracking-tight truncate max-w-[200px] sm:max-w-none">{activeCall}</h4>
+              <h4 className="text-xl sm:text-4xl font-black uppercase tracking-tight truncate max-w-[200px] sm:max-w-none">
+                <TranslatedText text={activeCall} targetLang={user.preferredLanguage} />
+              </h4>
               <p className="text-[10px] sm:text-sm font-bold bg-blue-600/50 px-3 py-1 rounded-lg w-fit uppercase tracking-widest">Clinical Session • Live</p>
             </div>
             <div className="absolute bottom-8 sm:bottom-12 inset-x-0 flex justify-center space-x-6 sm:space-x-8 px-6">
