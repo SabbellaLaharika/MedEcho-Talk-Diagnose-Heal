@@ -23,10 +23,17 @@ interface PatientDashboardProps {
 
 const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments, reports }) => {
   const t = getTranslation(user.preferredLanguage);
-  const [activeCall, setActiveCall] = useState<string | null>(null);
   const [viewingReport, setViewingReport] = useState<MedicalReport | null>(null);
   const upcoming = appointments.filter(a => a.status === 'PENDING').slice(0, 2);
   const latestReport = reports[0];
+
+  const dialDoctor = (apt: Appointment) => {
+    const phone = apt.doctorContact || apt.doctor?.contact || '6300292724';
+    const cleaned = phone.replace(/[^\d+]/g, '');
+    if (cleaned.length > 0) {
+      window.location.href = `tel:${cleaned}`;
+    }
+  };
 
   return (
     <div className="p-4 sm:p-10 space-y-8 sm:space-y-12 animate-in fade-in duration-700">
@@ -95,7 +102,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
                     </div>
                   </div>
                   <button 
-                    onClick={() => setActiveCall(doctorDisplayName)}
+                    onClick={() => dialDoctor(apt)}
                     className="p-3.5 sm:p-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl sm:rounded-2xl shadow-lg transition-transform active:scale-95"
                   >
                     <PhoneIcon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -142,34 +149,6 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
         <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-6 px-2">{t.findNearbyCare}</h3>
         <HospitalLocator user={user} />
       </div>
-
-      {/* Video Modal */}
-      {activeCall && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-xl flex items-center justify-center p-4 sm:p-10 animate-in fade-in duration-500">
-          <div className="relative w-full h-full max-w-5xl bg-black rounded-[2rem] sm:rounded-[4rem] shadow-2xl overflow-hidden border-[8px] sm:border-[16px] border-slate-800">
-            <img 
-              src={`https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=1200&auto=format&fit=crop`} 
-              className="w-full h-full object-cover opacity-60" 
-              alt="Consultation" 
-            />
-            <div className="absolute top-6 right-6 sm:top-10 sm:right-10 w-24 sm:w-48 aspect-video bg-slate-800 rounded-xl border-2 sm:border-4 border-white shadow-2xl overflow-hidden">
-               <div className="w-full h-full flex items-center justify-center text-[10px] text-white font-black uppercase opacity-20">Preview</div>
-            </div>
-            <div className="absolute top-6 left-6 sm:top-10 sm:left-10 text-white space-y-1 sm:space-y-2">
-              <h4 className="text-xl sm:text-4xl font-black uppercase tracking-tight truncate max-w-[200px] sm:max-w-none">
-                {activeCall}
-              </h4>
-              <p className="text-[10px] sm:text-sm font-bold bg-blue-600/50 px-3 py-1 rounded-lg w-fit uppercase tracking-widest">Clinical Session • Live</p>
-            </div>
-            <div className="absolute bottom-8 sm:bottom-12 inset-x-0 flex justify-center space-x-6 sm:space-x-8 px-6">
-               <button onClick={() => setActiveCall(null)} className="flex-1 sm:flex-none p-5 sm:p-8 bg-rose-600 text-white rounded-full sm:rounded-[2.5rem] shadow-2xl flex items-center justify-center space-x-3 sm:px-14 active:scale-95 transition-transform">
-                 <XMarkIcon className="w-6 h-6 sm:w-8 sm:h-8" />
-                 <span className="hidden sm:inline font-black uppercase tracking-widest text-sm">Disconnect</span>
-               </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Report Modal */}
       {viewingReport && (

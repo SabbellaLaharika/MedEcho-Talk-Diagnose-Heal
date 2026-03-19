@@ -37,7 +37,7 @@ export const createAppointment = async (req: Request, res: Response) => {
                 status: 'PENDING'
             },
             include: {
-                doctor: { select: { name: true, specialization: true } },
+                doctor: { select: { name: true, specialization: true, contact: true } },
                 patient: { select: { name: true } }
             }
         });
@@ -71,7 +71,7 @@ export const getAppointments = async (req: Request, res: Response) => {
         const appointments = await prisma.appointment.findMany({
             where: whereClause,
             include: {
-                doctor: { select: { name: true, specialization: true } },
+                doctor: { select: { name: true, specialization: true, contact: true } },
                 patient: { select: { name: true } }
             },
             orderBy: { date: 'desc' }

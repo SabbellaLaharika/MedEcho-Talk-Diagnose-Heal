@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { io, Socket } from 'socket.io-client';
 import { User, Appointment, MedicalReport } from '../types';
 import AIChatAssistant from './AIChatAssistant';
 import ReportDetailModal from './ReportDetailModal';
@@ -43,6 +44,65 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 
   const doctorAppointments = appointments.filter(a => a.doctorId === doctor.id);
   const pendingApts = doctorAppointments.filter(a => a.status === 'PENDING');
+  const [callState, setCallState] = useState<'idle' | 'incoming' | 'in_call'>('idle');
+  const [activeCall, setActiveCall] = useState<string | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    const socket = io('http://localhost:5000');
+    socketRef.current = socket;
+    socket.emit('join', { userId: doctor.id, role: 'DOCTOR' });
+
+    socket.on('offer', async (payload: any) => {
+      if (payload.to !== doctor.id) return;
+      setActiveCall(`Call from ${payload.from}`);
+      setCallState('incoming');
+
+      pcRef.current = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      pcRef.current.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('ice_candidate', { callId: payload.callId, from: doctor.id, to: payload.from, toRole: 'PATIENT', candidate: event.candidate });
+        }
+      };
+      pcRef.current.ontrack = (event) => {
+        remoteStreamRef.current = event.streams[0];
+        setCallState('in_call');
+      };
+
+      const localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      localStreamRef.current = localStream;
+      localStream.getTracks().forEach(track => pcRef.current?.addTrack(track, localStream));
+
+      await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+      const answer = await pcRef.current.createAnswer();
+      await pcRef.current.setLocalDescription(answer);
+      socket.emit('answer', { callId: payload.callId, from: doctor.id, to: payload.from, sdp: answer });
+      setCallState('in_call');
+    });
+
+    socket.on('ice_candidate', async (payload: any) => {
+      if (payload.to !== doctor.id) return;
+      await pcRef.current?.addIceCandidate(payload.candidate);
+    });
+
+    socket.on('end_call', () => {
+      setCallState('idle');
+      setActiveCall(null);
+      pcRef.current?.close();
+      pcRef.current = null;
+      localStreamRef.current?.getTracks().forEach(t => t.stop());
+      remoteStreamRef.current?.getTracks().forEach(t => t.stop());
+      localStreamRef.current = null;
+      remoteStreamRef.current = null;
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [doctor.id]);
   
   const stats = [
     { label: t.pendingVisits, value: pendingApts.length.toString(), icon: ClockIcon, color: 'bg-indigo-500' },
@@ -50,8 +110,12 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
     { label: t.finished, value: doctorAppointments.filter(a => a.status === 'COMPLETED').length.toString(), icon: CheckCircleIcon, color: 'bg-emerald-500' },
   ];
 
-  const handleStartCall = (patientName: string) => {
-    alert(`[SECURE LINE] Initiating clinical consultation with ${patientName}...`);
+  const handleStartCall = (patientName: string, patientId: string) => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    setActiveCall(`Calling ${patientName}`);
+    setCallState('calling');
+    socket.emit('start_call', { callId: patientId, from: doctor.id, to: patientId, fromName: doctor.name, toRole: 'PATIENT' });
   };
 
   const toggleAvailability = (isAvailable: boolean) => {
@@ -153,7 +217,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                 </div>
                 <div className="flex space-x-2 w-full sm:w-auto">
                   <button 
-                    onClick={() => handleStartCall(apt.patientName || apt.patient?.name || 'Patient')}
+                    onClick={() => handleStartCall(apt.patientName || apt.patient?.name || 'Patient', apt.patientId || '')}
                     className="flex-1 sm:flex-none p-3.5 bg-indigo-600 text-white rounded-xl shadow-md"
                   >
                     <VideoCameraIcon className="w-5 h-5 mx-auto" />
@@ -232,6 +296,22 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           <AIChatAssistant isModal />
         </div>
       </div>
+
+      {/* Call Modal */}
+      {(callState !== 'idle') && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white p-5 rounded-2xl shadow-xl w-full max-w-md">
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <h3 className="font-black text-slate-900">{activeCall || 'Live Call'}</h3>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500">{callState === 'incoming' ? 'Incoming call...' : callState === 'in_call' ? 'In call' : 'Calling...'}</p>
+              </div>
+              <button onClick={() => { setCallState('idle'); setActiveCall(null); pcRef.current?.close(); }} className="text-rose-500 text-sm font-black">End</button>
+            </div>
+            <div className="text-[10px] text-slate-500">This demo uses WebRTC signaling. Audio should connect once remote peer answers.</div>
+          </div>
+        </div>
+      )}
 
       {/* Detail Modal */}
       {selectedReport && (

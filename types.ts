@@ -51,6 +51,17 @@ export interface Appointment {
   time: string;
   status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
   type: 'VIRTUAL' | 'IN-PERSON';
+  doctorContact?: string;
+  doctor?: {
+    id?: string;
+    name?: string;
+    contact?: string;
+    specialization?: string;
+  };
+  patient?: {
+    id?: string;
+    name?: string;
+  };
 }
 
 export interface MedicalReport {

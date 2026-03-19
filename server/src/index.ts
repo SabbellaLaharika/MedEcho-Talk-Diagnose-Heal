@@ -2,19 +2,19 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
-// import { Server } from 'socket.io'; // Commented out until Phase 2
-// import http from 'http';
+import { Server } from 'socket.io';
+import http from 'http';
 
 dotenv.config();
 
 const app = express();
-// const server = http.createServer(app);
-// const io = new Server(server, {
-//   cors: {
-//     origin: "*", // Allow all origins for dev
-//     methods: ["GET", "POST"]
-//   }
-// });
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -45,14 +45,48 @@ app.use('/api/ml', mlRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/translations', translationRoutes);
 
-// Socket.io Connection (Placeholder for Phase 2)
-// io.on('connection', (socket) => {
-//   console.log('A user connected:', socket.id);
-//   socket.on('disconnect', () => {
-//     console.log('User disconnected:', socket.id);
-//   });
-// });
+// Socket.io Connection
+io.on('connection', (socket) => {
+    console.log('Socket connected:', socket.id);
 
-app.listen(PORT, () => {
+    socket.on('join', (payload: { userId: string, role: 'PATIENT'|'DOCTOR' }) => {
+        if (payload?.role && payload?.userId) {
+            const room = `${payload.role}:${payload.userId}`;
+            socket.join(room);
+            console.log(`Socket ${socket.id} joined ${room}`);
+        }
+    });
+
+    socket.on('start_call', (payload: { callId: string, from: string, to: string, fromName: string, toRole: 'DOCTOR'|'PATIENT' }) => {
+        const room = `DOCTOR:${payload.to}`;
+        io.to(room).emit('incoming_call', payload);
+    });
+
+    socket.on('offer', (payload: { callId: string, from: string, to: string, sdp: any }) => {
+        const room = `DOCTOR:${payload.to}`;
+        io.to(room).emit('offer', payload);
+    });
+
+    socket.on('answer', (payload: { callId: string, from: string, to: string, sdp: any }) => {
+        const room = `PATIENT:${payload.to}`;
+        io.to(room).emit('answer', payload);
+    });
+
+    socket.on('ice_candidate', (payload: { callId: string, from: string, to: string, candidate: any, toRole: 'DOCTOR'|'PATIENT' }) => {
+        const room = `${payload.toRole}:${payload.to}`;
+        io.to(room).emit('ice_candidate', payload);
+    });
+
+    socket.on('end_call', (payload: { callId: string, from: string, to: string, toRole: 'DOCTOR'|'PATIENT' }) => {
+        const room = `${payload.toRole}:${payload.to}`;
+        io.to(room).emit('end_call', payload);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Socket disconnected:', socket.id);
+    });
+});
+
+server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
