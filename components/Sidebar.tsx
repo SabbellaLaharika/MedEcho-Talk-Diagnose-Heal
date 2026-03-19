@@ -78,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, ro
             }`}
           >
             <item.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${activeTab === item.id ? 'scale-110' : ''}`} />
-            <span className="font-black text-[11px] sm:text-sm uppercase tracking-wider">{item.name}</span>
+            <span className="font-black text-[11px] sm:text-[13px] uppercase whitespace-nowrap overflow-hidden">{item.name}</span>
           </button>
         ))}
       </nav>
