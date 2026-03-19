@@ -74,7 +74,15 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
           return indexA - indexB;
         });
 
-        setDoctors(sortedDoctors);
+        const uniqueDoctorMap = new Map<string, User>();
+        for (const doc of sortedDoctors) {
+          const key = (doc.name || '').trim().toLowerCase();
+          if (!uniqueDoctorMap.has(key)) {
+            uniqueDoctorMap.set(key, doc);
+          }
+        }
+
+        setDoctors(Array.from(uniqueDoctorMap.values()));
         setAllAppointments(apts || []);
       } catch (err) {
         console.error("Failed to load booking data:", err);
@@ -91,12 +99,13 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
         const [schedRes, blockedRes] = await Promise.all([
           api.get(`/schedules/${selectedDoc.id}`),
           api.get(`/schedules/${selectedDoc.id}/blocked`)
-        ]).catch(() => ({ data: [] })); // Fallback
-        
+        ]);
         setDoctorSchedule(schedRes?.data || []);
         setBlockedSlots(blockedRes?.data || []);
       } catch (err) {
-        console.error("Failed to fetch doctor schedule:", err);
+        console.warn("Schedule fetch failed, defaulting to no slots:", err);
+        setDoctorSchedule([]);
+        setBlockedSlots([]);
       }
     };
     fetchSchedule();
