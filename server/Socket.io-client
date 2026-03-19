@@ -1,0 +1,26 @@
+// server.js (Node.js + Socket.io)
+const io = require("socket.io")(5000, { cors: { origin: "*" } });
+
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+
+  // User "Logs in" to signaling with their DB ID
+  socket.on("join-session", (userId) => {
+    socket.join(userId); 
+  });
+
+  // Relay Offer to Doctor
+  socket.on("call-user", ({ to, offer, from, doctorName }) => {
+    io.to(to).emit("incoming-call", { from, offer, doctorName });
+  });
+
+  // Relay Answer to Patient
+  socket.on("make-answer", ({ to, answer }) => {
+    io.to(to).emit("call-answered", { answer });
+  });
+
+  // Exchange Network Info
+  socket.on("ice-candidate", ({ to, candidate }) => {
+    io.to(to).emit("ice-candidate", { candidate });
+  });
+});

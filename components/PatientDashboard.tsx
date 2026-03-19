@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User, Appointment, MedicalReport } from '../types';
 import HospitalLocator from './HospitalLocator';

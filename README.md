@@ -18,10 +18,7 @@ The ML Service handles the "Talk" part of the ecosystem using FastAPI.
 cd ml_service
 # pip install -r requirements.txt
 python -m pip install -r requirements.txt
-<<<<<<< HEAD
-=======
 pip install -r requirements.txt
->>>>>>> 3196f8a1728df2c3dfbe7bf7b822066379870ff6
 python main.py
 ```
 *Runs on `http://localhost:8000`*
