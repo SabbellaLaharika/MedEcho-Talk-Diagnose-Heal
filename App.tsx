@@ -11,7 +11,7 @@ import VirtualDoctor from './components/VirtualDoctor';
 import FloatingAIChat from './components/FloatingAIChat';
 import DoctorScheduleManager from './components/DoctorScheduleManager';
 import ProfilePage from './components/ProfilePage';
-import { getTranslation } from './services/translations';
+import { getTranslation, loadTranslations, subscribeToTranslations } from './services/translations';
 import {
   UserIcon,
   BriefcaseIcon,
@@ -42,6 +42,7 @@ const App: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
+  const [, setTick] = useState(0); // For forcing re-render on translation load
 
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [authRole, setAuthRole] = useState<'PATIENT' | 'DOCTOR'>('PATIENT');
@@ -82,12 +83,22 @@ const App: React.FC = () => {
   useEffect(() => {
     dbService.init();
     const currentUser = dbService.auth.getCurrentUser();
-    if (currentUser) setUser(currentUser);
+    if (currentUser) {
+      setUser(currentUser);
+      loadTranslations(currentUser.preferredLanguage);
+    } else {
+      loadTranslations('en');
+    }
     setLoading(false);
+
+    // Subscribe to translation updates to re-render UI
+    const unsubscribe = subscribeToTranslations(() => setTick(t => t + 1));
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
     if (user) {
+      loadTranslations(user.preferredLanguage);
       const fetchData = async () => {
         const [apts, reps] = await Promise.all([
           dbService.appointments.getAll(),
@@ -276,10 +287,17 @@ const App: React.FC = () => {
                 <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-rose-600 rounded-full border-2 border-white"></span>
               )}
             </button>
-            <div className="hidden sm:flex items-center space-x-3 bg-slate-50 p-1.5 pr-4 rounded-2xl border border-slate-100">
-              <img src={user.avatar} className="w-8 h-8 rounded-xl object-cover" alt={user.name} />
+            <button 
+              onClick={() => setActiveTab('profile')}
+              className="hidden sm:flex items-center space-x-3 bg-slate-50 p-1.5 pr-4 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-all active:scale-95"
+            >
+              <img 
+                src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=f1f5f9&color=64748b`} 
+                className="w-8 h-8 rounded-xl object-cover" 
+                alt={user.name} 
+              />
               <span className="text-[10px] font-black uppercase text-slate-700 truncate max-w-[100px]">{user.name}</span>
-            </div>
+            </button>
           </div>
         </header>
 

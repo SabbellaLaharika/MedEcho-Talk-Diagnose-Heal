@@ -1,13 +1,9 @@
 
-import api from './api';
+import { Request, Response } from 'express';
+import { translationService } from '../services/translationService';
 
-export type SupportedLanguage = 'en' | 'hi' | 'te' | 'ta' | 'mr' | 'bn' | 'kn' | 'ml' | 'gu' | 'pa';
-
-/**
- * Hardcoded English fallback dictionary.
- * COMPLETE SYNC with Backend MASTER_DICTIONARY
- */
-const FALLBACK_PACK: Record<string, string> = {
+// Master Dictionary (English) - The source of truth for all UI labels
+const MASTER_DICTIONARY: Record<string, string> = {
   // Sidebar/Nav
   dashboard: 'Dashboard',
   bookVisit: 'Book Appointment',
@@ -141,6 +137,17 @@ const FALLBACK_PACK: Record<string, string> = {
   duration: 'Duration',
   gastric: 'Gastric',
   
+  // Common History Values
+  good: 'Good',
+  regular: 'Regular',
+  poor: 'Poor',
+  bad: 'Bad',
+  yes: 'Yes',
+  no: 'No',
+  aWeek: 'A Week',
+  fewDays: 'A Few Days',
+  months: 'Months',
+  
   // Virtual Clinic
   virtualClinic: 'Virtual Clinic',
   talkToAI: 'Talk to our AI specialist instantly.',
@@ -154,17 +161,6 @@ const FALLBACK_PACK: Record<string, string> = {
   openMaps: 'Open in Google Maps',
   allowLocation: 'Allow location to see the best hospitals near you.',
 
-  // Common History Values
-  good: 'Good',
-  regular: 'Regular',
-  poor: 'Poor',
-  bad: 'Bad',
-  yes: 'Yes',
-  no: 'No',
-  aWeek: 'A Week',
-  fewDays: 'A Few Days',
-  months: 'Months',
-
   // Report Viewer
   docViewer: 'Clinical Document Viewer',
   printPdf: 'Print / Save PDF',
@@ -172,103 +168,47 @@ const FALLBACK_PACK: Record<string, string> = {
   previewPrint: 'Preview & Print',
 };
 
-// In-memory store for the current language pack
-let currentPack: Record<string, string> = { ...FALLBACK_PACK };
-let currentLang: string = 'en';
-let loadingLang: string | null = null;
-
-// Observers to notify when translations are updated
-const observers: Set<() => void> = new Set();
-
-export const subscribeToTranslations = (cb: () => void) => {
-  observers.add(cb);
-  return () => observers.delete(cb);
+// In-memory cache to prevent redundant ML service calls
+const translationCache: Record<string, Record<string, string>> = {
+  en: MASTER_DICTIONARY
 };
 
-const notifyObservers = () => observers.forEach(cb => cb());
-
-/**
- * Loads a language pack from the backend and caches it.
- */
-export const loadTranslations = async (lang: string = 'en') => {
-  const code = (lang || 'en').toLowerCase().slice(0, 2);
-  
-  // Avoid redundant loads
-  if (currentLang === code || loadingLang === code) return currentPack;
-  
+export const getTranslationPack = async (req: Request, res: Response) => {
   try {
-    loadingLang = code;
+    const { lang } = req.params;
     
-    // 1. Check Local Storage
-    const cached = localStorage.getItem(`med_echo_lang_${code}`);
-    if (cached) {
-      currentPack = { ...FALLBACK_PACK, ...JSON.parse(cached) };
-      currentLang = code;
-      notifyObservers();
+    // 1. Return from cache if exists
+    if (translationCache[lang]) {
+      console.log(`[Cache Hit] Serving ${lang} UI Pack`);
+      return res.json(translationCache[lang]);
     }
 
-    // 2. Fetch Fresh from Backend
-    const response = await api.get(`/translations/${code}`);
-    const freshPack = response.data;
+    console.log(`[Cache Miss] Generating ${lang} UI Pack via ML Service...`);
     
-    // 3. Update memory + local storage
-    currentPack = { ...FALLBACK_PACK, ...freshPack };
-    currentLang = code;
-    localStorage.setItem(`med_echo_lang_${code}`, JSON.stringify(freshPack));
+    // 2. Translate Master Dictionary to target language
+    // We do this in one batch to be efficient
+    const keys = Object.keys(MASTER_DICTIONARY);
+    const values = Object.values(MASTER_DICTIONARY);
     
-    notifyObservers();
-    return currentPack;
-  } catch (err) {
-    console.error("Translation load failed:", err);
-    return currentPack;
-  } finally {
-    loadingLang = null;
+    // Use the array translation utility
+    const translatedValues = await translationService.translateArray(
+        values.map(v => ({ text: v })), 
+        ['text'], 
+        lang
+    );
+
+    const translatedPack: Record<string, string> = {};
+    keys.forEach((key, index) => {
+      translatedPack[key] = (translatedValues[index] as any).text;
+    });
+
+    // 3. Cache the result
+    translationCache[lang] = translatedPack;
+
+    res.json(translatedPack);
+  } catch (error: any) {
+    console.error("Failed to generate translation pack:", error);
+    // Fallback to English if translation fails
+    res.json(MASTER_DICTIONARY);
   }
-};
-
-/**
- * Synchronous getter for translations.
- * NO SIDE EFFECTS here to prevent infinite re-render loops.
- */
-export const getTranslation = (lang: string = 'en') => {
-  // We don't trigger loadTranslations here anymore to prevent infinite loops.
-  // App.tsx or useTranslations hook should trigger the load.
-
-  return new Proxy(currentPack, {
-    get: (target, key: string) => {
-      if (typeof key !== 'string') return target[key as any];
-      return target[key] || FALLBACK_PACK[key] || key;
-    }
-  }) as any;
-};
-
-/**
- * Clinical formatting logic
- */
-export const translateClinical = (text: string = '', lang: string = 'en') => {
-  if (!text) return '';
-  const t = getTranslation(lang);
-  const normalized = text.toLowerCase().trim();
-  
-  if (normalized.includes('cardiol')) return t.cardiology;
-  if (normalized.includes('neur')) return t.neurology;
-  if (normalized.includes('ortho')) return t.orthopedics;
-  if (normalized.includes('pedia')) return t.pediatrics;
-  if (normalized.includes('general') || normalized.includes('medicine')) return t.generalMedicine;
-  if (normalized.includes('urol')) return t.urology;
-
-  if (normalized === 'sleep') return t.sleep;
-  if (normalized === 'appetite') return t.appetite;
-  if (normalized === 'duration') return t.duration;
-  if (normalized === 'gastric') return t.gastric;
-  
-  if (normalized === 'good') return t.good || 'Good';
-  if (normalized === 'poor' || normalized === 'bad') return t.poor || 'Poor';
-  if (normalized === 'regular') return t.regular || 'Regular';
-  if (normalized === 'yes') return t.yes || 'Yes';
-  if (normalized === 'no') return t.no || 'No';
-  if (normalized === 'a week') return t.aWeek || 'A Week';
-  if (normalized.includes('few days')) return t.fewDays || 'A Few Days';
-  
-  return text; 
 };

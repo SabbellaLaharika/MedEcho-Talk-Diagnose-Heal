@@ -162,7 +162,9 @@ export const dbService = {
 
   users: {
     getDoctors: async (): Promise<User[]> => {
-      const { data } = await api.get('/users/doctors/list');
+      const user = dbService.auth.getCurrentUser();
+      const lang = user?.preferredLanguage || 'en';
+      const { data } = await api.get(`/users/doctors/list?lang=${lang}`);
       return data;
     }
   }

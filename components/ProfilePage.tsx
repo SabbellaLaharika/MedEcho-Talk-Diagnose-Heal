@@ -8,8 +8,10 @@ import {
   InformationCircleIcon,
   PhoneIcon,
   EnvelopeIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  CameraIcon
 } from '@heroicons/react/24/outline';
+import { useRef } from 'react';
 
 interface ProfilePageProps {
   user: User;
@@ -32,6 +34,19 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
     avatar: user.avatar || '',
     preferredLanguage: user.preferredLanguage || 'en'
   });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, avatar: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,12 +72,29 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div className="flex items-center space-x-6">
           <div className="relative group">
-            <div className="w-24 h-24 rounded-[2.5rem] bg-gradient-to-tr from-blue-600 to-indigo-600 p-1 shadow-2xl overflow-hidden transform group-hover:rotate-6 transition-transform">
-               <img src={formData.avatar || `https://ui-avatars.com/api/?name=${formData.name}&background=random`} alt="Profile" className="w-full h-full object-cover rounded-[2.3rem] bg-white" />
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleImageChange} 
+              className="hidden" 
+              accept="image/*"
+            />
+            <div 
+              onClick={() => isEditing && fileInputRef.current?.click()}
+              className={`w-24 h-24 rounded-[2.5rem] bg-gradient-to-tr from-blue-600 to-indigo-600 p-1 shadow-2xl overflow-hidden transition-all ${isEditing ? 'cursor-pointer hover:rotate-6 scale-105 ring-4 ring-blue-100' : ''}`}
+            >
+               <img 
+                src={formData.avatar || `https://ui-avatars.com/api/?name=${formData.name}&background=f1f5f9&color=64748b`} 
+                alt="Profile" 
+                className="w-full h-full object-cover rounded-[2.3rem] bg-white" 
+               />
             </div>
             {isEditing && (
-               <div className="absolute -bottom-2 -right-2 bg-white p-2 rounded-xl shadow-lg border border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors">
-                  <UserCircleIcon className="w-5 h-5 text-blue-600" />
+               <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-2 -right-2 bg-white p-2 rounded-xl shadow-lg border border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors group/cam"
+               >
+                  <CameraIcon className="w-5 h-5 text-blue-600 group-hover/cam:scale-110 transition-transform" />
                </div>
             )}
           </div>
@@ -77,13 +109,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
             onClick={() => setIsEditing(true)}
             className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
           >
-            Edit Personal Profile
+            {t.editProfile}
           </button>
         ) : (
           <div className="flex space-x-3">
-             <button onClick={() => setIsEditing(false)} className="px-6 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-200 transition-all">Cancel</button>
+             <button onClick={() => setIsEditing(false)} className="px-6 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-200 transition-all">{t.cancel}</button>
              <button onClick={handleSubmit} disabled={saving} className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-200">
-               {saving ? 'Synchronizing...' : 'Save Changes'}
+               {saving ? t.syncInProgress : t.saveChanges}
              </button>
           </div>
         )}
@@ -95,8 +127,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
               <CheckCircleIcon className="w-5 h-5" />
            </div>
            <div>
-              <p className="text-xs font-black text-emerald-800 uppercase tracking-widest">Update Successful</p>
-              <p className="text-[10px] font-bold text-emerald-600 opacity-70">Your medical records and profile have been synchronized with the cloud core.</p>
+              <p className="text-xs font-black text-emerald-800 uppercase tracking-widest">{t.updateSuccess}</p>
+              <p className="text-[10px] font-bold text-emerald-600 opacity-70">{t.profileSyncDesc}</p>
            </div>
         </div>
       )}
@@ -132,7 +164,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
                      onChange={e => setFormData({...formData, bloodGroup: e.target.value})}
                      className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl py-4 px-6 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all disabled:opacity-50 appearance-none"
                   >
-                     <option value="">Select Group</option>
+                     <option value="">{t.selectBloodGroup}</option>
                      {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(g => <option key={g} value={g}>{g}</option>)}
                   </select>
                </div>
@@ -145,8 +177,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
                      onChange={e => setFormData({...formData, gender: e.target.value})}
                      className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl py-4 px-6 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all disabled:opacity-50 appearance-none"
                   >
-                     <option value="">Select Gender</option>
-                     {['Male', 'Female', 'Non-binary', 'Prefer not to say'].map(g => <option key={g} value={g}>{g}</option>)}
+                     <option value="">{t.selectGender}</option>
+                     <option value="Male">{t.male}</option>
+                     <option value="Female">{t.female}</option>
+                     <option value="Non-binary">{t.nonBinary}</option>
+                     <option value="Prefer not to say">{t.preferNotToSay}</option>
                   </select>
                </div>
 
@@ -247,7 +282,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,1)]"></div>
                    <span className="text-sm font-black uppercase tracking-widest">{t.systemAuthenticated}</span>
                  </div>
-                 <p className="text-xs text-white/40 leading-relaxed font-medium">Your biometric and clinical data is encrypted using AES-256 protocols.</p>
+                 <p className="text-xs text-white/40 leading-relaxed font-medium">{t.securityDesc}</p>
                  <button className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 mt-6">
                     {t.changePassword}
                  </button>
@@ -259,11 +294,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
               <div className="space-y-8">
                  <div>
                     <p className="text-xs font-black uppercase opacity-60 mb-2">{t.totalDiagnoses}</p>
-                    <p className="text-4xl font-black italic">14<span className="text-sm not-italic opacity-40 ml-2">Total</span></p>
+                    <p className="text-4xl font-black italic">14<span className="text-sm not-italic opacity-40 ml-2">{t.totalCaps}</span></p>
                  </div>
                  <div>
                     <p className="text-xs font-black uppercase opacity-60 mb-2">{t.clinicLoyalty}</p>
-                    <p className="text-4xl font-black italic">Gold<span className="text-sm not-italic opacity-40 ml-2">Member</span></p>
+                    <p className="text-4xl font-black italic">Gold<span className="text-sm not-italic opacity-40 ml-2">{t.memberCaps}</span></p>
                  </div>
               </div>
            </div>

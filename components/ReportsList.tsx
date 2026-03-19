@@ -12,7 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { HeartIcon, ChartBarIcon as ChartBarSolidIcon } from '@heroicons/react/24/solid';
 import ClinicalReportPaper from './ClinicalReportPaper';
-import { getTranslation } from '../services/translations';
+import { getTranslation, translateClinical } from '../services/translations';
 import TranslatedText from './TranslatedText';
 
 interface ReportsListProps {
@@ -119,7 +119,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                         <TranslatedText text={activeReport.diagnosis} targetLang={user.preferredLanguage} />
                       </h3>
                       <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-xs font-black border border-indigo-100 uppercase tracking-widest">
-                        Confidence: {activeReport.aiConfidence}%
+                        {t.confidence}: {activeReport.aiConfidence}%
                       </span>
                     </div>
                   </div>
@@ -136,7 +136,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                         </span>
                       ))
                     ) : (
-                      <p className="text-xs text-slate-400 italic">No symptoms extracted</p>
+                        <p className="text-xs text-slate-400 italic">{t.noSymptoms}</p>
                     )}
                   </div>
                 </section>
@@ -150,13 +150,17 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                         {activeReport.history && Object.keys(activeReport.history).length > 0 ? (
                           Object.entries(activeReport.history).map(([key, val], idx) => (
                             <tr key={key} className={idx % 2 === 0 ? 'bg-transparent' : 'bg-slate-50/30'}>
-                              <td className="py-4 px-8 text-xs font-black text-slate-800 uppercase tracking-widest w-1/3">{key}</td>
-                              <td className="py-4 px-8 text-xs font-bold text-slate-600">{val as string}</td>
+                              <td className="py-4 px-8 text-xs font-black text-slate-800 uppercase tracking-widest w-1/3">
+                                {t[key.toLowerCase()] || key}
+                              </td>
+                              <td className="py-4 px-8 text-xs font-bold text-slate-600">
+                                {typeof val === 'string' ? translateClinical(val, user.preferredLanguage) : val}
+                              </td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={2} className="py-8 px-8 text-xs text-slate-400 italic text-center">No detailed history available</td>
+                            <td colSpan={2} className="py-8 px-8 text-xs text-slate-400 italic text-center">{t.noHistory}</td>
                           </tr>
                         )}
                       </tbody>
@@ -187,7 +191,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                   className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-800 transition-all flex items-center space-x-3 shadow-lg shadow-slate-200"
                 >
                   <PrinterIcon className="w-4 h-4" />
-                  <span>Preview & Print</span>
+                  <span>{t.previewPrint}</span>
                 </button>
               </div>
             </>
@@ -230,7 +234,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                  <div className="p-2 bg-slate-800 text-white rounded-lg">
                    <PrinterIcon className="w-4 h-4" />
                  </div>
-                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Medical Report Print Review</h3>
+                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{t.reportReview}</h3>
                </div>
                <button onClick={() => setIsPreviewOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-all">
                  <XMarkIcon className="w-6 h-6 text-slate-500" />
@@ -245,9 +249,9 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
              <div className="p-8 bg-white border-t flex space-x-4 no-print">
                <button onClick={handlePrint} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center space-x-3">
                  <PrinterIcon className="w-4 h-4" />
-                 <span>Confirm & Print PDF</span>
+                 <span>{t.confirmPrint}</span>
                </button>
-               <button onClick={() => setIsPreviewOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-100 transition-all">Cancel</button>
+               <button onClick={() => setIsPreviewOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-100 transition-all">{t.cancel}</button>
              </div>
            </div>
         </div>

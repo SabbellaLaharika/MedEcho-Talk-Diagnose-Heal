@@ -1,21 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { io, Socket } from 'socket.io-client';
 import { dbService } from '../services/dbService';
 import api from '../services/api';
-import { User, Appointment } from '../types';
 import { getTranslation, translateClinical } from '../services/translations';
+import { User, Appointment } from '../types';
 import { 
-  CalendarIcon, 
   MagnifyingGlassIcon,
-  ClockIcon,
   ChevronRightIcon,
   CheckBadgeIcon,
   CheckCircleIcon,
   UserIcon,
-  VideoCameraIcon,
-  MapPinIcon,
-  NoSymbolIcon
 } from '@heroicons/react/24/solid';
-import TranslatedText from './TranslatedText';
 
 interface AppointmentBookingProps {
   onBook: (appointment: Partial<Appointment>) => void;
@@ -24,6 +19,8 @@ interface AppointmentBookingProps {
 
 const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user }) => {
   const t = getTranslation(user.preferredLanguage);
+  
+  // 1. STATES
   const [doctors, setDoctors] = useState<User[]>([]);
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<User | null>(null);
@@ -32,11 +29,29 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
   const [type, setType] = useState<'VIRTUAL' | 'IN_PERSON'>('IN_PERSON');
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [bookedAptSummary, setBookedAptSummary] = useState<(Partial<Appointment> & { doctorAvatar?: string }) | null>(null);
-
+  const [bookedAptSummary, setBookedAptSummary] = useState<any>(null);
   const [doctorSchedule, setDoctorSchedule] = useState<any[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<any[]>([]);
 
+  // 2. REFS
+  const socketRef = useRef<Socket | null>(null);
+
+  // 3. SOCKET CONNECTION
+  useEffect(() => {
+    // Initialize Socket
+    socketRef.current = io("http://localhost:5000");
+
+    // Listen for real-time updates from other users
+    socketRef.current.on("appointment_booked", (newApt: Appointment) => {
+      setAllAppointments((prev) => [...prev, newApt]);
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, []);
+
+  // 4. INITIAL DATA LOAD
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -45,27 +60,22 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
           dbService.appointments.getAll()
         ]);
 
-        // 1. Define the preferred order for Telugu state hierarchy
         const preferredOrder = [
           'Dr. L. Chalapathi Rao',
           'Dr. M. Murali Krishna',
           'Dr. Kishor'
         ];
 
-        // 2. Sort logic: Physicians first, then Cardiologist, then others
         const sortedDoctors = [...doctorsList].sort((a, b) => {
           let indexA = preferredOrder.findIndex(name => a.name.includes(name));
           let indexB = preferredOrder.findIndex(name => b.name.includes(name));
-
           if (indexA === -1) indexA = 99;
           if (indexB === -1) indexB = 99;
-
           return indexA - indexB;
         });
 
-        // 3. SET THE SORTED LIST (This was the missing piece)
         setDoctors(sortedDoctors);
-        setAllAppointments(apts);
+        setAllAppointments(apts || []);
       } catch (err) {
         console.error("Failed to load booking data:", err);
       }
@@ -73,6 +83,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
     loadData();
   }, []);
 
+  // 5. FETCH SELECTED DOCTOR SCHEDULE
   useEffect(() => {
     if (!selectedDoc) return;
     const fetchSchedule = async () => {
@@ -80,9 +91,10 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
         const [schedRes, blockedRes] = await Promise.all([
           api.get(`/schedules/${selectedDoc.id}`),
           api.get(`/schedules/${selectedDoc.id}/blocked`)
-        ]);
-        setDoctorSchedule(schedRes.data);
-        setBlockedSlots(blockedRes.data);
+        ]).catch(() => ({ data: [] })); // Fallback
+        
+        setDoctorSchedule(schedRes?.data || []);
+        setBlockedSlots(blockedRes?.data || []);
       } catch (err) {
         console.error("Failed to fetch doctor schedule:", err);
       }
@@ -90,11 +102,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
     fetchSchedule();
   }, [selectedDoc]);
 
-  const filteredDoctors = doctors.filter(doc => 
-    doc.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    doc.specialization?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
+  // 6. HELPER: GENERATE TIME SLOTS
   const generateSlots = (startTime: string, endTime: string) => {
     const slots: string[] = [];
     let [h, m] = startTime.split(':').map(Number);
@@ -104,30 +112,24 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
     while ((h * 60 + m) < endTotal) {
       slots.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
       m += 30;
-      if (m >= 60) {
-        h += 1;
-        m = 0;
-      }
+      if (m >= 60) { h += 1; m = 0; }
     }
     return slots;
   };
 
-  const DEFAULT_SCHEDULE = Array.from({ length: 7 }, (_, i) => ({
-    dayIndex: i,
-    startTime: '09:00',
-    endTime: '18:00',
-    isActive: i >= 1 && i <= 5
-  }));
-
+  // 7. MEMOIZED AVAILABLE SLOTS
   const availableSlots = useMemo(() => {
     if (!selectedDoc || !date) return [];
     const bookingDate = new Date(date);
     const dayOfWeek = bookingDate.getUTCDay();
 
-    const schedules = doctorSchedule.filter((s: any) => s.dayIndex === dayOfWeek && s.isActive);
+    let schedules = doctorSchedule.filter((s: any) => s.dayIndex === dayOfWeek && s.isActive);
+    
+    // Default 9-6 schedule if none provided
     if (schedules.length === 0 && doctorSchedule.length === 0) {
-      const defaultDay = DEFAULT_SCHEDULE.find(s => s.dayIndex === dayOfWeek);
-      if (defaultDay?.isActive) schedules.push(defaultDay);
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        schedules.push({ startTime: '09:00', endTime: '18:00', isActive: true });
+      }
     }
     
     if (schedules.length === 0) return [];
@@ -138,11 +140,14 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
     });
 
     let slots = Array.from(new Set(allSlots)).sort();
+
+    // Filter Blocked
     const blockedForDate = blockedSlots.filter(b => b.date === date);
     slots = slots.filter(slotTime => {
       return !blockedForDate.some(b => slotTime >= b.startTime && slotTime < b.endTime);
     });
 
+    // Filter Already Booked (Real-time update from Socket works here)
     const bookedForDate = allAppointments.filter(
       a => a.doctorId === selectedDoc.id && 
       (a.date === date || new Date(a.date).toISOString().split('T')[0] === date) && 
@@ -153,20 +158,38 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
     return slots;
   }, [selectedDoc, date, doctorSchedule, blockedSlots, allAppointments]);
 
+  // 8. HANDLERS
   const handleBookClick = () => {
     if (!selectedDoc || !selectedTime) return;
-    const summary = { doctorId: selectedDoc.id, doctorName: selectedDoc.name, doctorAvatar: selectedDoc.avatar, date, time: selectedTime, type };
+    const summary = { 
+      doctorId: selectedDoc.id, 
+      doctorName: selectedDoc.name, 
+      doctorAvatar: selectedDoc.avatar, 
+      date, 
+      time: selectedTime, 
+      type 
+    };
     setBookedAptSummary(summary);
     setShowSuccessModal(true);
   };
 
   const confirmFinalBooking = () => {
-    if (bookedAptSummary) onBook(bookedAptSummary);
+    if (bookedAptSummary) {
+      onBook(bookedAptSummary);
+      // Emit to server so others see this slot as taken
+      socketRef.current?.emit("new_appointment", bookedAptSummary);
+    }
     setShowSuccessModal(false);
   };
 
+  const filteredDoctors = doctors.filter(doc => 
+    doc.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    doc.specialization?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
-    <div className="p-4 sm:p-10 max-w-7xl mx-auto space-y-8 sm:space-y-12 animate-in fade-in duration-500">
+    <div className="p-4 sm:p-10 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+      {/* Header & Search */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
           <h2 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight uppercase">{t.bookVisit}</h2>
@@ -177,91 +200,79 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
           <input 
             type="text" 
             placeholder={t.searchSpecialists} 
-            className="w-full pl-12 pr-5 py-3.5 sm:py-4 bg-white border-2 border-slate-100 rounded-2xl outline-none font-bold text-sm focus:border-indigo-500 shadow-sm"
+            className="w-full pl-12 pr-5 py-4 bg-white border-2 border-slate-100 rounded-2xl outline-none font-bold text-sm focus:border-indigo-500 shadow-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        {/* Doctor List */}
         <div className={`lg:col-span-5 space-y-4 ${selectedDoc ? 'hidden lg:block' : 'block'}`}>
           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t.specialists}</label>
-          <div className="space-y-3 sm:space-y-4 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
+          <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
             {filteredDoctors.map((doc) => (
               <button
                 key={doc.id}
                 onClick={() => { setSelectedDoc(doc); setSelectedTime(null); }}
-                className={`w-full p-4 sm:p-6 rounded-[2rem] border-2 flex items-center justify-between transition-all group ${
+                className={`w-full p-6 rounded-[2rem] border-2 flex items-center justify-between transition-all ${
                   selectedDoc?.id === doc.id ? 'border-indigo-600 bg-white shadow-xl' : 'border-slate-50 bg-white/50 hover:border-indigo-100'
                 }`}
               >
                 <div className="flex items-center space-x-4">
                   <div className="relative flex-shrink-0">
-                    <img src={doc.avatar} alt={doc.name} className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl object-cover border border-slate-50 shadow-sm" />
+                    <img src={doc.avatar} alt={doc.name} className="w-16 h-16 rounded-2xl object-cover border border-slate-50 shadow-sm" />
                     <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${doc.isAvailable ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
                   </div>
-                  {/* PROFESSIONAL QUALIFICATION DISPLAY */}
                   <div className="text-left min-w-0">
-                    <p className="font-black text-slate-800 text-sm sm:text-lg leading-tight truncate">
-                      <TranslatedText text={doc.name.split(',')[0]} targetLang={user.preferredLanguage} />
+                    <p className="font-black text-slate-800 text-lg leading-tight truncate">{doc.name}</p>
+                    <p className="text-[10px] font-black text-indigo-500 uppercase mt-1 truncate">
+                      {translateClinical(doc.specialization || '', user.preferredLanguage)}
                     </p>
-                    <div className="flex flex-col">
-                      {doc.name.includes(',') && (
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
-                          {doc.name.split(',')[1]}
-                        </p>
-                      )}
-                      <p className="text-[8px] sm:text-[10px] font-black text-indigo-500 uppercase mt-0.5 truncate">
-                         {translateClinical(doc.specialization, user.preferredLanguage)}
-                      </p>
-                    </div>
                   </div>
                 </div>
-                <ChevronRightIcon className={`w-4 h-4 flex-shrink-0 ${selectedDoc?.id === doc.id ? 'text-indigo-600' : 'text-slate-200'}`} />
+                <ChevronRightIcon className={`w-4 h-4 ${selectedDoc?.id === doc.id ? 'text-indigo-600' : 'text-slate-200'}`} />
               </button>
             ))}
           </div>
         </div>
 
-        <div className={`lg:col-span-7 bg-white rounded-[2rem] sm:rounded-[4rem] shadow-xl border border-slate-50 overflow-hidden flex flex-col min-h-[500px] ${!selectedDoc ? 'hidden lg:flex' : 'flex'}`}>
+        {/* Booking Panel */}
+        <div className={`lg:col-span-7 bg-white rounded-[4rem] shadow-xl border border-slate-50 overflow-hidden flex flex-col min-h-[500px] ${!selectedDoc ? 'hidden lg:flex' : 'flex'}`}>
           {selectedDoc ? (
             <div className="flex-1 flex flex-col">
-              <div className="p-6 sm:p-10 border-b bg-slate-50/50 flex flex-col gap-6">
+              <div className="p-10 border-b bg-slate-50/50 flex flex-col gap-6">
                 <div className="flex justify-between items-start">
-                  <button onClick={() => setSelectedDoc(null)} className="lg:hidden text-[10px] font-black uppercase text-indigo-600 mb-2 underline">← {t.backToList}</button>
-                  <div className="relative">
-                    <input 
-                      type="date" 
-                      value={date}
-                      min={new Date().toISOString().split('T')[0]}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="pl-4 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black outline-none"
-                    />
-                  </div>
+                  <button onClick={() => setSelectedDoc(null)} className="lg:hidden text-[10px] font-black uppercase text-indigo-600 underline">← {t.backToList}</button>
+                  <input 
+                    type="date" 
+                    value={date}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="pl-4 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black outline-none"
+                  />
                 </div>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl sm:text-2xl font-black text-slate-800 truncate">
-                    <TranslatedText text={selectedDoc.name.split(',')[0]} targetLang={user.preferredLanguage} />
-                  </h3>
+                  <h3 className="text-2xl font-black text-slate-800 truncate">{selectedDoc.name}</h3>
                   <div className="flex gap-2">
-                    <button onClick={() => setType('IN_PERSON')} className={`text-[8px] sm:text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'IN_PERSON' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-400'}`}>{t.inPerson}</button>
-                    <button onClick={() => setType('VIRTUAL')} className={`text-[8px] sm:text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'VIRTUAL' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-400'}`}>{t.virtual}</button>
+                    <button onClick={() => setType('IN_PERSON')} className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'IN_PERSON' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-400'}`}>{t.inPerson}</button>
+                    <button onClick={() => setType('VIRTUAL')} className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'VIRTUAL' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-400'}`}>{t.virtual}</button>
                   </div>
                 </div>
               </div>
 
-              <div className="p-6 sm:p-10 flex-1">
+              <div className="p-10 flex-1">
                 {availableSlots.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
                     {availableSlots.map((time) => (
                       <button
                         key={time}
                         onClick={() => setSelectedTime(time)}
-                        className={`py-3 sm:py-4 px-2 rounded-2xl border-2 font-black text-[10px] sm:text-xs transition-all ${
+                        className={`py-4 px-2 rounded-2xl border-2 font-black text-xs transition-all ${
                           selectedTime === time 
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg scale-105' 
-                          : 'bg-white border-slate-50 text-slate-600'
+                          : 'bg-white border-slate-50 text-slate-600 hover:border-indigo-100'
                         }`}
                       >
                         {time}
@@ -275,7 +286,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                 )}
               </div>
 
-              <div className="p-6 sm:p-10 pt-0">
+              <div className="p-10 pt-0">
                 <button
                   onClick={handleBookClick}
                   disabled={!selectedTime}
@@ -287,35 +298,34 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
               </div>
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center p-10 sm:p-20 text-center space-y-6 sm:space-y-8">
-              <div className="w-20 h-20 sm:w-32 sm:h-32 bg-indigo-50 rounded-[2.5rem] sm:rounded-[3rem] flex items-center justify-center text-indigo-200">
-                <UserIcon className="w-10 h-10 sm:w-16 sm:h-16" />
+            <div className="h-full flex flex-col items-center justify-center p-20 text-center space-y-8">
+              <div className="w-32 h-32 bg-indigo-50 rounded-[3rem] flex items-center justify-center text-indigo-200">
+                <UserIcon className="w-16 h-16" />
               </div>
               <div>
-                <h3 className="text-xl sm:text-2xl font-black text-slate-800 uppercase tracking-tight mb-2">{t.selectSpecialist}</h3>
-                <p className="text-slate-400 text-xs sm:text-sm max-w-xs mx-auto">{t.searchSpecialists}</p>
+                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-2">{t.selectSpecialist}</h3>
+                <p className="text-slate-400 text-sm max-w-xs mx-auto">{t.searchSpecialists}</p>
               </div>
             </div>
           )}
         </div>
       </div>
 
+      {/* Success Modal */}
       {showSuccessModal && bookedAptSummary && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="bg-white w-full max-w-sm rounded-[2.5rem] sm:rounded-[3.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="bg-emerald-600 p-8 sm:p-10 flex flex-col items-center text-white text-center">
+          <div className="bg-white w-full max-w-sm rounded-[3.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="bg-emerald-600 p-10 flex flex-col items-center text-white text-center">
               <CheckCircleIcon className="w-12 h-12 mb-4" />
               <h3 className="text-2xl font-black uppercase">{t.confirmed}</h3>
             </div>
-            <div className="p-8 sm:p-10 space-y-6">
+            <div className="p-10 space-y-6">
               <div className="space-y-3">
-                <div className="flex justify-between text-xs sm:text-sm">
+                <div className="flex justify-between text-sm">
                   <span className="text-slate-400 font-black uppercase text-[10px]">{t.doctor}</span>
-                  <span className="font-black text-slate-800">
-                    <TranslatedText text={bookedAptSummary.doctorName?.split(',')[0] || ''} targetLang={user.preferredLanguage} />
-                  </span>
+                  <span className="font-black text-slate-800">{bookedAptSummary.doctorName}</span>
                 </div>
-                <div className="flex justify-between text-xs sm:text-sm">
+                <div className="flex justify-between text-sm">
                   <span className="text-slate-400 font-black uppercase text-[10px]">{t.time}</span>
                   <span className="font-black text-slate-800">{bookedAptSummary.date} @ {bookedAptSummary.time}</span>
                 </div>

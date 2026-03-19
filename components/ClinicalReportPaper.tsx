@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MedicalReport, User } from '../types';
 import api from '../services/api';
-import { getTranslation } from '../services/translations';
+import { getTranslation, translateClinical } from '../services/translations';
 
 interface ClinicalReportPaperProps {
   report: MedicalReport;
@@ -65,13 +65,13 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
       {/* Translation Toolbar - No Print */}
       <div className="flex justify-end mb-6 no-print space-x-3">
          <div className="flex items-center space-x-2 bg-slate-100 px-4 py-2 rounded-xl">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t.medicalReports === 'Medical Reports' ? 'Report Language' : t.medicalReports.includes('డ్యా') ? 'నివేదిక భాష' : t.medicalReports.includes('डै') ? 'रिपोर्ट भाषा' : 'Language'}</span>
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t.reportLang}</span>
             <select 
                value={targetLang}
                onChange={(e) => setTargetLang(e.target.value)}
                className="bg-transparent border-none text-[10px] font-black text-blue-600 uppercase focus:ring-0 cursor-pointer"
             >
-               <option value="en">English (Original)</option>
+               <option value="en">{t.original}</option>
                <option value="hi">Hindi (हिन्दी)</option>
                <option value="te">Telugu (తెలుగు)</option>
                <option value="ta">Tamil (தமிழ்)</option>
@@ -86,10 +86,10 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
       <div className="flex justify-between items-start border-b-2 border-slate-900 pb-8 mb-10">
         <div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase mb-1">{t.medEchoLogo}</h1>
-          <p className="text-[10px] font-black tracking-[0.4em] text-blue-600 uppercase">Advanced Health Ecosystem</p>
+          <p className="text-[10px] font-black tracking-[0.4em] text-blue-600 uppercase">{t.healthEco}</p>
         </div>
         <div className="text-right">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Clinic Reference</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t.clinicRef}</p>
           <p className="text-xs font-bold font-mono uppercase">{getShortId(report.id)}</p>
         </div>
       </div>
@@ -103,7 +103,7 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
           <p className="text-xs text-slate-500">ID: {(user?.id || report.patientId).split('-')[0].toUpperCase()}</p>
         </div>
         <div className="text-right">
-          <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{t.dateOfBirth === 'Date of Birth' ? 'Examination Date' : t.dateOfBirth.includes('పు') ? 'పరీక్షించిన తేదీ' : t.dateOfBirth.includes('जन्') ? 'परीक्षा तिथि' : 'Date'}</h5>
+          <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{t.examinationDate}</h5>
           <p className="text-lg font-bold text-slate-900">{report.date}</p>
         </div>
       </div>
@@ -142,7 +142,7 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
             <h2 className="text-3xl font-black text-slate-900">{isTranslating ? 'Translating...' : displayReport.diagnosis}</h2>
           </div>
           <div className="text-right">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t.optimalRange === 'Optimal Range' ? 'Confidence' : t.optimalRange.includes('సరై') ? 'విశ్వాసం' : t.optimalRange.includes('इष्ट') ? 'आत्मविश्वास' : 'Confidence'}</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t.confidence}</p>
             <p className="text-2xl font-black text-emerald-600">{report.aiConfidence}%</p>
           </div>
         </div>
@@ -168,8 +168,10 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
             <tbody>
               {report.history && Object.entries(report.history).map(([k, v]) => (
                 <tr key={k} className="border-b border-slate-50">
-                  <td className="py-2 font-bold uppercase text-[9px] text-slate-500 w-1/2">{k}</td>
-                  <td className="py-2 text-slate-700">{v as string}</td>
+                  <td className="py-2 font-bold uppercase text-[9px] text-slate-500 w-1/2">{t[k.toLowerCase()] || k}</td>
+                  <td className="py-2 text-slate-700 capitalize">
+                    {typeof v === 'string' ? translateClinical(v, targetLang) : v}
+                  </td>
                 </tr>
               ))}
               {(!report.history || Object.keys(report.history).length === 0) && (
@@ -196,14 +198,14 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
 
       <div className="mt-20 pt-10 border-t-2 border-slate-100 flex justify-between items-end">
         <div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Digital Certification</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">{t.digitalCert}</p>
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 rounded-full border-2 border-slate-200 flex items-center justify-center font-black text-[10px] text-slate-300">ME</div>
-            <p className="text-[9px] font-black text-slate-300 uppercase italic">Authenticated by MedEcho AI System</p>
+            <p className="text-[9px] font-black text-slate-300 uppercase italic">{t.authByAI}</p>
           </div>
         </div>
         <div className="text-right border-t border-slate-800 w-48 pt-2">
-          <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Medical Signature</p>
+          <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{t.medSignature}</p>
         </div>
       </div>
     </div>

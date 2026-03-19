@@ -1,11 +1,15 @@
+
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { translationService } from '../services/translationService';
 
 const prisma = new PrismaClient();
 
-// Get all doctors
+// Get all doctors (Localized based on requesting user's preference if provided, or defaults)
 export const getDoctors = async (req: Request, res: Response) => {
     try {
+        const { lang } = req.query; // Optional lang query param
+
         const doctors = await prisma.user.findMany({
             where: { role: 'DOCTOR' },
             select: {
@@ -20,6 +24,16 @@ export const getDoctors = async (req: Request, res: Response) => {
                 preferredLanguage: true,
             }
         });
+
+        if (lang && typeof lang === 'string' && lang !== 'en') {
+            const translatedDoctors = await translationService.translateArray(
+                doctors,
+                ['name', 'specialization'],
+                lang
+            );
+            return res.json(translatedDoctors);
+        }
+
         res.json(doctors);
     } catch (error) {
         console.error(error);
@@ -30,8 +44,6 @@ export const getDoctors = async (req: Request, res: Response) => {
 // Get User Profile
 export const getProfile = async (req: Request, res: Response) => {
     try {
-        // Assuming user ID is attached to req by auth middleware (to be implemented)
-        // For now, expect ID in params or query for testing
         const userId = req.params.id;
 
         const user = await prisma.user.findUnique({

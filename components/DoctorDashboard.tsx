@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { User, Appointment, MedicalReport } from '../types';
 import AIChatAssistant from './AIChatAssistant';
 import ReportDetailModal from './ReportDetailModal';
-import { getTranslation, translateClinical } from '../services/translations';
+import { getTranslation } from '../services/translations';
 import { 
   UsersIcon, 
   CalendarDaysIcon, 
@@ -18,7 +18,7 @@ import {
   TrashIcon,
   ChevronRightIcon
 } from '@heroicons/react/24/solid';
-import TranslatedText from './TranslatedText';
+
 
 interface DoctorDashboardProps {
   doctor: User;
@@ -73,11 +73,11 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           </div>
           <div className="min-w-0">
             <h1 className="text-xl sm:text-3xl font-black text-slate-800 tracking-tight truncate">
-               <TranslatedText text={doctor.name} targetLang={doctor.preferredLanguage} />
+               {doctor.name}
             </h1>
             <div className="flex flex-wrap items-center gap-2 mt-1 sm:mt-2">
               <span className="bg-indigo-50 text-indigo-600 text-[8px] sm:text-[9px] font-black px-2 py-0.5 rounded-full uppercase truncate max-w-[120px]">
-                 {translateClinical(doctor.specialization, doctor.preferredLanguage)}
+                 {doctor.specialization}
               </span>
               <span className="text-slate-400 text-[10px] font-bold">ID: D{doctor.id.replace(/\D/g, '').slice(0, 3).padStart(3, '0')}</span>
             </div>
@@ -143,7 +143,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                   </div>
                   <div className="min-w-0">
                     <p className="font-black text-slate-800 text-base sm:text-lg truncate">
-                       <TranslatedText text={apt.patientName || apt.patient?.name || 'Patient'} targetLang={doctor.preferredLanguage} />
+                       {apt.patientName || apt.patient?.name || 'Patient'}
                     </p>
                     <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-1">
                        <span className="font-bold">{apt.time}</span>
@@ -190,7 +190,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                 <div className="flex justify-between items-start">
                   <div className="min-w-0">
                     <p className="font-black text-slate-800 text-sm truncate group-hover:text-indigo-600 transition-colors">
-                       <TranslatedText text={report.diagnosis} targetLang={doctor.preferredLanguage} />
+                       {report.diagnosis}
                     </p>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{report.date}</p>
                   </div>
