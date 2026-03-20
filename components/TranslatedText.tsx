@@ -1,52 +1,74 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { translateClinical } from '../services/translations';
 
 interface TranslatedTextProps {
   text: string;
-  targetLang: string;
+  lang?: string;
   className?: string;
 }
 
-const TranslatedText: React.FC<TranslatedTextProps> = ({ text, targetLang, className }) => {
-  const [translated, setTranslated] = useState(text);
-  const [isLoading, setIsLoading] = useState(false);
+// ── Global translation cache ──────────────────────────────────────────────────
+const cache = new Map<string, string>();
 
-  useEffect(() => {
-    // If English, don't translate
-    if (!targetLang || targetLang === 'en' || !text) {
-      setTranslated(text);
-      return;
-    }
+// ── Global request queue (max N concurrent calls) ────────────────────────────
+let inFlight = 0;
+const MAX_CONCURRENT = 4;
+const queue: Array<() => void> = [];
 
-    const translate = async () => {
-      setIsLoading(true);
+const drainQueue = () => {
+  while (inFlight < MAX_CONCURRENT && queue.length > 0) {
+    const next = queue.shift()!;
+    next();
+  }
+};
+
+const translate = (text: string, lang: string): Promise<string> => {
+  const key = `${lang}::${text}`;
+  if (cache.has(key)) return Promise.resolve(cache.get(key)!);
+
+  return new Promise((resolve) => {
+    const execute = async () => {
+      inFlight++;
       try {
-        const res = await api.post('/ml/translate', {
-          text: text,
-          target_lang: targetLang
-        });
-        
-        // Apply clinical shortening (Dr. -> డా.) to the translated result
-        const finalWord = translateClinical(res.data.translated, targetLang);
-        setTranslated(finalWord);
-      } catch (err) {
-        console.error("Fly Translation error:", err);
+        const res = await api.post('/ml/translate', { text, target_lang: lang });
+        const result = res.data.translated || text;
+        cache.set(key, result);
+        resolve(result);
+      } catch {
+        cache.set(key, text); // cache fallback so we don't retry endlessly
+        resolve(text);
       } finally {
-        setIsLoading(false);
+        inFlight--;
+        drainQueue();
       }
     };
 
-    translate();
-  }, [text, targetLang]);
+    if (inFlight < MAX_CONCURRENT) {
+      execute();
+    } else {
+      queue.push(execute);
+    }
+  });
+};
 
-  return (
-    <span className={className}>
-      {isLoading ? (
-        <span className="animate-pulse opacity-50">{text}</span>
-      ) : translated}
-    </span>
-  );
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TranslatedText: React.FC<TranslatedTextProps> = ({ text, lang = 'en', className }) => {
+  const [translated, setTranslated] = useState(text);
+
+  useEffect(() => {
+    if (!text || lang === 'en') {
+      setTranslated(text);
+      return;
+    }
+    let cancelled = false;
+    translate(text, lang).then((result) => {
+      if (!cancelled) setTranslated(result);
+    });
+    return () => { cancelled = true; };
+  }, [text, lang]);
+
+  return <span className={className}>{translated}</span>;
 };
 
 export default TranslatedText;

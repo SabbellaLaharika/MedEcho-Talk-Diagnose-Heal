@@ -75,7 +75,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
               >
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">
-                    <TranslatedText text={report.diagnosis} targetLang={user.preferredLanguage} />
+                    <TranslatedText text={report.diagnosis} lang={user.preferredLanguage} />
                   </h3>
                   <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[9px] font-black border border-emerald-100">
                     {report.aiConfidence}%
@@ -116,7 +116,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                     </div>
                     <div className="flex items-center space-x-4">
                       <h3 className="text-4xl font-black text-slate-900 tracking-tight">
-                        <TranslatedText text={activeReport.diagnosis} targetLang={user.preferredLanguage} />
+                        <TranslatedText text={activeReport.diagnosis} lang={user.preferredLanguage} />
                       </h3>
                       <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-xs font-black border border-indigo-100 uppercase tracking-widest">
                         {t.confidence}: {activeReport.aiConfidence}%
@@ -132,7 +132,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                     {activeReport.symptoms && activeReport.symptoms.length > 0 ? (
                       activeReport.symptoms.map((s, idx) => (
                         <span key={idx} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold border border-slate-200 lowercase">
-                          {s.replace(/_/g, ' ')}
+                          <TranslatedText text={s.replace(/_/g, ' ')} lang={user.preferredLanguage} />
                         </span>
                       ))
                     ) : (
@@ -154,7 +154,9 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                                 {t[key.toLowerCase()] || key}
                               </td>
                               <td className="py-4 px-8 text-xs font-bold text-slate-600">
-                                {typeof val === 'string' ? translateClinical(val, user.preferredLanguage) : val}
+                                {typeof val === 'string' ? (
+                                  <TranslatedText text={translateClinical(val, user.preferredLanguage)} lang={user.preferredLanguage} />
+                                ) : val}
                               </td>
                             </tr>
                           ))
@@ -176,7 +178,9 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                         {activeReport.prescription.map((p, i) => (
                           <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm flex items-start space-x-3">
                             <div className="mt-1 w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
-                            <p className="text-xs font-bold text-slate-600 leading-relaxed">{p}</p>
+                            <p className="text-xs font-bold text-slate-600 leading-relaxed">
+                              <TranslatedText text={p} lang={user.preferredLanguage} />
+                            </p>
                           </div>
                         ))}
                     </div>

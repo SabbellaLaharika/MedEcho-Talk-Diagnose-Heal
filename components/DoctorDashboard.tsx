@@ -5,6 +5,7 @@ import { User, Appointment, MedicalReport } from '../types';
 import AIChatAssistant from './AIChatAssistant';
 import ReportDetailModal from './ReportDetailModal';
 import { getTranslation, translateClinical } from '../services/translations';
+import TranslatedText from './TranslatedText';
 import {
   UsersIcon,
   CalendarDaysIcon,
@@ -19,6 +20,9 @@ import {
   TrashIcon,
   ChevronRightIcon
 } from '@heroicons/react/24/solid';
+
+
+import api from '../services/api';
 
 
 interface DoctorDashboardProps {
@@ -58,7 +62,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 
     socket.on('offer', async (payload: any) => {
       if (payload.to !== doctor.id) return;
-      setActiveCall(`Call from ${payload.from}`);
+      setActiveCall(`${t.callFrom} ${payload.from}`);
       setCallState('incoming');
 
       pcRef.current = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
@@ -113,7 +117,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
   const handleStartCall = (patientName: string, patientId: string) => {
     const socket = socketRef.current;
     if (!socket) return;
-    setActiveCall(`Calling ${patientName}`);
+    setActiveCall(`${t.callingUser} ${patientName}`);
     setCallState('calling');
     socket.emit('start_call', { callId: patientId, from: doctor.id, to: patientId, fromName: doctor.name, toRole: 'PATIENT' });
   };
@@ -137,7 +141,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           </div>
           <div className="min-w-0">
             <h1 className="text-xl sm:text-3xl font-black text-slate-800 tracking-tight truncate">
-              {doctor.name}
+              <TranslatedText text={doctor.name} lang={doctor.preferredLanguage} />
             </h1>
             <div className="flex flex-wrap items-center gap-2 mt-1 sm:mt-2">
               <span className="bg-indigo-50 text-indigo-600 text-[8px] sm:text-[9px] font-black px-2 py-0.5 rounded-full uppercase truncate max-w-[120px]">
@@ -207,18 +211,20 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                   </div>
                   <div className="min-w-0">
                     <p className="font-black text-slate-800 text-base sm:text-lg truncate">
-                      {apt.patientName || apt.patient?.name || t.patient}
+                      <TranslatedText text={apt.patientName || apt.patient?.name || t.patient} lang={doctor.preferredLanguage} />
                     </p>
                     <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400 mt-1">
                       <span className="font-bold">{apt.time}</span>
                       <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold">{new Date(apt.date).toLocaleDateString()}</span>
-                      <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 font-black uppercase text-[8px]">{translateClinical(apt.type.replace('_', ' '), doctor.preferredLanguage)}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 font-black uppercase text-[8px]">
+                        {apt.type === 'VIRTUAL' ? t.virtual : t.inPerson}
+                      </span>
                     </div>
                   </div>
                 </div>
                 <div className="flex space-x-2 w-full sm:w-auto">
                   <button
-                    onClick={() => handleStartCall(apt.patientName || apt.patient?.name || 'Patient', apt.patientId || '')}
+                    onClick={() => handleStartCall(apt.patientName || apt.patient?.name || t.patient, apt.patientId || '')}
                     className="flex-1 sm:flex-none p-3.5 bg-indigo-600 text-white rounded-xl shadow-md"
                   >
                     <VideoCameraIcon className="w-5 h-5 mx-auto" />
@@ -254,11 +260,17 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
               >
                 <div className="flex justify-between items-start">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-1">Diagnosis report for {report.patientName || 'Unknown patient'}</p>
-                    <p className="font-black text-slate-800 text-sm truncate group-hover:text-indigo-600 transition-colors">
-                      {report.diagnosis}
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-1">
+                      {t.diagnosisReportFor} <TranslatedText text={report.patientName || t.unknownPatient} lang={doctor.preferredLanguage} />
                     </p>
-                    <p className="text-[10px] text-slate-500 mt-1">For: <span className="font-extrabold text-slate-700">{report.patientName || 'Unknown patient'}</span></p>
+                    <p className="font-black text-slate-800 text-sm truncate group-hover:text-indigo-600 transition-colors">
+                      <TranslatedText text={report.diagnosis} lang={doctor.preferredLanguage} />
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      {t.patientFor}: <span className="font-extrabold text-slate-700">
+                        <TranslatedText text={report.patientName || t.unknownPatient} lang={doctor.preferredLanguage} />
+                      </span>
+                    </p>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{report.date}</p>
                   </div>
                   <ChevronRightIcon className="w-3 h-3 text-slate-300 group-hover:text-indigo-400 transition-colors" />

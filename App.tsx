@@ -12,6 +12,7 @@ import FloatingAIChat from './components/FloatingAIChat';
 import DoctorScheduleManager from './components/DoctorScheduleManager';
 import ProfilePage from './components/ProfilePage';
 import { getTranslation, loadTranslations, subscribeToTranslations } from './services/translations';
+import TranslatedText from './components/TranslatedText';
 import {
   UserIcon,
   BriefcaseIcon,
@@ -268,12 +269,18 @@ const App: React.FC = () => {
               <Bars3Icon className="w-6 h-6" />
             </button>
             <h1 className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-800">
-              {activeTab === 'dashboard' ? t.dashboard : 
-               activeTab === 'appointments' ? t.bookVisit : 
-               activeTab === 'reports' ? t.medicalFiles : 
-               activeTab === 'chat' ? t.chatSupport : 
-               activeTab === 'virtual-doc' ? t.virtualDoctor : 
-               activeTab === 'profile' ? t.myProfile : activeTab.replace('-', ' ')}
+              <TranslatedText
+                text={
+                  activeTab === 'dashboard' ? t.dashboard :
+                    activeTab === 'appointments' ? t.bookVisit :
+                      activeTab === 'schedule' ? t.mySchedule :
+                        activeTab === 'reports' ? t.medicalFiles :
+                          activeTab === 'chat' ? t.chatSupport :
+                            activeTab === 'virtual-doc' ? t.virtualDoctor :
+                              activeTab === 'profile' ? t.myProfile : activeTab.replace('-', ' ')
+                }
+                lang={user.preferredLanguage}
+              />
             </h1>
           </div>
 
@@ -287,16 +294,18 @@ const App: React.FC = () => {
                 <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-rose-600 rounded-full border-2 border-white"></span>
               )}
             </button>
-            <button 
+            <button
               onClick={() => setActiveTab('profile')}
               className="hidden sm:flex items-center space-x-3 bg-slate-50 p-1.5 pr-4 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-all active:scale-95"
             >
-              <img 
-                src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=f1f5f9&color=64748b`} 
-                className="w-8 h-8 rounded-xl object-cover" 
-                alt={user.name} 
+              <img
+                src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=f1f5f9&color=64748b`}
+                className="w-8 h-8 rounded-xl object-cover"
+                alt={user.name}
               />
-              <span className="text-[10px] font-black uppercase text-slate-700 truncate max-w-[100px]">{user.name}</span>
+              <span className="text-[10px] font-black uppercase text-slate-700 truncate max-w-[100px]">
+                <TranslatedText text={user.name} lang={user.preferredLanguage} />
+              </span>
             </button>
           </div>
         </header>
@@ -360,13 +369,13 @@ const App: React.FC = () => {
             }
           }} />}
           {activeTab === 'profile' && <ProfilePage user={user} onUpdate={async (u) => {
-             try {
-               const updated = await dbService.auth.updateUser(u);
-               setUser(updated);
-             } catch (e) {
-               console.error("Failed to update user:", e);
-               throw e;
-             }
+            try {
+              const updated = await dbService.auth.updateUser(u);
+              setUser(updated);
+            } catch (e) {
+              console.error("Failed to update user:", e);
+              throw e;
+            }
           }} />}
         </div>
 

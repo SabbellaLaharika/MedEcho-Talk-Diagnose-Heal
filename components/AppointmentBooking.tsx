@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { dbService } from '../services/dbService';
 import api from '../services/api';
 import { getTranslation, translateClinical } from '../services/translations';
+import TranslatedText from './TranslatedText';
 import { User, Appointment } from '../types';
 import {
   MagnifyingGlassIcon,
@@ -236,24 +237,26 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                     <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${doc.isAvailable ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
                   </div>
                   <div className="text-left min-w-0">
-                    <p className="font-black text-slate-800 text-lg leading-tight truncate">{doc.name}</p>
+                    <p className="font-black text-slate-800 text-lg leading-tight truncate">
+                      <TranslatedText text={doc.name} lang={user.preferredLanguage} />
+                    </p>
                     <p className="text-[10px] font-black text-indigo-500 uppercase mt-1 truncate">
                       {translateClinical(doc.specialization || '', user.preferredLanguage)}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const phone = doc.contact || doc?.contact || '6300292724';
-                        const clean = phone.replace(/[^\d+]/g, '');
-                        if (clean.length > 0) window.location.href = `tel:${clean}`;
-                      }}
-                      className="text-[10px] font-black uppercase text-white bg-emerald-500 px-2 py-1 rounded-full"
-                    >
-                      {t.call}
-                    </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const phone = doc.contact || doc?.contact || '6300292724';
+                      const clean = phone.replace(/[^\d+]/g, '');
+                      if (clean.length > 0) window.location.href = `tel:${clean}`;
+                    }}
+                    className="text-[10px] font-black uppercase text-white bg-emerald-500 px-2 py-1 rounded-full"
+                  >
+                    {t.call}
+                  </button>
                   <ChevronRightIcon className={`w-4 h-4 ${selectedDoc?.id === doc.id ? 'text-indigo-600' : 'text-slate-200'}`} />
                 </div>
               </button>
@@ -277,7 +280,9 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-2xl font-black text-slate-800 truncate">{selectedDoc.name}</h3>
+                  <h3 className="text-2xl font-black text-slate-800 truncate">
+                    <TranslatedText text={selectedDoc.name} lang={user.preferredLanguage} />
+                  </h3>
                   <div className="flex gap-2">
                     <button onClick={() => setType('IN_PERSON')} className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'IN_PERSON' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-400'}`}>{t.inPerson}</button>
                     <button onClick={() => setType('VIRTUAL')} className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'VIRTUAL' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-400'}`}>{t.virtual}</button>
@@ -293,8 +298,8 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                         key={time}
                         onClick={() => setSelectedTime(time)}
                         className={`py-4 px-2 rounded-2xl border-2 font-black text-xs transition-all ${selectedTime === time
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg scale-105'
-                            : 'bg-white border-slate-50 text-slate-600 hover:border-indigo-100'
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg scale-105'
+                          : 'bg-white border-slate-50 text-slate-600 hover:border-indigo-100'
                           }`}
                       >
                         {time}
@@ -345,7 +350,9 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400 font-black uppercase text-[10px]">{t.doctor}</span>
-                  <span className="font-black text-slate-800">{bookedAptSummary.doctorName}</span>
+                  <span className="font-black text-slate-800">
+                    <TranslatedText text={bookedAptSummary.doctorName} lang={user.preferredLanguage} />
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400 font-black uppercase text-[10px]">{t.time}</span>

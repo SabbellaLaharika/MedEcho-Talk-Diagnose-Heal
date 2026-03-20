@@ -27,14 +27,15 @@ const MASTER_DICTIONARY: Record<string, string> = {
   latestReports: 'Latest Reports',
   appointmentsTitle: 'Appointments',
   findNearbyCare: 'Find Nearby Care',
-  
+
   // Dashboard Stats
-  bpm: 'BPM',
+  bpm: 'BP',
   weight: 'Weight',
   glucose: 'Glucose',
   optimalRange: 'Optimal Range',
   stable: 'Stable',
   confidence: 'Confidence',
+  temperature: 'Temperature',
 
   // Profile View
   coreDemographics: 'Core Demographics',
@@ -52,6 +53,7 @@ const MASTER_DICTIONARY: Record<string, string> = {
   primaryEmail: 'Primary Email',
   mobileContact: 'Mobile Contact',
   residentialAddress: 'Residential Address',
+  preferredInterfaceLanguage: 'Preferred Interface Language',
   noSymptoms: 'No symptoms extracted',
   noMarkers: 'No specific markers detected',
   noHistory: 'No historical data available',
@@ -88,7 +90,7 @@ const MASTER_DICTIONARY: Record<string, string> = {
   aiWarning: 'AI Assistant: Collecting clinical intake data in realtime.',
   describeSymptoms: 'Describe symptoms...',
   listening: 'Listening...',
-  
+
   // Booking
   specialists: 'Specialists',
   backToList: 'Back to List',
@@ -98,7 +100,7 @@ const MASTER_DICTIONARY: Record<string, string> = {
   reviewAndBook: 'Review & Book',
   confirmed: 'Confirmed',
   time: 'Time',
-  
+
   // Doctor Dashboard
   pendingVisits: 'Pending Visits',
   patientCount: 'Patient Count',
@@ -106,6 +108,7 @@ const MASTER_DICTIONARY: Record<string, string> = {
   online: 'Online',
   away: 'Away',
   aiSupport: 'AI Support',
+  activeQueue: 'Active Queue',
   aiResearch: 'AI Clinical Research Hub',
   emptyQueue: 'Active queue is currently empty',
   patientRecords: 'Patient Records',
@@ -134,7 +137,7 @@ const MASTER_DICTIONARY: Record<string, string> = {
   appetite: 'Appetite',
   duration: 'Duration',
   gastric: 'Gastric',
-  
+
   // Common History Values
   good: 'Good',
   regular: 'Regular',
@@ -145,7 +148,7 @@ const MASTER_DICTIONARY: Record<string, string> = {
   aWeek: 'A Week',
   fewDays: 'A Few Days',
   months: 'Months',
-  
+
   // Virtual Clinic
   virtualClinic: 'Virtual Clinic',
   talkToAI: 'Talk to our AI specialist instantly.',
@@ -164,7 +167,7 @@ const MASTER_DICTIONARY: Record<string, string> = {
   printPdf: 'Print / Save PDF',
   close: 'Close',
   previewPrint: 'Preview & Print',
-  
+
   // Error Messages
   hospitalError: 'Could not retrieve nearby hospital information.',
   locationDenied: 'Location access denied. Please enable location to find nearby hospitals.',
@@ -172,14 +175,14 @@ const MASTER_DICTIONARY: Record<string, string> = {
   updateProfileFail: 'Failed to update profile',
   aiHistory: 'Your AI-generated diagnosis history',
   noReportsFound: 'No reports found',
-  
+
   // Hospital Locator UI
   majorHospitals: 'Major Hospitals',
   minorHospitals: 'Minor Clinics',
   labsAndDiagnostics: 'Labs & Diagnostics',
   km: 'KM',
   call: 'Call',
-  
+
   // Healthcare Types
   multiSpecialty: 'Multi-Specialty',
   emergency247: '24/7 Emergency',
@@ -188,7 +191,7 @@ const MASTER_DICTIONARY: Record<string, string> = {
   generalClinic: 'General Clinic',
   scansAndBlood: 'Scans & Blood',
   radiologyMri: 'Radiology/MRI',
-  
+
   // Hospital & Lab Names
   amorHospitals: 'Amor Hospitals',
   renovaHospitals: 'Renova Neelima Hospital',
@@ -197,7 +200,7 @@ const MASTER_DICTIONARY: Record<string, string> = {
   sreeManjuHospital: 'Sree Manju Hospital',
   vijayaDiagnostics: 'Vijaya Diagnostics',
   lucidDiagnostics: 'Lucid Diagnostics',
-  
+
   // Local Neighborhoods & Landmarks
   kukatpallyYJunction: 'Kukatpally Y Junction',
   sanathNagar: 'Sanath Nagar',
@@ -206,7 +209,7 @@ const MASTER_DICTIONARY: Record<string, string> = {
   kalyanNagarMotiNagar: 'Kalyan Nagar, Moti Nagar',
   moosapetCrossRd: 'Moosapet Cross Rd',
   greenHillsMoosapet: 'Green Hills Rd, Moosapet',
-  
+
   // Calling / Telehealth UI
   liveCall: 'Live Call',
   incomingCall: 'Incoming call...',
@@ -214,7 +217,21 @@ const MASTER_DICTIONARY: Record<string, string> = {
   calling: 'Calling...',
   endCall: 'End',
   webRtcNote: 'This demo uses WebRTC signaling. Audio should connect once remote peer answers.',
-  
+  callFrom: 'Call from',
+  callingUser: 'Calling',
+  diagnosisReportFor: 'Diagnosis report for',
+  unknownPatient: 'Unknown patient',
+  patientFor: 'For',
+  aiContextReceived: "I've received the patient context. How can I assist?",
+  micDenied: 'Microphone access denied.',
+  sttError: 'Error processing speech.',
+  aiServiceError: 'Error connecting to AI service.',
+  unassigned: 'Unassigned',
+  clinicalConsult: 'Clinical Consultation',
+  consultProfessional: 'Consult a professional.',
+  aiMedicalIntake: 'AI Medical Intake',
+  recordFiled: 'Record Filed',
+
   // Schedule Management
   mySchedule: 'My Schedule',
   scheduleDescription: 'Set availability & block slots',
@@ -252,6 +269,8 @@ const MASTER_DICTIONARY: Record<string, string> = {
   saved: 'Saved',
   saving: 'Saving...',
   saveSchedule: 'Save Schedule',
+  from: 'From',
+  to: 'To',
 };
 
 // In-memory cache to prevent redundant ML service calls
@@ -262,7 +281,7 @@ const translationCache: Record<string, Record<string, string>> = {
 export const getTranslationPack = async (req: Request, res: Response) => {
   try {
     const { lang } = req.params;
-    
+
     // 1. Return from cache if exists
     if (translationCache[lang]) {
       console.log(`[Cache Hit] Serving ${lang} UI Pack`);
@@ -270,17 +289,17 @@ export const getTranslationPack = async (req: Request, res: Response) => {
     }
 
     console.log(`[Cache Miss] Generating ${lang} UI Pack via ML Service...`);
-    
+
     // 2. Translate Master Dictionary to target language
     // We do this in one batch to be efficient
     const keys = Object.keys(MASTER_DICTIONARY);
     const values = Object.values(MASTER_DICTIONARY);
-    
+
     // Use the array translation utility
     const translatedValues = await translationService.translateArray(
-        values.map(v => ({ text: v })), 
-        ['text'], 
-        lang
+      values.map(v => ({ text: v })),
+      ['text'],
+      lang
     );
 
     const translatedPack: Record<string, string> = {};

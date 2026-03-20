@@ -4,6 +4,7 @@ import HospitalLocator from './HospitalLocator';
 import ReportDetailModal from './ReportDetailModal';
 import api from '../services/api';
 import { getTranslation } from '../services/translations';
+import TranslatedText from './TranslatedText';
 import { 
   HeartIcon, 
   ScaleIcon, 
@@ -57,7 +58,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight">
-            {t.welcomeBack}, <span className="text-blue-600">{user.name.split(' ')[0]}</span>
+            {t.welcomeBack}, <span className="text-blue-600"><TranslatedText text={user.name.split(' ')[0]} lang={user.preferredLanguage} /></span>
           </h1>
           <p className="text-slate-500 mt-1 font-medium italic text-sm">MedEcho {t.dashboard}</p>
         </div>
@@ -153,7 +154,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
               <div>
                 <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest bg-blue-100/50 px-3 py-1 rounded-full border border-blue-200">Latest Report</span>
                 <p className="text-base sm:text-lg font-bold text-slate-800 mt-6 leading-relaxed">
-                  {latestReport.diagnosis}
+                  <TranslatedText text={latestReport.diagnosis} lang={user.preferredLanguage} />
                 </p>
                 <div className="mt-4 flex items-center space-x-2 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
                   <span className="text-[10px] font-black uppercase tracking-widest">{t.noReports === 'No reports found.' ? 'See Full Details' : t.reports}</span>
@@ -162,10 +163,10 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
               </div>
               <div className="flex flex-wrap items-center gap-2 mt-10 pt-6 border-t border-slate-200">
                 <span className="text-[11px] font-black text-slate-700 uppercase">
-                  Patient: {latestReport.patientName || 'Unknown'}
+                  {t.patient}: <TranslatedText text={latestReport.patientName || 'Unknown'} lang={user.preferredLanguage} />
                 </span>
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-                  Doctor: {latestReport.doctorName || 'Unassigned'}
+                  {t.doctor}: <TranslatedText text={latestReport.doctorName || 'Unassigned'} lang={user.preferredLanguage} />
                 </span>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{latestReport.date}</span>
               </div>

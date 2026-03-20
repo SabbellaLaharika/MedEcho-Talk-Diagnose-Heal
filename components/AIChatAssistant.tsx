@@ -40,7 +40,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
   const t = getTranslation(user?.preferredLanguage);
 
   const [messages, setMessages] = useState<Message[]>([
-    { id: '1', sender: 'ai', text: initialContext ? `I've received the patient context. How can I assist?` : t.aiGreeting, timestamp: new Date() }
+    { id: '1', sender: 'ai', text: initialContext ? t.aiContextReceived : t.aiGreeting, timestamp: new Date() }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -124,7 +124,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       mediaRecorder.start();
       setIsListening(true);
     } catch (err) {
-      alert("Microphone access denied.");
+      alert(t.micDenied);
     }
   };
 
@@ -153,7 +153,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       }
     } catch (error) {
       console.error("STT Error:", error);
-      alert("Error processing speech.");
+      alert(t.sttError);
     } finally {
       setIsTyping(false);
     }
@@ -175,10 +175,22 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
         lang: langShort
       });
 
+      let aiResponse = data.response || '';
+      
+      // Auto-translate AI response if needed
+      if (langShort !== 'en' && aiResponse) {
+        try {
+          const transRes = await api.post('/ml/translate', { text: aiResponse, target_lang: langShort });
+          aiResponse = transRes.data.translated || aiResponse;
+        } catch (e) {
+          console.error("AI translation failed", e);
+        }
+      }
+
       const aiMsg: Message = { 
         id: (Date.now() + 1).toString(), 
         sender: 'ai', 
-        text: data.response || '', 
+        text: aiResponse, 
         timestamp: new Date() 
       };
       
@@ -206,7 +218,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       const errorMsg: Message = {
         id: Date.now().toString(),
         sender: 'ai',
-        text: "Error connecting to AI service.",
+        text: t.aiServiceError,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -231,17 +243,38 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
         temperature: fullText.match(/(\d{2,3}(\.\d)?)\s*(f|c|fahrenheit|celsius|degree)/i)?.[0] || mlContext.history?.['temperature']
       };
 
+      const langShort = selectedLang.split('-')[0];
+      let diagnosis = mlContext.diagnosis || t.clinicalConsult;
+      let summary = mlContext.summary || t.aiMedicalIntake;
+      let precautions = mlContext.precautions 
+           ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : String(mlContext.precautions).split(/,\s*/))
+           : [t.consultProfessional];
+
+      // Async translate metadata if user is not on English
+      if (langShort !== 'en') {
+        try {
+          const transBatch = await Promise.all([
+            api.post('/ml/translate', { text: diagnosis, target_lang: langShort }),
+            api.post('/ml/translate', { text: summary, target_lang: langShort }),
+            Promise.all(precautions.map((p: string) => api.post('/ml/translate', { text: p, target_lang: langShort })))
+          ]);
+          diagnosis = transBatch[0].data.translated || diagnosis;
+          summary = transBatch[1].data.translated || summary;
+          precautions = (transBatch[2] as any[]).map(r => r.data.translated);
+        } catch (e) {
+          console.error("Metadata translation failed", e);
+        }
+      }
+
       const reportPayload = {
         patientId: user.id,
         patientName: user.name,
         doctorId: null,
-        doctorName: 'Unassigned',
-        diagnosis: mlContext.diagnosis || 'Clinical Consultation',
+        doctorName: t.unassigned,
+        diagnosis,
         confidenceScore: parseFloat(mlContext.confidence) || 85,
-        preventions: mlContext.precautions 
-           ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : String(mlContext.precautions).split(/,\s*/))
-           : ['Consult a professional.'],
-        summary: mlContext.summary || 'AI Medical Intake',
+        preventions: precautions,
+        summary,
         symptoms: mlContext.collected_symptoms || [],
         history: mlContext.history || {},
         vitals: vitals,
@@ -257,9 +290,9 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
           patientId: user.id,
           patientName: user.name,
           doctorId: null,
-          doctorName: 'MedEcho AI',
+          doctorName: t.medEchoLogo + ' AI',
           date: new Date().toISOString().split('T')[0],
-          diagnosis: mlContext.diagnosis || 'Consultation',
+          diagnosis: mlContext.diagnosis || t.clinicalConsult,
           summary: mlContext.summary,
           prescription: mlContext.precautions,
           aiConfidence: parseFloat(mlContext.confidence) || 85,
@@ -271,7 +304,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       const successMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: `✓ Record Filed: **${mlContext.diagnosis}**.`,
+        text: `✓ ${t.recordFiled}: **${diagnosis}**.`,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, successMsg]);

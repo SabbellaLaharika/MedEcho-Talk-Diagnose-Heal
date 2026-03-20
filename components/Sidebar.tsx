@@ -1,9 +1,9 @@
 import React from 'react';
-import { 
-  HomeIcon, 
-  CalendarIcon, 
-  ClipboardDocumentListIcon, 
-  ChatBubbleBottomCenterTextIcon, 
+import {
+  HomeIcon,
+  CalendarIcon,
+  ClipboardDocumentListIcon,
+  ChatBubbleBottomCenterTextIcon,
   MicrophoneIcon,
   ArrowLeftOnRectangleIcon,
   ClockIcon,
@@ -13,6 +13,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { UserRole, User } from '../types';
 import { getTranslation } from '../services/translations';
+import TranslatedText from './TranslatedText';
 
 interface SidebarProps {
   activeTab: string;
@@ -25,13 +26,13 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, role, user, onClose }) => {
   const t = getTranslation(user?.preferredLanguage);
-  
+
   const patientItems = [
     { id: 'dashboard', name: t.dashboard, icon: HomeIcon },
     { id: 'appointments', name: t.bookVisit, icon: CalendarIcon },
     { id: 'reports', name: t.medicalFiles, icon: ClipboardDocumentListIcon },
     { id: 'chat', name: t.chatSupport, icon: ChatBubbleBottomCenterTextIcon },
-    { id: 'virtual-doc', name: t.virtualDoctor, icon: MicrophoneIcon },
+    { id: 'virtual-doc', name: (<TranslatedText text={'Virtual Doctor'} lang={user.preferredLanguage} />), icon: MicrophoneIcon },
     { id: 'profile', name: t.myProfile, icon: UserCircleIcon },
   ];
 
@@ -65,20 +66,21 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, ro
           </button>
         )}
       </div>
-      
+
       <nav className="flex-1 p-4 sm:p-6 space-y-2">
         {menuItems.map((item) => (
           <button
             key={item.id}
             onClick={() => { setActiveTab(item.id); if (onClose) onClose(); }}
-            className={`w-full flex items-center space-x-4 px-5 py-4 sm:py-3.5 rounded-2xl transition-all duration-300 ${
-              activeTab === item.id 
-                ? `${role === 'DOCTOR' ? 'bg-indigo-600' : 'bg-blue-600'} text-white shadow-xl shadow-blue-500/20 translate-x-1` 
-                : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
-            }`}
+            className={`w-full flex items-center space-x-4 px-5 py-4 sm:py-3.5 rounded-2xl transition-all duration-300 ${activeTab === item.id
+              ? `${role === 'DOCTOR' ? 'bg-indigo-600' : 'bg-blue-600'} text-white shadow-xl shadow-blue-500/20 translate-x-1`
+              : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
+              }`}
           >
             <item.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${activeTab === item.id ? 'scale-110' : ''}`} />
-            <span className="font-black text-[11px] sm:text-[13px] uppercase whitespace-nowrap overflow-hidden">{item.name}</span>
+            <span className="font-black text-[11px] sm:text-[13px] uppercase whitespace-nowrap overflow-hidden">
+              <TranslatedText text={item.name} lang={user.preferredLanguage} />
+            </span>
           </button>
         ))}
       </nav>

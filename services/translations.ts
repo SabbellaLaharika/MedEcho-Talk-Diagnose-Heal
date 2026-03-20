@@ -14,6 +14,7 @@ const FALLBACK_PACK: Record<string, string> = {
   medicalFiles: 'Medical Files',
   chatSupport: 'Chat Assistant',
   virtualDoctor: 'Virtual Doctor',
+  language: 'Language',
   myProfile: 'My Profile',
   logout: 'Log Out',
 
@@ -31,14 +32,15 @@ const FALLBACK_PACK: Record<string, string> = {
   latestReports: 'Latest Reports',
   appointmentsTitle: 'Appointments',
   findNearbyCare: 'Find Nearby Care',
-  
+
   // Dashboard Stats
-  bpm: 'BPM',
+  bpm: 'BP',
   weight: 'Weight',
   glucose: 'Glucose',
   optimalRange: 'Optimal Range',
   stable: 'Stable',
   confidence: 'Confidence',
+  temperature: 'Temperature',
 
   // Profile View
   coreDemographics: 'Core Demographics',
@@ -46,6 +48,7 @@ const FALLBACK_PACK: Record<string, string> = {
   bloodGroup: 'Blood Group',
   selectBloodGroup: 'Select Group',
   genderIdentification: 'Gender Identification',
+  preferredInterfaceLanguage: 'Preferred Interface Language',
   selectGender: 'Select Gender',
   male: 'Male',
   female: 'Female',
@@ -92,7 +95,7 @@ const FALLBACK_PACK: Record<string, string> = {
   aiWarning: 'AI Assistant: Collecting clinical intake data in realtime.',
   describeSymptoms: 'Describe symptoms...',
   listening: 'Listening...',
-  
+
   // Booking
   specialists: 'Specialists',
   backToList: 'Back to List',
@@ -102,7 +105,7 @@ const FALLBACK_PACK: Record<string, string> = {
   reviewAndBook: 'Review & Book',
   confirmed: 'Confirmed',
   time: 'Time',
-  
+
   // Doctor Dashboard
   pendingVisits: 'Pending Visits',
   patientCount: 'Patient Count',
@@ -115,7 +118,14 @@ const FALLBACK_PACK: Record<string, string> = {
   emptyQueue: 'Active queue is currently empty',
   patientRecords: 'Patient Records',
   noReports: 'No recent medical reports',
-  
+
+  // Clinical States
+  hepatitisE: 'Hepatitis E',
+  covid: 'Covid',
+  flu: 'Flu',
+  diabetes: 'Diabetes',
+  hypertension: 'Hypertension',
+
   // Schedule Management
   mySchedule: 'My Schedule',
   scheduleDescription: 'Set availability & block slots',
@@ -177,12 +187,13 @@ const FALLBACK_PACK: Record<string, string> = {
   appetite: 'Appetite',
   duration: 'Duration',
   gastric: 'Gastric',
-  
+
   // Virtual Clinic
   virtualClinic: 'Virtual Clinic',
   talkToAI: 'Talk to our AI specialist instantly.',
   startCheckup: 'Start Checkup',
   caseSaved: 'Case record saved',
+  clinicalEntitiesWarning: 'ACADEMIC PROJECT: Clinical entities are AI-extracted. Call 102/108 for emergencies.',
 
   // Hospital Recommendations
   hospitalRecSub: 'MedEcho-Powered Hospital Recommendations',
@@ -222,7 +233,7 @@ const FALLBACK_PACK: Record<string, string> = {
   labsAndDiagnostics: 'Labs & Diagnostics',
   km: 'KM',
   call: 'Call',
-  
+
   // Healthcare Types
   multiSpecialty: 'Multi-Specialty',
   emergency247: '24/7 Emergency',
@@ -257,6 +268,20 @@ const FALLBACK_PACK: Record<string, string> = {
   calling: 'Calling...',
   endCall: 'End',
   webRtcNote: 'This demo uses WebRTC signaling. Audio should connect once remote peer answers.',
+  callFrom: 'Call from',
+  callingUser: 'Calling',
+  diagnosisReportFor: 'Diagnosis report for',
+  unknownPatient: 'Unknown patient',
+  patientFor: 'For',
+  aiContextReceived: "I've received the patient context. How can I assist?",
+  micDenied: 'Microphone access denied.',
+  sttError: 'Error processing speech.',
+  aiServiceError: 'Error connecting to AI service.',
+  unassigned: 'Unassigned',
+  clinicalConsult: 'Clinical Consultation',
+  consultProfessional: 'Consult a professional.',
+  aiMedicalIntake: 'AI Medical Intake',
+  recordFiled: 'Record Filed',
 };
 
 // In-memory store for the current language pack
@@ -279,15 +304,15 @@ const notifyObservers = () => observers.forEach(cb => cb());
  */
 export const loadTranslations = async (lang: string = 'en') => {
   const code = (lang || 'en').toLowerCase().slice(0, 2);
-  
+
   // Avoid redundant loads
   if (currentLang === code || loadingLang === code) return currentPack;
-  
+
   try {
     loadingLang = code;
-    
+
     // 1. Check Local Storage
-    const cached = localStorage.getItem(`med_echo_lang_${code}`);
+    const cached = localStorage.getItem(`med_echo_lang_v2_${code}`);
     if (cached) {
       currentPack = { ...FALLBACK_PACK, ...JSON.parse(cached) };
       currentLang = code;
@@ -297,12 +322,13 @@ export const loadTranslations = async (lang: string = 'en') => {
     // 2. Fetch Fresh from Backend
     const response = await api.get(`/translations/${code}`);
     const freshPack = response.data;
-    
+
     // 3. Update memory + local storage
-    currentPack = { ...FALLBACK_PACK, ...freshPack };
+    let mergedPack = { ...FALLBACK_PACK, ...freshPack };
+    currentPack = mergedPack;
     currentLang = code;
-    localStorage.setItem(`med_echo_lang_${code}`, JSON.stringify(freshPack));
-    
+    localStorage.setItem(`med_echo_lang_v2_${code}`, JSON.stringify(freshPack));
+
     notifyObservers();
     return currentPack;
   } catch (err) {
@@ -318,10 +344,10 @@ export const loadTranslations = async (lang: string = 'en') => {
  * NO SIDE EFFECTS here to prevent infinite re-render loops.
  */
 export const getTranslation = (lang: string = 'en') => {
-  // We don't trigger loadTranslations here anymore to prevent infinite loops.
-  // App.tsx or useTranslations hook should trigger the load.
+  const code = (lang || 'en').toLowerCase().slice(0, 2);
+  const base = code === 'en' ? FALLBACK_PACK : currentPack;
 
-  return new Proxy(currentPack, {
+  return new Proxy(base, {
     get: (target, key: string) => {
       if (typeof key !== 'string') return target[key as any];
       return target[key] || FALLBACK_PACK[key] || key;
@@ -336,7 +362,7 @@ export const translateClinical = (text: string = '', lang: string = 'en') => {
   if (!text) return '';
   const t = getTranslation(lang);
   const normalized = text.toLowerCase().trim();
-  
+
   if (normalized.includes('cardiol')) return t.cardiology;
   if (normalized.includes('neur')) return t.neurology;
   if (normalized.includes('ortho')) return t.orthopedics;
@@ -348,7 +374,7 @@ export const translateClinical = (text: string = '', lang: string = 'en') => {
   if (normalized === 'appetite') return t.appetite;
   if (normalized === 'duration') return t.duration;
   if (normalized === 'gastric') return t.gastric;
-  
+
   if (normalized === 'good') return t.good || 'Good';
   if (normalized === 'poor' || normalized === 'bad') return t.poor || 'Poor';
   if (normalized === 'regular') return t.regular || 'Regular';
@@ -356,6 +382,24 @@ export const translateClinical = (text: string = '', lang: string = 'en') => {
   if (normalized === 'no') return t.no || 'No';
   if (normalized === 'a week') return t.aWeek || 'A Week';
   if (normalized.includes('few days')) return t.fewDays || 'A Few Days';
-  
-  return text; 
+  if (normalized === 'in person' || normalized === 'in_person') return t.inPerson || 'In-Person';
+  if (normalized === 'virtual') return t.virtual || 'Virtual';
+  if (normalized.includes('covid')) return t.covid || 'Covid';
+  if (normalized.includes('hepatitis')) return t.hepatitisE || 'Hepatitis E';
+  if (normalized.includes('flu')) return t.flu || 'Flu';
+
+  return text;
+};
+
+/**
+ * Async utility to translate a string using the ML service
+ */
+export const translateString = async (text: string, targetLang: string = 'en') => {
+  if (!text || targetLang === 'en') return text;
+  try {
+    const res = await api.post('/ml/translate', { text, target_lang: targetLang });
+    return res.data.translated || text;
+  } catch (e) {
+    return text;
+  }
 };
