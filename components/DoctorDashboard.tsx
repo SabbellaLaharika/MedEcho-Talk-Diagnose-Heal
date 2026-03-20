@@ -254,9 +254,11 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
               >
                 <div className="flex justify-between items-start">
                   <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-1">Diagnosis report for {report.patientName || 'Unknown patient'}</p>
                     <p className="font-black text-slate-800 text-sm truncate group-hover:text-indigo-600 transition-colors">
                        {report.diagnosis}
                     </p>
+                    <p className="text-[10px] text-slate-500 mt-1">For: <span className="font-extrabold text-slate-700">{report.patientName || 'Unknown patient'}</span></p>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{report.date}</p>
                   </div>
                   <ChevronRightIcon className="w-3 h-3 text-slate-300 group-hover:text-indigo-400 transition-colors" />
