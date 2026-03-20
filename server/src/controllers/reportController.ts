@@ -53,6 +53,7 @@ export const getPatientReports = async (req: Request, res: Response) => {
         const reports = await prisma.report.findMany({
             where: { patientId },
             include: {
+                patient: { select: { name: true } },
                 doctor: { select: { name: true } }
             },
             orderBy: { createdAt: 'desc' }
@@ -107,5 +108,49 @@ export const getReportById = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error fetching report' });
+    }
+};
+
+// Send all patient reports to appointment doctor by assigning doctorId
+export const sendPatientReportsToDoctor = async (req: Request, res: Response) => {
+    try {
+        const { patientId, appointmentId } = req.params;
+
+        const appointment = await prisma.appointment.findUnique({ where: { id: appointmentId } });
+        if (!appointment || appointment.patientId !== patientId) {
+            return res.status(404).json({ message: 'Appointment not found for this patient' });
+        }
+
+        const doctorId = appointment.doctorId;
+        if (!doctorId) {
+            return res.status(400).json({ message: 'Appointment has no assigned doctor' });
+        }
+
+        await prisma.report.updateMany({ where: { patientId }, data: { doctorId } });
+
+        const updatedReports = await prisma.report.findMany({ where: { patientId }, orderBy: { createdAt: 'desc' } });
+        res.json({ message: 'All patient reports sent to doctor', doctorId, reports: updatedReports });
+    } catch (error: any) {
+        console.error('Error sending reports:', error);
+        res.status(500).json({ message: 'Server error sharing reports', error: error.message });
+    }
+};
+
+// Get all reports assigned to a doctor
+export const getDoctorReports = async (req: Request, res: Response) => {
+    try {
+        const { doctorId } = req.params;
+        const reports = await prisma.report.findMany({
+            where: { doctorId },
+            include: {
+                patient: { select: { name: true } },
+                doctor: { select: { name: true } }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(reports);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error fetching doctor reports' });
     }
 };

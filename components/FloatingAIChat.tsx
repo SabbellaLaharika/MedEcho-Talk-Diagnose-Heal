@@ -127,7 +127,9 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
 
       const reportPayload = {
         patientId: user.id,
+        patientName: user.name,
         doctorId: null,
+        doctorName: 'Unassigned',
         diagnosis: mlContext.diagnosis || 'Clinical Consultation',
         confidenceScore: parseFloat(mlContext.confidence) || 85,
         preventions: mlContext.precautions 

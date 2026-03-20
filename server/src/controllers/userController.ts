@@ -25,16 +25,26 @@ export const getDoctors = async (req: Request, res: Response) => {
             }
         });
 
+        // Deduplicate doctor entries by normalized name (handles seeded duplicates)
+        const uniqueDoctors = new Map<string, any>();
+        for (const doctor of doctors) {
+            const key = (doctor.name || '').trim().toLowerCase();
+            if (!uniqueDoctors.has(key)) {
+                uniqueDoctors.set(key, doctor);
+            }
+        }
+        const dedupedDoctors = Array.from(uniqueDoctors.values());
+
         if (lang && typeof lang === 'string' && lang !== 'en') {
             const translatedDoctors = await translationService.translateArray(
-                doctors,
+                dedupedDoctors,
                 ['name', 'specialization'],
                 lang
             );
             return res.json(translatedDoctors);
         }
 
-        res.json(doctors);
+        res.json(dedupedDoctors);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error fetching doctors' });

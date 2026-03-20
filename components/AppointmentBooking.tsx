@@ -4,7 +4,7 @@ import { dbService } from '../services/dbService';
 import api from '../services/api';
 import { getTranslation, translateClinical } from '../services/translations';
 import { User, Appointment } from '../types';
-import { 
+import {
   MagnifyingGlassIcon,
   ChevronRightIcon,
   CheckBadgeIcon,
@@ -19,7 +19,7 @@ interface AppointmentBookingProps {
 
 const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user }) => {
   const t = getTranslation(user.preferredLanguage);
-  
+
   // 1. STATES
   const [doctors, setDoctors] = useState<User[]>([]);
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
@@ -74,7 +74,15 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
           return indexA - indexB;
         });
 
-        setDoctors(sortedDoctors);
+        const uniqueDoctorMap = new Map<string, User>();
+        for (const doc of sortedDoctors) {
+          const key = (doc.name || '').trim().toLowerCase();
+          if (!uniqueDoctorMap.has(key)) {
+            uniqueDoctorMap.set(key, doc);
+          }
+        }
+
+        setDoctors(Array.from(uniqueDoctorMap.values()));
         setAllAppointments(apts || []);
       } catch (err) {
         console.error("Failed to load booking data:", err);
@@ -92,11 +100,13 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
           api.get(`/schedules/${selectedDoc.id}`),
           api.get(`/schedules/${selectedDoc.id}/blocked`)
         ]).catch(() => [{ data: [] }, { data: [] }]); // Correct fallback array
-        
+
         setDoctorSchedule(schedRes?.data || []);
         setBlockedSlots(blockedRes?.data || []);
       } catch (err) {
-        console.error("Failed to fetch doctor schedule:", err);
+        console.warn("Schedule fetch failed, defaulting to no slots:", err);
+        setDoctorSchedule([]);
+        setBlockedSlots([]);
       }
     };
     fetchSchedule();
@@ -124,14 +134,14 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
     const dayOfWeek = bookingDate.getUTCDay();
 
     let schedules = doctorSchedule.filter((s: any) => s.dayIndex === dayOfWeek && s.isActive);
-    
+
     // Default 9-6 schedule if none provided
     if (schedules.length === 0 && doctorSchedule.length === 0) {
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
         schedules.push({ startTime: '09:00', endTime: '18:00', isActive: true });
       }
     }
-    
+
     if (schedules.length === 0) return [];
 
     let allSlots: string[] = [];
@@ -149,9 +159,9 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
 
     // Filter Already Booked (Real-time update from Socket works here)
     const bookedForDate = allAppointments.filter(
-      a => a.doctorId === selectedDoc.id && 
-      (a.date === date || new Date(a.date).toISOString().split('T')[0] === date) && 
-      a.status !== 'CANCELLED'
+      a => a.doctorId === selectedDoc.id &&
+        (a.date === date || new Date(a.date).toISOString().split('T')[0] === date) &&
+        a.status !== 'CANCELLED'
     );
     slots = slots.filter(slotTime => !bookedForDate.some(a => a.time === slotTime));
 
@@ -161,13 +171,14 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
   // 8. HANDLERS
   const handleBookClick = () => {
     if (!selectedDoc || !selectedTime) return;
-    const summary = { 
-      doctorId: selectedDoc.id, 
-      doctorName: selectedDoc.name, 
-      doctorAvatar: selectedDoc.avatar, 
-      date, 
-      time: selectedTime, 
-      type 
+    const summary = {
+      doctorId: selectedDoc.id,
+      doctorName: selectedDoc.name,
+      doctorAvatar: selectedDoc.avatar,
+      doctorContact: selectedDoc.contact || selectedDoc?.contact || '',
+      date,
+      time: selectedTime,
+      type
     };
     setBookedAptSummary(summary);
     setShowSuccessModal(true);
@@ -182,8 +193,8 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
     setShowSuccessModal(false);
   };
 
-  const filteredDoctors = doctors.filter(doc => 
-    doc.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredDoctors = doctors.filter(doc =>
+    doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.specialization?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -197,9 +208,9 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
         </div>
         <div className="relative w-full md:w-96">
           <MagnifyingGlassIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-          <input 
-            type="text" 
-            placeholder={t.searchSpecialists} 
+          <input
+            type="text"
+            placeholder={t.searchSpecialists}
             className="w-full pl-12 pr-5 py-4 bg-white border-2 border-slate-100 rounded-2xl outline-none font-bold text-sm focus:border-indigo-500 shadow-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -216,9 +227,8 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
               <button
                 key={doc.id}
                 onClick={() => { setSelectedDoc(doc); setSelectedTime(null); }}
-                className={`w-full p-6 rounded-[2rem] border-2 flex items-center justify-between transition-all ${
-                  selectedDoc?.id === doc.id ? 'border-indigo-600 bg-white shadow-xl' : 'border-slate-50 bg-white/50 hover:border-indigo-100'
-                }`}
+                className={`w-full p-6 rounded-[2rem] border-2 flex items-center justify-between transition-all ${selectedDoc?.id === doc.id ? 'border-indigo-600 bg-white shadow-xl' : 'border-slate-50 bg-white/50 hover:border-indigo-100'
+                  }`}
               >
                 <div className="flex items-center space-x-4">
                   <div className="relative flex-shrink-0">
@@ -232,7 +242,20 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                     </p>
                   </div>
                 </div>
-                <ChevronRightIcon className={`w-4 h-4 ${selectedDoc?.id === doc.id ? 'text-indigo-600' : 'text-slate-200'}`} />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const phone = doc.contact || doc?.contact || '6300292724';
+                      const clean = phone.replace(/[^\d+]/g, '');
+                      if (clean.length > 0) window.location.href = `tel:${clean}`;
+                    }}
+                    className="text-[10px] font-black uppercase text-white bg-emerald-500 px-2 py-1 rounded-full"
+                  >
+                    Call
+                  </button>
+                  <ChevronRightIcon className={`w-4 h-4 ${selectedDoc?.id === doc.id ? 'text-indigo-600' : 'text-slate-200'}`} />
+                </div>
               </button>
             ))}
           </div>
@@ -245,8 +268,8 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
               <div className="p-10 border-b bg-slate-50/50 flex flex-col gap-6">
                 <div className="flex justify-between items-start">
                   <button onClick={() => setSelectedDoc(null)} className="lg:hidden text-[10px] font-black uppercase text-indigo-600 underline">← {t.backToList}</button>
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     value={date}
                     min={new Date().toISOString().split('T')[0]}
                     onChange={(e) => setDate(e.target.value)}
@@ -269,11 +292,10 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                       <button
                         key={time}
                         onClick={() => setSelectedTime(time)}
-                        className={`py-4 px-2 rounded-2xl border-2 font-black text-xs transition-all ${
-                          selectedTime === time 
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg scale-105' 
-                          : 'bg-white border-slate-50 text-slate-600 hover:border-indigo-100'
-                        }`}
+                        className={`py-4 px-2 rounded-2xl border-2 font-black text-xs transition-all ${selectedTime === time
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg scale-105'
+                            : 'bg-white border-slate-50 text-slate-600 hover:border-indigo-100'
+                          }`}
                       >
                         {time}
                       </button>
@@ -281,7 +303,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                   </div>
                 ) : (
                   <div className="h-48 flex flex-col items-center justify-center text-center p-8 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-100">
-                     <p className="text-slate-300 font-bold uppercase text-[10px]">{t.noAvailability}</p>
+                    <p className="text-slate-300 font-bold uppercase text-[10px]">{t.noAvailability}</p>
                   </div>
                 )}
               </div>
@@ -330,7 +352,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                   <span className="font-black text-slate-800">{bookedAptSummary.date} @ {bookedAptSummary.time}</span>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={confirmFinalBooking}
                 className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest"
               >

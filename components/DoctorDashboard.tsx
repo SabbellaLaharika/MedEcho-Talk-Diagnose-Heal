@@ -1,12 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { io, Socket } from 'socket.io-client';
 import { User, Appointment, MedicalReport } from '../types';
 import AIChatAssistant from './AIChatAssistant';
 import ReportDetailModal from './ReportDetailModal';
 import { getTranslation, translateClinical } from '../services/translations';
-import { 
-  UsersIcon, 
-  CalendarDaysIcon, 
+import {
+  UsersIcon,
+  CalendarDaysIcon,
   VideoCameraIcon,
   CheckCircleIcon,
   ClockIcon,
@@ -23,15 +24,15 @@ import {
 interface DoctorDashboardProps {
   doctor: User;
   appointments: Appointment[];
-  reports: MedicalReport[]; 
+  reports: MedicalReport[];
   onUpdateUser: (updatedUser: User) => void;
   onUpdateAppointment: (updatedApt: Appointment) => void;
   onDeleteAppointment: (id: string) => void;
 }
 
-const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ 
-  doctor, 
-  appointments, 
+const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
+  doctor,
+  appointments,
   reports,
   onUpdateUser,
   onUpdateAppointment,
@@ -43,15 +44,78 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 
   const doctorAppointments = appointments.filter(a => a.doctorId === doctor.id);
   const pendingApts = doctorAppointments.filter(a => a.status === 'PENDING');
-  
+  const [callState, setCallState] = useState<'idle' | 'incoming' | 'in_call'>('idle');
+  const [activeCall, setActiveCall] = useState<string | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    const socket = io('http://localhost:5000');
+    socketRef.current = socket;
+    socket.emit('join', { userId: doctor.id, role: 'DOCTOR' });
+
+    socket.on('offer', async (payload: any) => {
+      if (payload.to !== doctor.id) return;
+      setActiveCall(`Call from ${payload.from}`);
+      setCallState('incoming');
+
+      pcRef.current = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      pcRef.current.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('ice_candidate', { callId: payload.callId, from: doctor.id, to: payload.from, toRole: 'PATIENT', candidate: event.candidate });
+        }
+      };
+      pcRef.current.ontrack = (event) => {
+        remoteStreamRef.current = event.streams[0];
+        setCallState('in_call');
+      };
+
+      const localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      localStreamRef.current = localStream;
+      localStream.getTracks().forEach(track => pcRef.current?.addTrack(track, localStream));
+
+      await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+      const answer = await pcRef.current.createAnswer();
+      await pcRef.current.setLocalDescription(answer);
+      socket.emit('answer', { callId: payload.callId, from: doctor.id, to: payload.from, sdp: answer });
+      setCallState('in_call');
+    });
+
+    socket.on('ice_candidate', async (payload: any) => {
+      if (payload.to !== doctor.id) return;
+      await pcRef.current?.addIceCandidate(payload.candidate);
+    });
+
+    socket.on('end_call', () => {
+      setCallState('idle');
+      setActiveCall(null);
+      pcRef.current?.close();
+      pcRef.current = null;
+      localStreamRef.current?.getTracks().forEach(t => t.stop());
+      remoteStreamRef.current?.getTracks().forEach(t => t.stop());
+      localStreamRef.current = null;
+      remoteStreamRef.current = null;
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [doctor.id]);
+
   const stats = [
     { label: t.pendingVisits, value: pendingApts.length.toString(), icon: ClockIcon, color: 'bg-indigo-500' },
     { label: t.patientCount, value: '24', icon: UsersIcon, color: 'bg-slate-800' },
     { label: t.finished, value: doctorAppointments.filter(a => a.status === 'COMPLETED').length.toString(), icon: CheckCircleIcon, color: 'bg-emerald-500' },
   ];
 
-  const handleStartCall = (patientName: string) => {
-    alert(`[SECURE LINE] Initiating clinical consultation with ${patientName}...`);
+  const handleStartCall = (patientName: string, patientId: string) => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    setActiveCall(`Calling ${patientName}`);
+    setCallState('calling');
+    socket.emit('start_call', { callId: patientId, from: doctor.id, to: patientId, fromName: doctor.name, toRole: 'PATIENT' });
   };
 
   const toggleAvailability = (isAvailable: boolean) => {
@@ -73,11 +137,11 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           </div>
           <div className="min-w-0">
             <h1 className="text-xl sm:text-3xl font-black text-slate-800 tracking-tight truncate">
-               {doctor.name}
+              {doctor.name}
             </h1>
             <div className="flex flex-wrap items-center gap-2 mt-1 sm:mt-2">
               <span className="bg-indigo-50 text-indigo-600 text-[8px] sm:text-[9px] font-black px-2 py-0.5 rounded-full uppercase truncate max-w-[120px]">
-                 {translateClinical(doctor.specialization, doctor.preferredLanguage)}
+                {translateClinical(doctor.specialization, doctor.preferredLanguage)}
               </span>
               <span className="text-slate-400 text-[10px] font-bold">ID: D{doctor.id.replace(/\D/g, '').slice(0, 3).padStart(3, '0')}</span>
             </div>
@@ -86,21 +150,21 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 
         <div className="flex items-center gap-3 w-full lg:w-auto">
           <div className="flex-1 lg:flex-none flex items-center bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
-             <button 
+            <button
               onClick={() => toggleAvailability(true)}
               className={`flex-1 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all ${doctor.isAvailable ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}
-             >
-               {t.online}
-             </button>
-             <button 
+            >
+              {t.online}
+            </button>
+            <button
               onClick={() => toggleAvailability(false)}
               className={`flex-1 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all ${!doctor.isAvailable ? 'bg-white text-slate-600 shadow-sm' : 'text-slate-400'}`}
-             >
-               {t.away}
-             </button>
+            >
+              {t.away}
+            </button>
           </div>
-          
-          <button 
+
+          <button
             onClick={() => setAiPanelOpen(true)}
             className="p-3 sm:px-8 sm:py-4 bg-indigo-600 text-white rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-lg active:scale-95 hover:bg-indigo-700 transition-all"
           >
@@ -133,7 +197,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
             </div>
             <SignalIcon className={`w-5 h-5 ${doctor.isAvailable ? 'text-emerald-500 animate-pulse' : 'text-slate-300'}`} />
           </div>
-          
+
           <div className="p-4 sm:p-6 space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar">
             {pendingApts.length > 0 ? pendingApts.map(apt => (
               <div key={apt.id} className="p-5 sm:p-6 bg-slate-50/50 border border-slate-100 rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -143,22 +207,23 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                   </div>
                   <div className="min-w-0">
                     <p className="font-black text-slate-800 text-base sm:text-lg truncate">
-                       {apt.patientName || apt.patient?.name || t.patient}
+                      {apt.patientName || apt.patient?.name || t.patient}
                     </p>
-                    <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-1">
-                       <span className="font-bold">{apt.time}</span>
-                       <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 font-black uppercase text-[8px]">{translateClinical(apt.type.replace('_', ' '), doctor.preferredLanguage)}</span>
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400 mt-1">
+                      <span className="font-bold">{apt.time}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold">{new Date(apt.date).toLocaleDateString()}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 font-black uppercase text-[8px]">{translateClinical(apt.type.replace('_', ' '), doctor.preferredLanguage)}</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex space-x-2 w-full sm:w-auto">
-                  <button 
-                    onClick={() => handleStartCall(apt.patientName || apt.patient?.name || t.patient)}
+                  <button
+                    onClick={() => handleStartCall(apt.patientName || apt.patient?.name || 'Patient', apt.patientId || '')}
                     className="flex-1 sm:flex-none p-3.5 bg-indigo-600 text-white rounded-xl shadow-md"
                   >
                     <VideoCameraIcon className="w-5 h-5 mx-auto" />
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleStatusChange(apt, 'COMPLETED')}
                     className="flex-1 sm:flex-none p-3.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl"
                   >
@@ -182,16 +247,18 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           </h3>
           <div className="space-y-3 overflow-y-auto custom-scrollbar pr-1">
             {reports.map(report => (
-              <button 
-                key={report.id} 
+              <button
+                key={report.id}
                 onClick={() => setSelectedReport(report)}
                 className="w-full p-4 rounded-2xl border border-slate-100 bg-white hover:border-indigo-200 hover:bg-indigo-50/30 transition-all text-left group"
               >
                 <div className="flex justify-between items-start">
                   <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-1">Diagnosis report for {report.patientName || 'Unknown patient'}</p>
                     <p className="font-black text-slate-800 text-sm truncate group-hover:text-indigo-600 transition-colors">
-                       {report.diagnosis}
+                      {report.diagnosis}
                     </p>
+                    <p className="text-[10px] text-slate-500 mt-1">For: <span className="font-extrabold text-slate-700">{report.patientName || 'Unknown patient'}</span></p>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{report.date}</p>
                   </div>
                   <ChevronRightIcon className="w-3 h-3 text-slate-300 group-hover:text-indigo-400 transition-colors" />
@@ -207,17 +274,16 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 
       {/* Side Panel Overlay */}
       {aiPanelOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[490]"
           onClick={() => setAiPanelOpen(false)}
         ></div>
       )}
 
       {/* Responsive Side Panel */}
-      <div 
-        className={`fixed top-0 right-0 h-full w-full sm:w-[500px] lg:w-[600px] bg-white shadow-2xl z-[500] transform transition-transform duration-500 ease-in-out border-l border-slate-100 flex flex-col ${
-          aiPanelOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
+      <div
+        className={`fixed top-0 right-0 h-full w-full sm:w-[500px] lg:w-[600px] bg-white shadow-2xl z-[500] transform transition-transform duration-500 ease-in-out border-l border-slate-100 flex flex-col ${aiPanelOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
       >
         <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
           <div className="flex items-center space-x-3">
@@ -233,12 +299,28 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
         </div>
       </div>
 
+      {/* Call Modal */}
+      {(callState !== 'idle') && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white p-5 rounded-2xl shadow-xl w-full max-w-md">
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <h3 className="font-black text-slate-900">{activeCall || 'Live Call'}</h3>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500">{callState === 'incoming' ? 'Incoming call...' : callState === 'in_call' ? 'In call' : 'Calling...'}</p>
+              </div>
+              <button onClick={() => { setCallState('idle'); setActiveCall(null); pcRef.current?.close(); }} className="text-rose-500 text-sm font-black">End</button>
+            </div>
+            <div className="text-[10px] text-slate-500">This demo uses WebRTC signaling. Audio should connect once remote peer answers.</div>
+          </div>
+        </div>
+      )}
+
       {/* Detail Modal */}
       {selectedReport && (
-        <ReportDetailModal 
-          report={selectedReport} 
+        <ReportDetailModal
+          report={selectedReport}
           user={doctor}
-          onClose={() => setSelectedReport(null)} 
+          onClose={() => setSelectedReport(null)}
         />
       )}
     </div>

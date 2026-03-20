@@ -337,7 +337,7 @@ const App: React.FC = () => {
               : <PatientDashboard user={user} appointments={appointments} reports={reports} />
           )}
           {activeTab === 'appointments' && <AppointmentBooking user={user} onBook={async (apt) => {
-            const newApt = { ...apt, patientId: user.id, patientName: user.name, status: 'PENDING' } as Appointment;
+            const newApt = { ...apt, patientId: user.id, patientName: user.name, status: 'PENDING', doctorContact: apt.doctorContact || '' } as Appointment;
             try {
               const saved = await dbService.appointments.create(newApt);
               setAppointments(prev => [saved, ...prev]);
