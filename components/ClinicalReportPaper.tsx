@@ -139,7 +139,7 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
         <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1">{t.predictedCondition}</p>
-            <h2 className="text-3xl font-black text-slate-900">{isTranslating ? 'Translating...' : displayReport.diagnosis}</h2>
+            <h2 className="text-3xl font-black text-slate-900">{isTranslating ? t.syncInProgress : displayReport.diagnosis}</h2>
           </div>
           <div className="text-right">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t.confidence}</p>
@@ -158,7 +158,7 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
               </span>
             ))}
             {(!report.symptoms || report.symptoms.length === 0) && (
-              <p className="text-xs text-slate-400 italic">No specific markers detected</p>
+              <p className="text-xs text-slate-400 italic">{t.noMarkers}</p>
             )}
           </div>
         </section>
@@ -176,7 +176,7 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
               ))}
               {(!report.history || Object.keys(report.history).length === 0) && (
                  <tr>
-                    <td colSpan={2} className="py-2 text-xs text-slate-400 italic">No historical data available</td>
+                    <td colSpan={2} className="py-2 text-xs text-slate-400 italic">{t.noHistory}</td>
                  </tr>
               )}
             </tbody>

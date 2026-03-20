@@ -91,7 +91,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
         const [schedRes, blockedRes] = await Promise.all([
           api.get(`/schedules/${selectedDoc.id}`),
           api.get(`/schedules/${selectedDoc.id}/blocked`)
-        ]).catch(() => ({ data: [] })); // Fallback
+        ]).catch(() => [{ data: [] }, { data: [] }]); // Correct fallback array
         
         setDoctorSchedule(schedRes?.data || []);
         setBlockedSlots(blockedRes?.data || []);

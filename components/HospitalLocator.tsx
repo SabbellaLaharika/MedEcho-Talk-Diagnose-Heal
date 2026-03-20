@@ -25,17 +25,17 @@ const HospitalLocator: React.FC<HospitalLocatorProps> = ({ user }) => {
           if (result) {
             setData(result);
           } else {
-            setError("Could not retrieve nearby hospital information.");
+            setError(t.hospitalError);
           }
           setLoading(false);
         },
         (err) => {
-          setError("Location access denied. Please enable location to find nearby hospitals.");
+          setError(t.locationDenied);
           setLoading(false);
         }
       );
     } else {
-      setError("Geolocation is not supported by your browser.");
+      setError(t.geoNotSupported);
       setLoading(false);
     }
   };

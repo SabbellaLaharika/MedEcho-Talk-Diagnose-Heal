@@ -61,7 +61,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (e) {
-      alert("Failed to update profile");
+      alert(t.updateProfileFail);
     } finally {
       setSaving(false);
     }

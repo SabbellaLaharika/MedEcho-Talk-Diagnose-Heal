@@ -12,6 +12,10 @@ import {
   TrashIcon,
   ShieldCheckIcon
 } from '@heroicons/react/24/solid';
+import { getTranslation } from '../services/translations';
+
+const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const BLOCK_REASON_KEYS = ['surgery', 'personalLeave', 'emergency', 'conference', 'training', 'otherReason'];
 
 interface DoctorScheduleManagerProps {
   doctor: User;
@@ -32,10 +36,8 @@ interface BlockedSlotData {
   reason: string;
 }
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const BLOCK_REASONS = ['Surgery', 'Personal Leave', 'Emergency', 'Conference', 'Training', 'Other'];
-
 const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor }) => {
+  const t = getTranslation(doctor.preferredLanguage);
   const [schedule, setSchedule] = useState<DayScheduleData[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlotData[]>([]);
   const [saving, setSaving] = useState(false);
@@ -45,7 +47,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
   const [blockDate, setBlockDate] = useState(new Date().toISOString().split('T')[0]);
   const [blockStart, setBlockStart] = useState('09:00');
   const [blockEnd, setBlockEnd] = useState('10:00');
-  const [blockReason, setBlockReason] = useState('Surgery');
+  const [blockReason, setBlockReason] = useState('surgery');
   const [blocking, setBlocking] = useState(false);
 
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
@@ -186,8 +188,8 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight uppercase">My Schedule</h2>
-          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Set availability & block slots</p>
+          <h2 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight uppercase">{t.mySchedule}</h2>
+          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">{t.scheduleDescription}</p>
         </div>
         <button
           onClick={saveSchedule}
@@ -196,7 +198,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
             saved ? 'bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg'
           }`}
         >
-          {saved ? <><CheckCircleIcon className="w-4 h-4" /> Saved</> : saving ? 'Saving...' : <><ShieldCheckIcon className="w-4 h-4" /> Save Schedule</>}
+          {saved ? <><CheckCircleIcon className="w-4 h-4" /> {t.saved}</> : saving ? t.saving : <><ShieldCheckIcon className="w-4 h-4" /> {t.saveSchedule}</>}
         </button>
       </div>
 
@@ -204,8 +206,8 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
       <div className="bg-indigo-50/50 rounded-[2rem] p-6 sm:p-8 border-2 border-indigo-100 space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex flex-col gap-1">
-                <h4 className="text-sm font-black text-indigo-900 uppercase tracking-widest">Bulk Apply Tool</h4>
-                <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-tight">Create a slot template and apply to selected days</p>
+                <h4 className="text-sm font-black text-indigo-900 uppercase tracking-widest">{t.bulkTool}</h4>
+                <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-tight">{t.bulkDescription}</p>
             </div>
             <div className="flex items-center gap-3">
                 <button
@@ -213,14 +215,14 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-100 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-200 transition-colors"
                 >
                     <PlusIcon className="w-3.5 h-3.5" />
-                    Add Slot to Template
+                    {t.addSlotTemplate}
                 </button>
                 <button
                     onClick={applyBulkHours}
                     disabled={selectedDays.length === 0 || bulkSlots.length === 0}
                     className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-md transition-all disabled:opacity-30"
                 >
-                    Apply to {selectedDays.length} Selected Days
+                    {t.applyToSelected} ({selectedDays.length})
                 </button>
             </div>
         </div>
@@ -230,23 +232,23 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
                 <div key={idx} className="p-4 bg-white rounded-2xl border border-indigo-100 flex items-center justify-between gap-3 shadow-sm">
                     <div className="flex items-center gap-4">
                         <div className="flex flex-col gap-1">
-                            <span className="text-[8px] font-black text-slate-400 uppercase">From</span>
+                            <span className="text-[8px] font-black text-slate-400 uppercase">{t.from}</span>
                             <select
                                 value={slot.startTime}
                                 onChange={(e) => updateBulkSlot(idx, 'startTime', e.target.value)}
                                 className="px-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-black outline-none"
                             >
-                                {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                                {timeOptions.map(tOption => <option key={tOption} value={tOption}>{tOption}</option>)}
                             </select>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <span className="text-[8px] font-black text-slate-400 uppercase">To</span>
+                            <span className="text-[8px] font-black text-slate-400 uppercase">{t.to}</span>
                             <select
                                 value={slot.endTime}
                                 onChange={(e) => updateBulkSlot(idx, 'endTime', e.target.value)}
                                 className="px-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-black outline-none"
                             >
-                                {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                                {timeOptions.map(tOption => <option key={tOption} value={tOption}>{tOption}</option>)}
                             </select>
                         </div>
                     </div>
@@ -265,17 +267,17 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
         <div className="p-6 sm:p-8 border-b bg-slate-50/50 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <ClockIcon className="w-5 h-5 text-indigo-600" />
-            <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Weekly Hours</h3>
+            <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">{t.weeklyHours}</h3>
           </div>
           <button 
             onClick={() => setSelectedDays(selectedDays.length === 7 ? [] : [0,1,2,3,4,5,6])}
             className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
           >
-            {selectedDays.length === 7 ? 'Deselect All' : 'Select All'}
+            {selectedDays.length === 7 ? t.deselectAll : t.selectAll}
           </button>
         </div>
         <div className="p-4 sm:p-6 space-y-6">
-          {DAY_NAMES.map((dayName, dayIndex) => {
+          {DAY_KEYS.map((dayKey, dayIndex) => {
             const daySlots = schedule.map((s, idx) => ({ ...s, originalIndex: idx })).filter(s => s.dayIndex === dayIndex);
             const isSelected = selectedDays.includes(dayIndex);
             
@@ -290,7 +292,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
                         {isSelected && <CheckCircleIcon className="w-4 h-4" />}
                     </button>
                     <span className="font-black text-sm uppercase tracking-wider text-slate-800">
-                        {dayName}
+                        {t[DAY_KEYS[dayIndex]]}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -300,7 +302,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-500 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-colors"
                         >
                             <TrashIcon className="w-3.5 h-3.5" />
-                            Clear Day
+                            {t.clearDay}
                         </button>
                     )}
                     <button
@@ -308,7 +310,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-colors"
                     >
                         <PlusIcon className="w-3.5 h-3.5" />
-                        Add Slot
+                        {t.addSlot}
                     </button>
                   </div>
                 </div>
@@ -320,24 +322,24 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
                       className="p-4 rounded-xl bg-slate-50 flex items-center justify-between gap-4"
                     >
                       <div className="flex items-center gap-3 sm:gap-6">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black text-slate-400 uppercase">From</span>
+                         <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black text-slate-400 uppercase">{t.from}</span>
                           <select
                             value={slot.startTime}
                             onChange={(e) => updateSlot(slot.originalIndex, 'startTime', e.target.value)}
                             className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold outline-none"
                           >
-                            {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                            {timeOptions.map(tOption => <option key={tOption} value={tOption}>{tOption}</option>)}
                           </select>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black text-slate-400 uppercase">To</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase">{t.to}</span>
                           <select
                             value={slot.endTime}
                             onChange={(e) => updateSlot(slot.originalIndex, 'endTime', e.target.value)}
                             className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold outline-none"
                           >
-                            {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                            {timeOptions.map(tOption => <option key={tOption} value={tOption}>{tOption}</option>)}
                           </select>
                         </div>
                       </div>
@@ -349,7 +351,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
                       </button>
                     </div>
                   )) : (
-                    <p className="text-center py-4 text-slate-300 font-bold text-xs uppercase">No hours set</p>
+                    <p className="text-center py-4 text-slate-300 font-bold text-xs uppercase">{t.noHoursSet}</p>
                   )}
                 </div>
               </div>
@@ -362,13 +364,13 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
       <div className="bg-white rounded-[2rem] sm:rounded-[3rem] shadow-sm border border-slate-50 overflow-hidden">
         <div className="p-6 sm:p-8 border-b bg-rose-50/30 flex items-center gap-3">
           <NoSymbolIcon className="w-5 h-5 text-rose-500" />
-          <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Freeze Slots</h3>
+          <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">{t.freezeSlotsHeader}</h3>
         </div>
         <div className="p-4 sm:p-6 space-y-6">
           {/* Add Block Form */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 p-5 bg-slate-50 rounded-2xl border border-slate-100">
             <div>
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Date</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">{t.date}</label>
               <input
                 type="date"
                 value={blockDate}
@@ -378,7 +380,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
               />
             </div>
             <div>
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Start</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">{t.start}</label>
               <select
                 value={blockStart}
                 onChange={(e) => setBlockStart(e.target.value)}
@@ -388,7 +390,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
               </select>
             </div>
             <div>
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">End</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">{t.end}</label>
               <select
                 value={blockEnd}
                 onChange={(e) => setBlockEnd(e.target.value)}
@@ -398,13 +400,13 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
               </select>
             </div>
             <div>
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Reason</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">{t.reason}</label>
               <select
                 value={blockReason}
                 onChange={(e) => setBlockReason(e.target.value)}
                 className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none"
               >
-                {BLOCK_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                {BLOCK_REASON_KEYS.map(rKey => <option key={rKey} value={rKey}>{t[rKey]}</option>)}
               </select>
             </div>
             <div className="flex items-end">
@@ -414,7 +416,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
                 className="w-full h-[46px] bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 justify-center shadow-lg"
               >
                 <PlusIcon className="w-4 h-4" />
-                Freeze
+                {t.freeze}
               </button>
             </div>
           </div>
@@ -430,7 +432,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
                     </div>
                     <div>
                       <p className="font-black text-slate-800 text-sm">{slot.date} @ {slot.startTime} - {slot.endTime}</p>
-                      <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest">{slot.reason}</p>
+                      <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest">{t[slot.reason] || slot.reason}</p>
                     </div>
                   </div>
                   <button
@@ -444,7 +446,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
             </div>
           ) : (
             <div className="text-center py-8 text-slate-300 font-black uppercase text-[10px] tracking-widest">
-              No frozen slots — all available times are open
+              {t.noFrozenSlots}
             </div>
           )}
         </div>

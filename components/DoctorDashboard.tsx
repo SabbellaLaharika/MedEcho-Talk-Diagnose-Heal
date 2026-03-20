@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { User, Appointment, MedicalReport } from '../types';
 import AIChatAssistant from './AIChatAssistant';
 import ReportDetailModal from './ReportDetailModal';
-import { getTranslation } from '../services/translations';
+import { getTranslation, translateClinical } from '../services/translations';
 import { 
   UsersIcon, 
   CalendarDaysIcon, 
@@ -77,7 +77,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
             </h1>
             <div className="flex flex-wrap items-center gap-2 mt-1 sm:mt-2">
               <span className="bg-indigo-50 text-indigo-600 text-[8px] sm:text-[9px] font-black px-2 py-0.5 rounded-full uppercase truncate max-w-[120px]">
-                 {doctor.specialization}
+                 {translateClinical(doctor.specialization, doctor.preferredLanguage)}
               </span>
               <span className="text-slate-400 text-[10px] font-bold">ID: D{doctor.id.replace(/\D/g, '').slice(0, 3).padStart(3, '0')}</span>
             </div>
@@ -143,17 +143,17 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                   </div>
                   <div className="min-w-0">
                     <p className="font-black text-slate-800 text-base sm:text-lg truncate">
-                       {apt.patientName || apt.patient?.name || 'Patient'}
+                       {apt.patientName || apt.patient?.name || t.patient}
                     </p>
                     <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-1">
                        <span className="font-bold">{apt.time}</span>
-                       <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 font-black uppercase text-[8px]">{apt.type}</span>
+                       <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 font-black uppercase text-[8px]">{translateClinical(apt.type.replace('_', ' '), doctor.preferredLanguage)}</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex space-x-2 w-full sm:w-auto">
                   <button 
-                    onClick={() => handleStartCall(apt.patientName || apt.patient?.name || 'Patient')}
+                    onClick={() => handleStartCall(apt.patientName || apt.patient?.name || t.patient)}
                     className="flex-1 sm:flex-none p-3.5 bg-indigo-600 text-white rounded-xl shadow-md"
                   >
                     <VideoCameraIcon className="w-5 h-5 mx-auto" />

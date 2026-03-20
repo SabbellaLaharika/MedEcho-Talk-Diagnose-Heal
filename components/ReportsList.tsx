@@ -49,7 +49,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
     <div className="p-4 sm:p-8 max-w-[1400px] mx-auto h-[calc(100vh-100px)] flex flex-col space-y-6">
       <div className="flex-shrink-0">
         <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">{t.medicalReports}</h2>
-        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Your AI-generated diagnosis history</p>
+        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">{t.aiHistory}</p>
       </div>
 
       <div className="flex flex-1 overflow-hidden gap-8">
@@ -89,7 +89,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
             ))}
             {filteredReports.length === 0 && (
               <div className="text-center py-20 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">No reports found</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{t.noReportsFound}</p>
               </div>
             )}
           </div>
