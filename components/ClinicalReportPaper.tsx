@@ -98,9 +98,9 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
         <div>
           <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{t.patientHistory}</h5>
           <p className="text-lg font-bold text-slate-900 underline decoration-slate-200 underline-offset-4 mb-1">
-            {user?.name || 'Authorized Patient'}
+            {report.patientName || user?.name || 'Authorized Patient'}
           </p>
-          <p className="text-xs text-slate-500">ID: {(user?.id || report.patientId).split('-')[0].toUpperCase()}</p>
+          <p className="text-xs text-slate-500">ID: {(report.patientId || user?.id || '').split('-')[0].toUpperCase()}</p>
         </div>
         <div className="text-right">
           <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{t.examinationDate}</h5>

@@ -18,7 +18,8 @@ const mapBackendReportToFrontend = (report: any): MedicalReport => {
       date: report.createdAt
         ? new Date(report.createdAt).toISOString().split('T')[0]
         : (report.date || new Date().toISOString().split('T')[0]),
-      doctorName: String(report.doctor?.name || report.doctorName || 'MedEcho AI').trim(),
+      doctorName: report.doctorId ? String(report.doctor?.name || 'Assigned Doctor').trim() : 'Unassigned',
+      patientName: String(report.patient?.name || report.patientName || 'Patient').trim(),
       summary: String(report.summary || 'No summary available').trim(),
       diagnosis: diagnosis, // Ensure it's a valid string
       prescription: Array.isArray(report.precautions) ? report.precautions : (Array.isArray(report.prescription) ? report.prescription : []),
@@ -143,8 +144,17 @@ export const dbService = {
         }
       }
 
-      // TODO: Implement getDoctorReports in backend
-      return [];
+      if (user.role === 'DOCTOR') {
+        try {
+          const { data } = await api.get(`/reports/doctor/${user.id}`);
+          const reportsArray = Array.isArray(data) ? data : (data.value || []);
+          return reportsArray.map((report: any) => mapBackendReportToFrontend(report));
+        } catch (error) {
+          console.error('Error fetching doctor reports:', error);
+          return [];
+        }
+      }
+      return []; 
     },
     create: async (report: MedicalReport): Promise<MedicalReport> => {
       // Ensure all required fields are set before sending

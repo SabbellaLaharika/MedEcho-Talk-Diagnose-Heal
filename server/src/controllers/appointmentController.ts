@@ -10,6 +10,20 @@ export const createAppointment = async (req: Request, res: Response) => {
     try {
         const { doctorId, patientId, date, time, type } = req.body;
 
+        if (!doctorId || !patientId || !date) {
+            return res.status(400).json({ message: 'doctorId, patientId, and date are required' });
+        }
+
+        const doctor = await prisma.user.findUnique({ where: { id: doctorId } });
+        const patient = await prisma.user.findUnique({ where: { id: patientId } });
+
+        if (!doctor || doctor.role !== 'DOCTOR') {
+            return res.status(404).json({ message: 'Doctor not found' });
+        }
+        if (!patient || patient.role !== 'PATIENT') {
+            return res.status(404).json({ message: 'Patient not found' });
+        }
+
         const appointmentDate = new Date(date);
 
         // Prevent duplicate bookings: same doctor + date + time + not cancelled

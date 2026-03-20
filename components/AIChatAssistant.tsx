@@ -233,7 +233,9 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
 
       const reportPayload = {
         patientId: user.id,
+        patientName: user.name,
         doctorId: null,
+        doctorName: 'Unassigned',
         diagnosis: mlContext.diagnosis || 'Clinical Consultation',
         confidenceScore: parseFloat(mlContext.confidence) || 85,
         preventions: mlContext.precautions 
@@ -253,6 +255,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
         const report: MedicalReport = {
           id: savedReport.id,
           patientId: user.id,
+          patientName: user.name,
           doctorId: null,
           doctorName: 'MedEcho AI',
           date: new Date().toISOString().split('T')[0],

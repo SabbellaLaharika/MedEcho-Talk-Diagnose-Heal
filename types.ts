@@ -67,9 +67,10 @@ export interface Appointment {
 export interface MedicalReport {
   id: string;
   patientId: string;
+  patientName?: string;
   doctorId: string | null;
-  date: string;
   doctorName: string;
+  date: string;
   summary: string;
   diagnosis: string;
   prescription: string[];

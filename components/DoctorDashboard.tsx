@@ -209,8 +209,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                     <p className="font-black text-slate-800 text-base sm:text-lg truncate">
                        {apt.patientName || apt.patient?.name || 'Patient'}
                     </p>
-                    <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400 mt-1">
                        <span className="font-bold">{apt.time}</span>
+                       <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold">{new Date(apt.date).toLocaleDateString()}</span>
                        <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 font-black uppercase text-[8px]">{apt.type}</span>
                     </div>
                   </div>
