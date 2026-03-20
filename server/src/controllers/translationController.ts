@@ -173,6 +173,48 @@ const MASTER_DICTIONARY: Record<string, string> = {
   aiHistory: 'Your AI-generated diagnosis history',
   noReportsFound: 'No reports found',
   
+  // Hospital Locator UI
+  majorHospitals: 'Major Hospitals',
+  minorHospitals: 'Minor Clinics',
+  labsAndDiagnostics: 'Labs & Diagnostics',
+  km: 'KM',
+  call: 'Call',
+  
+  // Healthcare Types
+  multiSpecialty: 'Multi-Specialty',
+  emergency247: '24/7 Emergency',
+  generalSurgery: 'General Surgery',
+  motherAndChild: 'Mother & Child',
+  generalClinic: 'General Clinic',
+  scansAndBlood: 'Scans & Blood',
+  radiologyMri: 'Radiology/MRI',
+  
+  // Hospital & Lab Names
+  amorHospitals: 'Amor Hospitals',
+  renovaHospitals: 'Renova Neelima Hospital',
+  aradhyaSpeciality: 'Aradhya Multi Speciality',
+  vasundharaHospital: 'Vasundhara Hospital',
+  sreeManjuHospital: 'Sree Manju Hospital',
+  vijayaDiagnostics: 'Vijaya Diagnostics',
+  lucidDiagnostics: 'Lucid Diagnostics',
+  
+  // Local Neighborhoods & Landmarks
+  kukatpallyYJunction: 'Kukatpally Y Junction',
+  sanathNagar: 'Sanath Nagar',
+  moosapetXRoads: 'Moosapet X Roads',
+  moosapetBusDepot: 'Opp. Moosapet Bus Depot',
+  kalyanNagarMotiNagar: 'Kalyan Nagar, Moti Nagar',
+  moosapetCrossRd: 'Moosapet Cross Rd',
+  greenHillsMoosapet: 'Green Hills Rd, Moosapet',
+  
+  // Calling / Telehealth UI
+  liveCall: 'Live Call',
+  incomingCall: 'Incoming call...',
+  inCall: 'In call',
+  calling: 'Calling...',
+  endCall: 'End',
+  webRtcNote: 'This demo uses WebRTC signaling. Audio should connect once remote peer answers.',
+  
   // Schedule Management
   mySchedule: 'My Schedule',
   scheduleDescription: 'Set availability & block slots',

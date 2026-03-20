@@ -305,12 +305,16 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           <div className="bg-white p-5 rounded-2xl shadow-xl w-full max-w-md">
             <div className="flex justify-between items-center mb-3">
               <div>
-                <h3 className="font-black text-slate-900">{activeCall || 'Live Call'}</h3>
-                <p className="text-[10px] uppercase tracking-widest text-slate-500">{callState === 'incoming' ? 'Incoming call...' : callState === 'in_call' ? 'In call' : 'Calling...'}</p>
+                <h3 className="font-black text-slate-900">{activeCall || t.liveCall}</h3>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500">
+                  {callState === 'incoming' ? t.incomingCall : callState === 'in_call' ? t.inCall : t.calling}
+                </p>
               </div>
-              <button onClick={() => { setCallState('idle'); setActiveCall(null); pcRef.current?.close(); }} className="text-rose-500 text-sm font-black">End</button>
+              <button onClick={() => { setCallState('idle'); setActiveCall(null); pcRef.current?.close(); }} className="text-rose-500 text-sm font-black">
+                {t.endCall}
+              </button>
             </div>
-            <div className="text-[10px] text-slate-500">This demo uses WebRTC signaling. Audio should connect once remote peer answers.</div>
+            <div className="text-[10px] text-slate-500">{t.webRtcNote}</div>
           </div>
         </div>
       )}

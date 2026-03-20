@@ -243,17 +243,17 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const phone = doc.contact || doc?.contact || '6300292724';
-                      const clean = phone.replace(/[^\d+]/g, '');
-                      if (clean.length > 0) window.location.href = `tel:${clean}`;
-                    }}
-                    className="text-[10px] font-black uppercase text-white bg-emerald-500 px-2 py-1 rounded-full"
-                  >
-                    Call
-                  </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const phone = doc.contact || doc?.contact || '6300292724';
+                        const clean = phone.replace(/[^\d+]/g, '');
+                        if (clean.length > 0) window.location.href = `tel:${clean}`;
+                      }}
+                      className="text-[10px] font-black uppercase text-white bg-emerald-500 px-2 py-1 rounded-full"
+                    >
+                      {t.call}
+                    </button>
                   <ChevronRightIcon className={`w-4 h-4 ${selectedDoc?.id === doc.id ? 'text-indigo-600' : 'text-slate-200'}`} />
                 </div>
               </button>
