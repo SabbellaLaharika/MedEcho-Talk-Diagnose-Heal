@@ -66,7 +66,7 @@ export const login = async (req: Request, res: Response) => {
 
 export const updateProfile = async (req: Request, res: Response) => {
     try {
-        const { id, name, contact, avatar, gender, dob, bloodGroup, address, preferredLanguage } = req.body;
+        const { id, name, contact, avatar, gender, dob, bloodGroup, address, preferredLanguage, vitalBp, vitalWeight, vitalGlucose, vitalTemperature } = req.body;
 
         const user = await (prisma.user as any).update({
             where: { id },
@@ -78,7 +78,12 @@ export const updateProfile = async (req: Request, res: Response) => {
                 bloodGroup,
                 address,
                 preferredLanguage,
-                dob: dob ? new Date(dob) : null
+                dob: dob ? new Date(dob) : null,
+                // Vitals — null means "deleted/cleared", undefined means "not changed"
+                ...(vitalBp !== undefined && { vitalBp: vitalBp || null }),
+                ...(vitalWeight !== undefined && { vitalWeight: vitalWeight || null }),
+                ...(vitalGlucose !== undefined && { vitalGlucose: vitalGlucose || null }),
+                ...(vitalTemperature !== undefined && { vitalTemperature: vitalTemperature || null }),
             }
         });
 

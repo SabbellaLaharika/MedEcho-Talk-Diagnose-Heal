@@ -3,7 +3,7 @@ import { User, Appointment, MedicalReport } from '../types';
 import HospitalLocator from './HospitalLocator';
 import ReportDetailModal from './ReportDetailModal';
 import api from '../services/api';
-import { getTranslation, translateString } from '../services/translations';
+import { getTranslation } from '../services/translations';
 import TranslatedText from './TranslatedText';
 import {
   HeartIcon,
@@ -13,7 +13,11 @@ import {
   VideoCameraIcon,
   PhoneIcon,
   XMarkIcon,
-  ArrowRightCircleIcon
+  ArrowRightCircleIcon,
+  PencilIcon,
+  TrashIcon,
+  CheckIcon,
+  BeakerIcon,
 } from '@heroicons/react/24/solid';
 
 
@@ -21,9 +25,10 @@ interface PatientDashboardProps {
   user: User;
   appointments: Appointment[];
   reports: MedicalReport[];
+  onUpdateUser?: (u: User) => void;
 }
 
-const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments, reports }) => {
+const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments, reports, onUpdateUser }) => {
   const t = getTranslation(user.preferredLanguage);
   const [viewingReport, setViewingReport] = useState<MedicalReport | null>(null);
   const [sendingReportsId, setSendingReportsId] = useState<string | null>(null);
@@ -31,12 +36,59 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
   const upcoming = appointments.filter(a => a.status === 'PENDING').slice(0, 2);
   const latestReport = reports[0];
 
-  const [translatedWelcomeName, setTranslatedWelcomeName] = useState('');
-  const [translatedDiagnosis, setTranslatedDiagnosis] = useState('');
-  const [translatedPatientName, setTranslatedPatientName] = useState('');
-  const [translatedDoctorName, setTranslatedDoctorName] = useState('');
+  // Vitals CRUD state
+  const [editingVital, setEditingVital] = useState<'bp' | 'weight' | 'glucose' | 'temperature' | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [vitals, setVitals] = useState({
+    bp: user.vitalBp || '',
+    weight: user.vitalWeight || '',
+    glucose: user.vitalGlucose || '',
+    temperature: user.vitalTemperature || '',
+  });
+  const [savingVital, setSavingVital] = useState(false);
 
-  // Translations are now handled by TranslatedText component in JSX
+  const saveVital = async (key: 'bp' | 'weight' | 'glucose' | 'temperature', value: string | null) => {
+    setSavingVital(true);
+    try {
+      const fieldMap = { bp: 'vitalBp', weight: 'vitalWeight', glucose: 'vitalGlucose', temperature: 'vitalTemperature' } as const;
+
+      // Smart unit normalization — append only if user hasn't typed them
+      let normalized = value;
+      if (normalized) {
+        const v = normalized.trim();
+        const lower = v.toLowerCase().replace(/\s+/g, '');
+        if (key === 'bp') {
+          normalized = lower.endsWith('mmhg') ? v : `${v} mmHg`;
+        } else if (key === 'weight') {
+          normalized = lower.endsWith('kg') ? v : `${v} kg`;
+        } else if (key === 'glucose') {
+          normalized = lower.endsWith('mg/dl') || lower.endsWith('mgdl') ? v : `${v} mg/dL`;
+        } else if (key === 'temperature') {
+          normalized = lower.endsWith('°c') || lower.endsWith('c') || lower.endsWith('°f') || lower.endsWith('f') ? v : `${v} °C`;
+        }
+      }
+
+      const payload = { id: user.id, [fieldMap[key]]: normalized ?? '' };
+      const { data } = await api.put('/auth/update', payload);
+
+      // Sync updated user back to localStorage so vitals survive page reloads
+      const session = JSON.parse(localStorage.getItem('medecho_session') || '{}');
+      localStorage.setItem('medecho_session', JSON.stringify({ ...session, user: data }));
+
+      setVitals(prev => ({ ...prev, [key]: normalized ?? '' }));
+      if (onUpdateUser) onUpdateUser({ ...user, ...data });
+    } catch (err) {
+      console.error('Vital update failed:', err);
+    } finally {
+      setSavingVital(false);
+      setEditingVital(null);
+    }
+  };
+
+  const startEdit = (key: 'bp' | 'weight' | 'glucose' | 'temperature', current: string) => {
+    setEditingVital(key);
+    setEditValue(current);
+  };
 
   const dialDoctor = (apt: Appointment) => {
     const phone = apt.doctorContact || apt.doctor?.contact || '6300292724';
@@ -60,6 +112,13 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
     }
   };
 
+  const stats = [
+    { key: 'bp' as const, icon: HeartIcon, label: t.bpm, value: vitals.bp, color: 'bg-rose-500', sub: t.optimalRange, placeholder: 'e.g. 120/80' },
+    { key: 'weight' as const, icon: ScaleIcon, label: t.weight, value: vitals.weight, color: 'bg-blue-500', sub: t.stable, placeholder: 'e.g. 72' },
+    { key: 'glucose' as const, icon: FireIcon, label: t.glucose, value: vitals.glucose, color: 'bg-amber-400', sub: t.stable, placeholder: 'e.g. 95' },
+    { key: 'temperature' as const, icon: BeakerIcon, label: t.temperature || 'Temperature', value: vitals.temperature, color: 'bg-purple-500', sub: t.stable, placeholder: 'e.g. 37' },
+  ];
+
   return (
     <div className="p-4 sm:p-10 space-y-8 sm:space-y-12 animate-in fade-in duration-700">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -82,23 +141,53 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
         </div>
       </header>
 
-      {/* Grid Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
-        {[
-          { icon: HeartIcon, label: t.bpm, value: '72', color: 'bg-rose-500', sub: t.optimalRange },
-          { icon: ScaleIcon, label: t.weight, value: '72kg', color: 'bg-blue-500', sub: 'Last: Oct 20' },
-          { icon: FireIcon, label: t.glucose, value: '95', color: 'bg-amber-400', sub: t.stable }
-        ].map((stat, idx) => (
-          <div key={idx} className="bg-white p-6 sm:p-8 rounded-[2rem] shadow-sm border border-slate-50 flex items-center justify-between group hover:shadow-xl hover:-translate-y-1 transition-all">
-            <div>
+      {/* Vital Stats Grid — 2 cols on sm, 4 on xl */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
+        {stats.map((stat) => (
+          <div key={stat.key} className="relative bg-white p-6 sm:p-8 rounded-[2rem] shadow-sm border border-slate-50 flex items-center justify-between group hover:shadow-xl hover:-translate-y-1 transition-all">
+            <div className="flex-1">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
-              <div className="flex items-baseline space-x-2">
-                <span className="text-3xl sm:text-4xl font-black text-slate-800">{stat.value}</span>
-                <span className="text-[9px] font-bold text-emerald-500 uppercase">{stat.sub}</span>
-              </div>
+              {editingVital === stat.key ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    autoFocus
+                    value={editValue}
+                    onChange={e => setEditValue(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveVital(stat.key, editValue); if (e.key === 'Escape') setEditingVital(null); }}
+                    placeholder={stat.placeholder}
+                    className="w-full text-sm font-bold border-2 border-blue-400 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                  <button onClick={() => saveVital(stat.key, editValue)} disabled={savingVital} className="p-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors">
+                    <CheckIcon className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => setEditingVital(null)} className="p-2 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-colors">
+                    <XMarkIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-baseline space-x-2">
+                  <span className="text-3xl sm:text-4xl font-black text-slate-800">{stat.value || <span className="text-slate-300 text-xl">—</span>}</span>
+                  {stat.value && <span className="text-[9px] font-bold text-emerald-500 uppercase">{stat.sub}</span>}
+                </div>
+              )}
             </div>
-            <div className={`p-4 sm:p-5 rounded-3xl ${stat.color} text-white shadow-lg`}>
-              <stat.icon className="w-6 h-6 sm:w-7 sm:h-7" />
+            <div className="flex flex-col items-center gap-2">
+              <div className={`p-4 sm:p-5 rounded-3xl ${stat.color} text-white shadow-lg`}>
+                <stat.icon className="w-6 h-6 sm:w-7 sm:h-7" />
+              </div>
+              {/* Edit/Delete — shown on hover */}
+              {editingVital !== stat.key && (
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => startEdit(stat.key, stat.value)} title="Edit" className="p-1.5 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100 transition-colors">
+                    <PencilIcon className="w-3.5 h-3.5" />
+                  </button>
+                  {stat.value && (
+                    <button onClick={() => saveVital(stat.key, null)} title="Delete" className="p-1.5 bg-rose-50 text-rose-500 rounded-lg hover:bg-rose-100 transition-colors">
+                      <TrashIcon className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}

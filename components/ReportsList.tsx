@@ -131,6 +131,43 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                   </div>
                 </section>
 
+                {/* Vitals Panel — only shown if report has vitals */}
+                {activeReport.vitals && Object.values(activeReport.vitals).some(v => v) && (
+                  <section>
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{t.vitals || 'Vitals at Time of Report'}</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {activeReport.vitals.bp && (
+                        <div className="bg-rose-50 p-4 rounded-2xl border border-rose-100 flex flex-col items-center text-center">
+                          <span className="text-lg mb-1">❤️</span>
+                          <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest mb-0.5"><TranslatedText text={t.bpm || 'BP'} lang={user.preferredLanguage} /></p>
+                          <p className="text-sm font-black text-rose-700">{activeReport.vitals.bp}</p>
+                        </div>
+                      )}
+                      {activeReport.vitals.weight && (
+                        <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col items-center text-center">
+                          <span className="text-lg mb-1">⚖️</span>
+                          <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-0.5"><TranslatedText text={t.weight || 'Weight'} lang={user.preferredLanguage} /></p>
+                          <p className="text-sm font-black text-blue-700">{activeReport.vitals.weight}</p>
+                        </div>
+                      )}
+                      {(activeReport.vitals as any).glucose && (
+                        <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex flex-col items-center text-center">
+                          <span className="text-lg mb-1">🔥</span>
+                          <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-0.5"><TranslatedText text={t.glucose || 'Glucose'} lang={user.preferredLanguage} /></p>
+                          <p className="text-sm font-black text-amber-700">{(activeReport.vitals as any).glucose}</p>
+                        </div>
+                      )}
+                      {activeReport.vitals.temperature && (
+                        <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 flex flex-col items-center text-center">
+                          <span className="text-lg mb-1">🌡️</span>
+                          <p className="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-0.5"><TranslatedText text={t.temperature || 'Temp'} lang={user.preferredLanguage} /></p>
+                          <p className="text-sm font-black text-purple-700">{activeReport.vitals.temperature}</p>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
                 {/* Reported Symptoms */}
                 <section>
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{t.reportedSymptoms}</h4>

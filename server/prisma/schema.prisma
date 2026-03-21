@@ -43,6 +43,10 @@ model User {
   address           String?
   isAvailable       Boolean   @default(true)
   preferredLanguage String?   @default("en")
+  vitalBp           String?
+  vitalWeight       String?
+  vitalGlucose      String?
+  vitalTemperature  String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

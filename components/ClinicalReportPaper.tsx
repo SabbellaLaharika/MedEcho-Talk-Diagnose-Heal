@@ -89,10 +89,10 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
       </div>
 
       {report.vitals && Object.values(report.vitals).some(v => v) && (
-        <div className="grid grid-cols-3 gap-6 mb-12 no-print">
+        <div className="grid grid-cols-2 gap-4 mb-12">
           {report.vitals.bp && (
-            <div className="bg-rose-50 p-6 rounded-[2rem] border border-rose-100 flex flex-col items-center text-center shadow-sm">
-              <span className="text-rose-500 mb-2">❤️</span>
+            <div className="bg-rose-50 p-5 rounded-[2rem] border border-rose-100 flex flex-col items-center text-center shadow-sm">
+              <span className="text-rose-500 mb-1">❤️</span>
               <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest leading-none mb-1">
                 <TranslatedText text={t.bpm || 'BP'} lang={targetLang} />
               </p>
@@ -100,21 +100,30 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
             </div>
           )}
           {report.vitals.weight && (
-            <div className="bg-blue-50 p-6 rounded-[2rem] border border-blue-100 flex flex-col items-center text-center shadow-sm">
-              <span className="text-blue-500 mb-2">⚖️</span>
+            <div className="bg-blue-50 p-5 rounded-[2rem] border border-blue-100 flex flex-col items-center text-center shadow-sm">
+              <span className="text-blue-500 mb-1">⚖️</span>
               <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest leading-none mb-1">
                 <TranslatedText text={t.weight} lang={targetLang} />
               </p>
               <p className="text-xl font-black text-blue-700 leading-none">{report.vitals.weight}</p>
             </div>
           )}
-          {report.vitals.temperature && (
-            <div className="bg-amber-50 p-6 rounded-[2rem] border border-amber-100 flex flex-col items-center text-center shadow-sm">
-              <span className="text-amber-500 mb-2">🔥</span>
+          {(report.vitals as any).glucose && (
+            <div className="bg-amber-50 p-5 rounded-[2rem] border border-amber-100 flex flex-col items-center text-center shadow-sm">
+              <span className="text-amber-500 mb-1">🔥</span>
               <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest leading-none mb-1">
+                <TranslatedText text={t.glucose || 'Glucose'} lang={targetLang} />
+              </p>
+              <p className="text-xl font-black text-amber-700 leading-none">{(report.vitals as any).glucose}</p>
+            </div>
+          )}
+          {report.vitals.temperature && (
+            <div className="bg-purple-50 p-5 rounded-[2rem] border border-purple-100 flex flex-col items-center text-center shadow-sm">
+              <span className="text-purple-500 mb-1">🌡️</span>
+              <p className="text-[9px] font-black text-purple-400 uppercase tracking-widest leading-none mb-1">
                 <TranslatedText text={t.temperature || 'Temperature'} lang={targetLang} />
               </p>
-              <p className="text-xl font-black text-amber-700 leading-none">{report.vitals.temperature}</p>
+              <p className="text-xl font-black text-purple-700 leading-none">{report.vitals.temperature}</p>
             </div>
           )}
         </div>

@@ -278,12 +278,12 @@ const App: React.FC = () => {
             <h1 className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-800">
               <TranslatedText text={
                 activeTab === 'dashboard' ? (t.dashboard || 'Dashboard') :
-                activeTab === 'appointments' ? (t.bookVisit || 'Book Visit') :
-                activeTab === 'schedule' ? (t.mySchedule || 'My Schedule') :
-                activeTab === 'reports' ? (t.medicalFiles || 'Medical Files') :
-                activeTab === 'chat' ? (t.chatSupport || 'Chat Support') :
-                activeTab === 'virtual-doc' ? (t.virtualDoctor || 'Virtual Doctor') :
-                activeTab === 'profile' ? (t.myProfile || 'My Profile') : activeTab.replace('-', ' ')
+                  activeTab === 'appointments' ? (t.bookVisit || 'Book Visit') :
+                    activeTab === 'schedule' ? (t.mySchedule || 'My Schedule') :
+                      activeTab === 'reports' ? (t.medicalFiles || 'Medical Files') :
+                        activeTab === 'chat' ? (t.chatSupport || 'Chat Support') :
+                          activeTab === 'virtual-doc' ? (t.virtualDoctor || 'Virtual Doctor') :
+                            activeTab === 'profile' ? (t.myProfile || 'My Profile') : activeTab.replace('-', ' ')
               } lang={user.preferredLanguage} />
             </h1>
           </div>
@@ -347,7 +347,7 @@ const App: React.FC = () => {
                   }
                 }}
               />
-              : <PatientDashboard user={user} appointments={appointments} reports={reports} />
+              : <PatientDashboard user={user} appointments={appointments} reports={reports} onUpdateUser={(u) => setUser(u)} />
           )}
           {activeTab === 'appointments' && <AppointmentBooking user={user} onBook={async (apt) => {
             const newApt = { ...apt, patientId: user.id, patientName: user.name, status: 'PENDING', doctorContact: apt.doctorContact || '' } as Appointment;
@@ -365,7 +365,17 @@ const App: React.FC = () => {
           {activeTab === 'chat' && <AIChatAssistant onReportGenerated={(report) => setReports(prev => [report, ...prev])} />}
           {activeTab === 'virtual-doc' && <VirtualDoctor patientId={user.id} user={user} onSessionComplete={async (r) => {
             try {
-              const saved = await dbService.reports.create(r);
+              // Snapshot the user's current vitals at report-generation time
+              const reportWithVitals = {
+                ...r,
+                vitals: {
+                  bp: user.vitalBp || undefined,
+                  weight: user.vitalWeight || undefined,
+                  glucose: user.vitalGlucose || undefined,
+                  temperature: user.vitalTemperature || undefined,
+                }
+              };
+              const saved = await dbService.reports.create(reportWithVitals);
               setReports(prev => [saved, ...prev]);
               setActiveTab('reports');
             } catch (e) {

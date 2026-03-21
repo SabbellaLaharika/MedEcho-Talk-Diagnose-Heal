@@ -39,6 +39,10 @@ export interface User {
   dob?: string;
   bloodGroup?: string;
   address?: string;
+  vitalBp?: string;
+  vitalWeight?: string;
+  vitalGlucose?: string;
+  vitalTemperature?: string;
 }
 
 export interface Appointment {
