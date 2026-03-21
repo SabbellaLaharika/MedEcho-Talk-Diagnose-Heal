@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { getTranslation } from '../services/translations';
+import { getTranslation, translateString, loadTranslations } from '../services/translations';
+import TranslatedText from './TranslatedText';
 import {
   UserCircleIcon,
   MapPinIcon,
@@ -35,6 +36,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
     avatar: user.avatar || '',
     preferredLanguage: user.preferredLanguage || 'en'
   });
+
+  React.useEffect(() => {
+    loadTranslations(user.preferredLanguage, 'profile');
+  }, [user.preferredLanguage]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -99,7 +104,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
               </div>
             )}
             {isEditing && formData.avatar && (
-              <div 
+              <div
                 onClick={() => setFormData(prev => ({ ...prev, avatar: '' }))}
                 className="absolute -top-2 -right-2 bg-white p-2 rounded-xl shadow-lg border border-slate-100 cursor-pointer hover:bg-rose-50 transition-colors group/trash"
               >
@@ -108,8 +113,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
             )}
           </div>
           <div>
-            <h1 className="text-3xl font-black text-slate-800 tracking-tight">{formData.name}</h1>
-            <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-1">Medical Profile ID: {user.id.split('-')[0].toUpperCase()}</p>
+            <h1 className="text-3xl font-black text-slate-800 tracking-tight"><TranslatedText text={formData.name} lang={user.preferredLanguage} /></h1>
+            <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-1">
+              <TranslatedText text={t.medicalProfileId} lang={user.preferredLanguage} />: {user.id.split('-')[0].toUpperCase()}
+            </p>
           </div>
         </div>
 
@@ -118,13 +125,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
             onClick={() => setIsEditing(true)}
             className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
           >
-            {t.editProfile}
+            <TranslatedText text={t.editProfile} lang={user.preferredLanguage} />
           </button>
         ) : (
           <div className="flex space-x-3">
-            <button onClick={() => setIsEditing(false)} className="px-6 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-200 transition-all">{t.cancel}</button>
+            <button onClick={() => setIsEditing(false)} className="px-6 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-200 transition-all"><TranslatedText text={t.cancel} lang={user.preferredLanguage} /></button>
             <button onClick={handleSubmit} disabled={saving} className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-200">
-              {saving ? t.syncInProgress : t.saveChanges}
+              {saving ? <TranslatedText text={t.syncInProgress} lang={user.preferredLanguage} /> : <TranslatedText text={t.saveChanges} lang={user.preferredLanguage} />}
             </button>
           </div>
         )}
@@ -136,8 +143,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
             <CheckCircleIcon className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs font-black text-emerald-800 uppercase tracking-widest">{t.updateSuccess}</p>
-            <p className="text-[10px] font-bold text-emerald-600 opacity-70">{t.profileSyncDesc}</p>
+            <p className="text-xs font-black text-emerald-800 uppercase tracking-widest"><TranslatedText text={t.updateSuccess} lang={user.preferredLanguage} /></p>
+            <p className="text-[10px] font-bold text-emerald-600 opacity-70"><TranslatedText text={t.profileSyncDesc} lang={user.preferredLanguage} /></p>
           </div>
         </div>
       )}
@@ -147,12 +154,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
           <section className="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-50 space-y-10">
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em] flex items-center space-x-3">
               <InformationCircleIcon className="w-5 h-5 text-blue-500" />
-              <span>{t.coreDemographics}</span>
+              <span><TranslatedText text={t.coreDemographics} lang={user.preferredLanguage} /></span>
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">{t.legalFullName}</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4"><TranslatedText text={t.legalFullName} lang={user.preferredLanguage} /></label>
                 <div className="relative group">
                   <UserCircleIcon className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
                   <input
@@ -166,7 +173,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">{t.bloodGroup}</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4"><TranslatedText text={t.bloodGroup} lang={user.preferredLanguage} /></label>
                 <select
                   disabled={!isEditing}
                   value={formData.bloodGroup}
@@ -179,7 +186,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">{t.genderIdentification}</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4"><TranslatedText text={t.genderIdentification} lang={user.preferredLanguage} /></label>
                 <select
                   disabled={!isEditing}
                   value={formData.gender}
@@ -195,7 +202,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">{t.dateOfBirth}</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4"><TranslatedText text={t.dateOfBirth} lang={user.preferredLanguage} /></label>
                 <div className="relative group">
                   <CalendarIcon className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
                   <input
@@ -209,7 +216,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">{t.preferredInterfaceLanguage}</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4"><TranslatedText text={t.preferredInterfaceLanguage} lang={user.preferredLanguage} /></label>
                 <select
                   disabled={!isEditing}
                   value={formData.preferredLanguage}
@@ -234,13 +241,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
           <section className="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-50 space-y-10">
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em] flex items-center space-x-3">
               <MapPinIcon className="w-5 h-5 text-indigo-500" />
-              <span>{t.contactInfrastructure}</span>
+              <span><TranslatedText text={t.contactInfrastructure} lang={user.preferredLanguage} /></span>
             </h3>
 
             <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">{t.primaryEmail}</label>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4"><TranslatedText text={t.primaryEmail} lang={user.preferredLanguage} /></label>
                   <div className="relative">
                     <EnvelopeIcon className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                     <input
@@ -252,7 +259,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">{t.mobileContact}</label>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4"><TranslatedText text={t.mobileContact} lang={user.preferredLanguage} /></label>
                   <div className="relative group">
                     <PhoneIcon className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
                     <input
@@ -268,13 +275,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">{t.residentialAddress}</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4"><TranslatedText text={t.residentialAddress} lang={user.preferredLanguage} /></label>
                 <textarea
                   disabled={!isEditing}
                   rows={3}
                   value={formData.address}
                   onChange={e => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Enter your complete residential address for medical shipping and emergencies..."
+                  placeholder={t.enterAddress}
                   className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl py-4 px-6 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all disabled:opacity-50 resize-none"
                 />
               </div>
@@ -286,28 +293,31 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
           <div className="bg-slate-900 rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden group">
             <div className="absolute -top-20 -right-20 w-64 h-64 bg-blue-600/20 blur-[100px] rounded-full group-hover:bg-blue-600/30 transition-all"></div>
             <div className="relative z-10 space-y-6">
-              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-400">{t.securityStatus}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-400"><TranslatedText text={t.securityStatus} lang={user.preferredLanguage} /></p>
               <div className="flex items-center space-x-3">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,1)]"></div>
-                <span className="text-sm font-black uppercase tracking-widest">{t.systemAuthenticated}</span>
+                <span className="text-sm font-black uppercase tracking-widest"><TranslatedText text={t.systemAuthenticated} lang={user.preferredLanguage} /></span>
               </div>
               <p className="text-xs text-white/40 leading-relaxed font-medium">{t.securityDesc}</p>
               <button className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 mt-6">
-                {t.changePassword}
+                <TranslatedText text={t.changePassword} lang={user.preferredLanguage} />
               </button>
             </div>
           </div>
 
           <div className="bg-blue-600 rounded-[3rem] p-10 text-white shadow-2xl shadow-blue-200">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-100/50 mb-8">{t.medicalState}</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-100/50 mb-8"><TranslatedText text={t.medicalState} lang={user.preferredLanguage} /></p>
             <div className="space-y-8">
               <div>
-                <p className="text-xs font-black uppercase opacity-60 mb-2">{t.totalDiagnoses}</p>
+                <p className="text-xs font-black uppercase opacity-60 mb-2"><TranslatedText text={t.totalDiagnoses} lang={user.preferredLanguage} /></p>
                 <p className="text-4xl font-black italic">14<span className="text-sm not-italic opacity-40 ml-2">{t.totalCaps}</span></p>
               </div>
               <div>
-                <p className="text-xs font-black uppercase opacity-60 mb-2">{t.clinicLoyalty}</p>
-                <p className="text-4xl font-black italic">Gold<span className="text-sm not-italic opacity-40 ml-2">{t.memberCaps}</span></p>
+                <p className="text-xs font-black uppercase opacity-60 mb-2"><TranslatedText text={t.clinicLoyalty} lang={user.preferredLanguage} /></p>
+                <p className="text-4xl font-black italic">
+                  <TranslatedText text={t.gold} lang={user.preferredLanguage} />
+                  <span className="text-sm not-italic opacity-40 ml-2">{t.totalCaps}</span>
+                </p>
               </div>
             </div>
           </div>

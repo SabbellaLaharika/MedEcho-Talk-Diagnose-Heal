@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { dbService } from '../services/dbService';
 import api from '../services/api';
-import { getTranslation, translateClinical } from '../services/translations';
+import { getTranslation, translateClinical, translateString, loadTranslations } from '../services/translations';
 import TranslatedText from './TranslatedText';
 import { User, Appointment } from '../types';
 import {
@@ -20,6 +20,10 @@ interface AppointmentBookingProps {
 
 const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user }) => {
   const t = getTranslation(user.preferredLanguage);
+
+  useEffect(() => {
+    loadTranslations(user.preferredLanguage, 'booking');
+  }, [user.preferredLanguage]);
 
   // 1. STATES
   const [doctors, setDoctors] = useState<User[]>([]);
@@ -91,6 +95,8 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
     };
     loadData();
   }, []);
+
+  // Translations are now handled by TranslatedText component in JSX
 
   // 5. FETCH SELECTED DOCTOR SCHEDULE
   useEffect(() => {
@@ -171,12 +177,11 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
 
   // 8. HANDLERS
   const handleBookClick = () => {
-    if (!selectedDoc || !selectedTime) return;
     const summary = {
       doctorId: selectedDoc.id,
       doctorName: selectedDoc.name,
       doctorAvatar: selectedDoc.avatar,
-      doctorContact: selectedDoc.contact || selectedDoc?.contact || '',
+      doctorContact: selectedDoc.contact || '',
       date,
       time: selectedTime,
       type

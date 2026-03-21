@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { MedicalReport, User } from '../types';
 import api from '../services/api';
-import { getTranslation } from '../services/translations';
+import { getTranslation, translateString, loadTranslations } from '../services/translations';
 import TranslatedText from './TranslatedText';
 import {
   StopIcon,
@@ -26,10 +26,16 @@ const INDIAN_LANGUAGES = [
 const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessionComplete }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const t = getTranslation(user.preferredLanguage);
+
+  useEffect(() => {
+    loadTranslations(user.preferredLanguage, 'virtual_clinic');
+  }, [user.preferredLanguage]);
   const [isActive, setIsActive] = useState(false);
   const [chatOverlay, setChatOverlay] = useState<{ sender: string, text: string }[]>([]);
   const [visualizerData, setVisualizerData] = useState<number[]>(Array(20).fill(10));
   const [persona, setPersona] = useState<Persona>('Sarah');
+
+  // Translations are now handled by TranslatedText component in JSX
 
   // Map language codes to Virtual Doctor's display names
   const langMap: Record<string, string> = {
@@ -145,7 +151,7 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
           // Fixed typo: responseModalities
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: personas[persona].voice as any } } },
-          systemInstruction: `You are Dr. Echo. Greeting in ${language}. Ask step-by-step. extracted clinical data later. User preferred language is ${user.preferredLanguage}. Keep response in ${language}.`,
+          systemInstruction: `You are Dr. Echo. Greeting in ${language}. Ask step-by-step. extracted clinical data later. User preferred language is ${user.preferredLanguage}. Keep response in ${language}. Personas: Sarah, James, Elena, Marcus.`,
           outputAudioTranscription: {},
           inputAudioTranscription: {},
         }
@@ -199,7 +205,7 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
               <h3 className="text-sm font-black text-slate-700 flex items-center space-x-2 mb-4">
                 <GlobeAltIcon className="w-4 h-4 text-blue-600" />
-                <span>1. <TranslatedText text={t.language} lang={user.preferredLanguage} /></span>
+                <span>1. <TranslatedText text="Language" lang={user.preferredLanguage} /></span>
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {INDIAN_LANGUAGES.map(lang => (
@@ -217,13 +223,13 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
               <h3 className="text-sm font-black text-slate-700 flex items-center space-x-2 mb-4">
                 <UserCircleIcon className="w-4 h-4 text-indigo-600" />
-                <span>2. {t.selectSpecialist}</span>
+                <span>2. <TranslatedText text="Select Specialist" lang={user.preferredLanguage} /></span>
               </h3>
               <div className="grid grid-cols-2 gap-3">
                 {(Object.keys(personas) as Persona[]).map((name) => (
                   <button
                     key={name}
-                    onClick={() => setPersona(<TranslatedText text={name} lang={user.preferredLanguage} />)}
+                    onClick={() => setPersona(name as Persona)}
                     className={`relative rounded-2xl overflow-hidden border-2 transition-all ${persona === name ? 'border-indigo-600 ring-4 ring-indigo-100' : 'border-slate-50'}`}
                   >
                     <img src={personas[name].img} alt={name} className="w-full h-20 object-cover" />
@@ -250,7 +256,7 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
         {/* HUD UI - Responsive stacking */}
         <div className="absolute inset-x-6 sm:inset-x-12 top-6 sm:top-12 flex flex-col space-y-3 items-start pointer-events-none">
           <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-white text-[9px] font-black uppercase tracking-widest">
-            {language} Mode
+            <TranslatedText text={language} lang={user.preferredLanguage} /> <TranslatedText text="Mode" lang={user.preferredLanguage} />
           </div>
           {chatOverlay.map((msg, i) => (
             <div
@@ -282,7 +288,9 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
               className="bg-white/95 p-6 sm:p-10 rounded-[2rem] sm:rounded-[4rem] shadow-2xl text-center active:scale-95 transition-all w-full sm:w-auto"
             >
               <VideoCameraIcon className="w-10 h-10 sm:w-12 sm:h-12 text-blue-600 mx-auto mb-4" />
-              <h3 className="text-xl sm:text-3xl font-black text-slate-800">{t.startCheckup}</h3>
+              <h3 className="text-xl sm:text-3xl font-black text-slate-800">
+                <TranslatedText text="Start Checkup" lang={user.preferredLanguage} />
+              </h3>
               <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2">
                 <TranslatedText text="MedEcho AI Ready" lang={user.preferredLanguage} />
               </p>
@@ -293,7 +301,7 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
         {isConnecting && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md text-white p-6 text-center">
             <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
-            <p className="text-xs font-black uppercase mt-6 tracking-widest">Connecting Session...</p>
+            <p className="text-xs font-black uppercase mt-6 tracking-widest"><TranslatedText text="Connecting Session..." lang={user.preferredLanguage} /></p>
           </div>
         )}
       </div>

@@ -12,7 +12,7 @@ import {
   TrashIcon,
   ShieldCheckIcon
 } from '@heroicons/react/24/solid';
-import { getTranslation, translateString } from '../services/translations';
+import { getTranslation, translateString, loadTranslations } from '../services/translations';
 import TranslatedText from './TranslatedText';
 
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -39,6 +39,10 @@ interface BlockedSlotData {
 
 const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor }) => {
   const t = getTranslation(doctor.preferredLanguage);
+
+  useEffect(() => {
+    loadTranslations(doctor.preferredLanguage, 'schedule');
+  }, [doctor.preferredLanguage]);
   const [schedule, setSchedule] = useState<DayScheduleData[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlotData[]>([]);
   const [saving, setSaving] = useState(false);
@@ -57,23 +61,8 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
     { startTime: '09:00', endTime: '18:00' }
   ]);
 
-  const [translatedReasons, setTranslatedReasons] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    if (doctor.preferredLanguage === 'en') {
-      setTranslatedReasons({});
-      return;
-    }
-
-    const core = async () => {
-      const results: Record<string, string> = {};
-      await Promise.all(BLOCK_REASON_KEYS.map(async (key) => {
-        results[key] = await translateString(t[key], doctor.preferredLanguage);
-      }));
-      setTranslatedReasons(results);
-    };
-    core();
-  }, [doctor.preferredLanguage, t]);
+  // Translations are now handled by TranslatedText component in JSX
 
   useEffect(() => {
     loadData();
@@ -354,7 +343,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
                     >
                       <div className="flex items-center gap-3 sm:gap-6">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black text-slate-400 uppercase">{t.from}</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase"><TranslatedText text={t.from} lang={doctor.preferredLanguage} /></span>
                           <select
                             value={slot.startTime}
                             onChange={(e) => updateSlot(slot.originalIndex, 'startTime', e.target.value)}
@@ -364,7 +353,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
                           </select>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black text-slate-400 uppercase">{t.to}</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase"><TranslatedText text={t.to} lang={doctor.preferredLanguage} /></span>
                           <select
                             value={slot.endTime}
                             onChange={(e) => updateSlot(slot.originalIndex, 'endTime', e.target.value)}
@@ -451,7 +440,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
               >
                 {BLOCK_REASON_KEYS.map(rKey => (
                   <option key={rKey} value={rKey}>
-                    {translatedReasons[rKey] || t[rKey]}
+                    <TranslatedText text={t[rKey]} lang={doctor.preferredLanguage} />
                   </option>
                 ))}
               </select>
@@ -480,7 +469,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
                     <div>
                       <p className="font-black text-slate-800 text-sm">{slot.date} @ {slot.startTime} - {slot.endTime}</p>
                       <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest">
-                        <TranslatedText text={t[slot.reason] || slot.reason} lang={doctor.preferredLanguage} />
+                        <TranslatedText text={t[slot.reason]} lang={doctor.preferredLanguage} />
                       </p>
                     </div>
                   </div>

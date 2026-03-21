@@ -11,7 +11,7 @@ import VirtualDoctor from './components/VirtualDoctor';
 import FloatingAIChat from './components/FloatingAIChat';
 import DoctorScheduleManager from './components/DoctorScheduleManager';
 import ProfilePage from './components/ProfilePage';
-import { getTranslation, loadTranslations, subscribeToTranslations } from './services/translations';
+import { getTranslation, loadTranslations, subscribeToTranslations, translateString } from './services/translations';
 import TranslatedText from './components/TranslatedText';
 import {
   UserIcon,
@@ -64,8 +64,8 @@ const App: React.FC = () => {
         newNotifications.push({
           id: `reminder-${apt.id}`,
           userId: user.id,
-          title: 'Appointment Reminder',
-          message: `Your visit with ${user.role === 'DOCTOR' ? apt.patientName : apt.doctorName} is tomorrow at ${apt.time}.`,
+          title: <TranslatedText text="Appointment Reminder" lang={user.preferredLanguage} />,
+          message: <TranslatedText text={`Your visit with ${user.role === 'DOCTOR' ? apt.patientName : apt.doctorName} is tomorrow at ${apt.time}.`} lang={user.preferredLanguage} />,
           type: 'REMINDER',
           timestamp: new Date(),
           isRead: false,
@@ -86,9 +86,9 @@ const App: React.FC = () => {
     const currentUser = dbService.auth.getCurrentUser();
     if (currentUser) {
       setUser(currentUser);
-      loadTranslations(currentUser.preferredLanguage);
+      loadTranslations(currentUser.preferredLanguage, 'common');
     } else {
-      loadTranslations('en');
+      loadTranslations('en', 'common');
     }
     setLoading(false);
 
@@ -97,9 +97,12 @@ const App: React.FC = () => {
     return unsubscribe;
   }, []);
 
+  // Translations are now handled by TranslatedText component in JSX
+
   useEffect(() => {
     if (user) {
-      loadTranslations(user.preferredLanguage);
+      loadTranslations(user.preferredLanguage, 'common');
+      loadTranslations(user.preferredLanguage, 'dashboard'); // Pre-load dashboard
       const fetchData = async () => {
         const [apts, reps] = await Promise.all([
           dbService.appointments.getAll(),
@@ -176,7 +179,7 @@ const App: React.FC = () => {
               <h1 className="text-6xl font-black text-white tracking-tighter">MedEcho</h1>
             </div>
             <p className="text-slate-400 text-2xl font-medium max-w-lg leading-relaxed">
-              Precision health infrastructure. Automated triage, real-time reporting, and intelligent patient tracking.
+              <TranslatedText text={t.precisionHealthDesc} lang={formData.language} />
             </p>
           </div>
 
@@ -187,27 +190,31 @@ const App: React.FC = () => {
                 className={`flex-1 py-5 flex flex-col items-center space-y-2 transition-all ${authRole === 'PATIENT' ? 'bg-white border-b-4 border-blue-600' : 'opacity-40 hover:opacity-100'}`}
               >
                 <UserIcon className={`w-6 h-6 ${authRole === 'PATIENT' ? 'text-blue-600' : 'text-slate-400'}`} />
-                <span className="text-[10px] font-black uppercase tracking-widest">Patient Portal</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">
+                  <TranslatedText text={t.patientPortal} lang={formData.language} />
+                </span>
               </button>
               <button
                 onClick={() => setAuthRole('DOCTOR')}
                 className={`flex-1 py-5 flex flex-col items-center space-y-2 transition-all ${authRole === 'DOCTOR' ? 'bg-white border-b-4 border-indigo-600' : 'opacity-40 hover:opacity-100'}`}
               >
                 <BriefcaseIcon className={`w-6 h-6 ${authRole === 'DOCTOR' ? 'text-indigo-600' : 'text-slate-400'}`} />
-                <span className="text-[10px] font-black uppercase tracking-widest">Clinical Staff</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">
+                  <TranslatedText text={t.clinicalStaff} lang={formData.language} />
+                </span>
               </button>
             </div>
 
             <div className="p-8 sm:p-14 space-y-8">
               <div className="text-center">
                 <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">
-                  {authMode === 'LOGIN' ? 'Secure Access' : 'Create Credentials'}
+                  <TranslatedText text={authMode === 'LOGIN' ? t.secureAccess : t.createCredentials} lang={formData.language} />
                 </h2>
               </div>
               <form onSubmit={handleAuth} className="space-y-4">
                 {authMode === 'REGISTER' && (
                   <>
-                    <input required type="text" placeholder="Legal Full Name" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                    <input required type="text" placeholder={t.legalFullName} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
                     <select className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold appearance-none text-slate-500" value={formData.language} onChange={(e) => setFormData({ ...formData, language: e.target.value })}>
                       <option value="en">English (Global)</option>
                       <option value="hi">Hindi (हिन्दी)</option>
@@ -222,14 +229,14 @@ const App: React.FC = () => {
                     </select>
                   </>
                 )}
-                <input required type="email" placeholder="Email Address" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-                <input required type="password" placeholder="Account Password" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
+                <input required type="email" placeholder={t.primaryEmail} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                <input required type="password" placeholder={t.changePassword} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
                 <button type="submit" disabled={authLoading} className={`w-full py-5 rounded-2xl text-white font-black uppercase text-xs shadow-xl tracking-widest ${authRole === 'PATIENT' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
-                  {authLoading ? 'Verifying...' : (authMode === 'LOGIN' ? 'Sign In' : 'Register')}
+                  {authLoading ? <TranslatedText text="Verifying..." lang={formData.language} /> : (authMode === 'LOGIN' ? <TranslatedText text="Sign In" lang={formData.language} /> : <TranslatedText text="Register" lang={formData.language} />)}
                 </button>
               </form>
               <button onClick={() => setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN')} className="w-full text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-blue-600">
-                {authMode === 'LOGIN' ? "Join MedEcho? Register" : "Already have access? Login"}
+                <TranslatedText text={authMode === 'LOGIN' ? t.joinMedEcho : t.alreadyHaveAccess} lang={formData.language} />
               </button>
             </div>
           </div>
@@ -269,18 +276,15 @@ const App: React.FC = () => {
               <Bars3Icon className="w-6 h-6" />
             </button>
             <h1 className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-800">
-              <TranslatedText
-                text={
-                  activeTab === 'dashboard' ? t.dashboard :
-                    activeTab === 'appointments' ? t.bookVisit :
-                      activeTab === 'schedule' ? t.mySchedule :
-                        activeTab === 'reports' ? t.medicalFiles :
-                          activeTab === 'chat' ? t.chatSupport :
-                            activeTab === 'virtual-doc' ? t.virtualDoctor :
-                              activeTab === 'profile' ? t.myProfile : activeTab.replace('-', ' ')
-                }
-                lang={user.preferredLanguage}
-              />
+              <TranslatedText text={
+                activeTab === 'dashboard' ? (t.dashboard || 'Dashboard') :
+                activeTab === 'appointments' ? (t.bookVisit || 'Book Visit') :
+                activeTab === 'schedule' ? (t.mySchedule || 'My Schedule') :
+                activeTab === 'reports' ? (t.medicalFiles || 'Medical Files') :
+                activeTab === 'chat' ? (t.chatSupport || 'Chat Support') :
+                activeTab === 'virtual-doc' ? (t.virtualDoctor || 'Virtual Doctor') :
+                activeTab === 'profile' ? (t.myProfile || 'My Profile') : activeTab.replace('-', ' ')
+              } lang={user.preferredLanguage} />
             </h1>
           </div>
 

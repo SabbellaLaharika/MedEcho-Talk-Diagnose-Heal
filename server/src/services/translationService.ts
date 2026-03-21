@@ -13,6 +13,17 @@ export const translationService = {
   translate: async (text: string, targetLang: string): Promise<string> => {
     if (!text || !targetLang || targetLang === 'en') return text;
 
+    // 1. Static Overrides for common UI terms to prevent ML Hallucinations
+    const lowerText = text.toLowerCase().trim();
+    if (lowerText === 'dashboard') {
+      if (targetLang === 'hi') return 'डैशबोर्ड';
+      if (targetLang === 'te') return 'డ్యాష్‌బోర్డ్';
+    }
+    if (lowerText === 'doctor' || lowerText === 'dr') {
+      if (targetLang === 'hi') return 'डॉक्टर';
+      if (targetLang === 'te') return 'డాక్టర్';
+    }
+
     try {
       const response = await axios.post(`${ML_SERVICE_URL}/translate`, {
         text,
@@ -20,11 +31,14 @@ export const translationService = {
         source_lang: 'en'
       });
       let translated = response.data.translated || text;
+      const isVirtual = translated.includes('వర్చువల్') || translated.includes('वर्चुअल') || translated.toLowerCase().includes('virtual');
 
-      // Apply clinical shortening for specific languages
-      if (targetLang === 'te') translated = translated.replace(/డాక్టర్/g, 'డా.');
-      if (targetLang === 'hi') translated = translated.replace(/डॉक्टर/g, 'डॉ.');
-      if (targetLang === 'mr') translated = translated.replace(/डॉक्टर/g, 'डॉ.');
+      // Apple clinical shortening ONLY for actual doctor names, not Virtual Doctor
+      if (!isVirtual) {
+        if (targetLang === 'te') translated = translated.replace(/డాక్టర్/g, 'డా.');
+        if (targetLang === 'hi') translated = translated.replace(/डॉक्टर/g, 'डॉ.');
+        if (targetLang === 'mr') translated = translated.replace(/डॉक्टर/g, 'डॉ.');
+      }
 
       return translated;
     } catch (error) {

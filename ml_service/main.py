@@ -143,5 +143,31 @@ def translate():
         print(f"Translation Error (Dedicated): {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/translate_batch', methods=['POST'])
+def translate_batch():
+    data = request.json
+    texts = data.get('texts', [])
+    target_lang = data.get('target_lang', 'hi')
+    source_lang = data.get('source_lang', 'en')
+
+    if not texts:
+        return jsonify({'translations': []})
+
+    try:
+        translator = GoogleTranslator(source=source_lang, target=target_lang)
+        # GoogleTranslator.translate can handle lists in some versions, 
+        # but to be safe and consistent we loop here.
+        translations = []
+        for t in texts:
+            if not t:
+                translations.append('')
+                continue
+            translations.append(translator.translate(t))
+            
+        return jsonify({'translations': translations})
+    except Exception as e:
+        print(f"Batch Translation Error: {e}")
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(port=8000, debug=True)

@@ -12,7 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { HeartIcon, ChartBarIcon as ChartBarSolidIcon } from '@heroicons/react/24/solid';
 import ClinicalReportPaper from './ClinicalReportPaper';
-import { getTranslation, translateClinical } from '../services/translations';
+import { getTranslation, translateClinical, translateString, loadTranslations } from '../services/translations';
 import TranslatedText from './TranslatedText';
 
 interface ReportsListProps {
@@ -22,6 +22,10 @@ interface ReportsListProps {
 
 const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
   const t = getTranslation(user.preferredLanguage);
+
+  React.useEffect(() => {
+    loadTranslations(user.preferredLanguage, 'reports');
+  }, [user.preferredLanguage]);
   const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -44,6 +48,8 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
 
   // Default to first report if none selected
   const activeReport = selectedReport || filteredReports[0];
+
+  // Translations are now handled by TranslatedText component in JSX
 
   return (
     <div className="p-4 sm:p-8 max-w-[1400px] mx-auto h-[calc(100vh-100px)] flex flex-col space-y-6">
@@ -75,7 +81,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
               >
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">
-                    <TranslatedText text={report.diagnosis} lang={user.preferredLanguage} />
+                    <TranslatedText text={report.diagnosis} lang={user.preferredLanguage} isClinical={true} />
                   </h3>
                   <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[9px] font-black border border-emerald-100">
                     {report.aiConfidence}%
@@ -116,7 +122,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                     </div>
                     <div className="flex items-center space-x-4">
                       <h3 className="text-4xl font-black text-slate-900 tracking-tight">
-                        <TranslatedText text={activeReport.diagnosis} lang={user.preferredLanguage} />
+                        <TranslatedText text={activeReport.diagnosis} lang={user.preferredLanguage} isClinical={true} />
                       </h3>
                       <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-xs font-black border border-indigo-100 uppercase tracking-widest">
                         {t.confidence}: {activeReport.aiConfidence}%
@@ -154,9 +160,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                                 {t[key.toLowerCase()] || key}
                               </td>
                               <td className="py-4 px-8 text-xs font-bold text-slate-600">
-                                {typeof val === 'string' ? (
-                                  <TranslatedText text={translateClinical(val, user.preferredLanguage)} lang={user.preferredLanguage} />
-                                ) : val}
+                                <TranslatedText text={typeof val === 'string' ? translateClinical(val, user.preferredLanguage) : String(val)} lang={user.preferredLanguage} />
                               </td>
                             </tr>
                           ))

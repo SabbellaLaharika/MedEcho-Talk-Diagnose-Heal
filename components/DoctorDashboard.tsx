@@ -4,7 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import { User, Appointment, MedicalReport } from '../types';
 import AIChatAssistant from './AIChatAssistant';
 import ReportDetailModal from './ReportDetailModal';
-import { getTranslation, translateClinical } from '../services/translations';
+import { getTranslation, translateClinical, translateString, loadTranslations } from '../services/translations';
 import TranslatedText from './TranslatedText';
 import {
   UsersIcon,
@@ -43,8 +43,16 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
   onDeleteAppointment
 }) => {
   const t = getTranslation(doctor.preferredLanguage);
-  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+
+  useEffect(() => {
+    loadTranslations(doctor.preferredLanguage, 'dashboard');
+  }, [doctor.preferredLanguage]);
   const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+
+  // Translations are now handled by TranslatedText component in JSX
+
+  // Data translation is now handled by TranslatedText component directly in the JSX
 
   const doctorAppointments = appointments.filter(a => a.doctorId === doctor.id);
   const pendingApts = doctorAppointments.filter(a => a.status === 'PENDING');
@@ -145,7 +153,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
             </h1>
             <div className="flex flex-wrap items-center gap-2 mt-1 sm:mt-2">
               <span className="bg-indigo-50 text-indigo-600 text-[8px] sm:text-[9px] font-black px-2 py-0.5 rounded-full uppercase truncate max-w-[120px]">
-                {translateClinical(doctor.specialization, doctor.preferredLanguage)}
+                <TranslatedText text={doctor.specialization} lang={doctor.preferredLanguage} isClinical={true} />
               </span>
               <span className="text-slate-400 text-[10px] font-bold">ID: D{doctor.id.replace(/\D/g, '').slice(0, 3).padStart(3, '0')}</span>
             </div>
@@ -264,7 +272,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                       {t.diagnosisReportFor} <TranslatedText text={report.patientName || t.unknownPatient} lang={doctor.preferredLanguage} />
                     </p>
                     <p className="font-black text-slate-800 text-sm truncate group-hover:text-indigo-600 transition-colors">
-                      <TranslatedText text={report.diagnosis} lang={doctor.preferredLanguage} />
+                      <TranslatedText text={report.diagnosis} lang={doctor.preferredLanguage} isClinical={true} />
                     </p>
                     <p className="text-[10px] text-slate-500 mt-1">
                       {t.patientFor}: <span className="font-extrabold text-slate-700">

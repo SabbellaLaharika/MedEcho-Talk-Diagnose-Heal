@@ -59,16 +59,6 @@ export const getPatientReports = async (req: Request, res: Response) => {
             orderBy: { createdAt: 'desc' }
         });
 
-        // Translate reports if language is not English
-        if (user?.preferredLanguage && user.preferredLanguage !== 'en') {
-            const translatedReports = await translationService.translateArray(
-                reports, 
-                ['diagnosis', 'summary', 'symptoms', 'precautions'], 
-                user.preferredLanguage
-            );
-            return res.json(translatedReports);
-        }
-
         res.json(reports);
     } catch (error) {
         console.error(error);
@@ -91,17 +81,6 @@ export const getReportById = async (req: Request, res: Response) => {
 
         if (!report) {
             return res.status(404).json({ message: 'Report not found' });
-        }
-
-        // Translate if needed
-        const lang = report.patient?.preferredLanguage;
-        if (lang && lang !== 'en') {
-            const translatedReport = await translationService.translateObject(
-                report,
-                ['diagnosis', 'summary', 'symptoms', 'precautions'],
-                lang
-            );
-            return res.json(translatedReport);
         }
 
         res.json(report);

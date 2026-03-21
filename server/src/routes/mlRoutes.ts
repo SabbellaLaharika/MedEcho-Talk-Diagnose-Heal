@@ -1,5 +1,5 @@
 import express from 'express';
-import { chatWithAI, speechToText, analyzeSymptoms, translateText } from '../controllers/mlController';
+import { chatWithAI, speechToText, analyzeSymptoms, translateText, translateBatch } from '../controllers/mlController';
 import { protect } from '../middleware/authMiddleware';
 import multer from 'multer';
 
@@ -13,5 +13,6 @@ router.post('/chat', protect, chatWithAI);
 router.post('/stt', protect, upload.single('file'), speechToText);
 router.post('/analyze', protect, analyzeSymptoms);
 router.post('/translate', protect, translateText);
+router.post('/translate_batch', protect, translateBatch);
 
 export default router;

@@ -31,6 +31,10 @@ const FALLBACK_PACK: Record<string, string> = {
   selectTime: 'Select Specialist & Time',
   latestReports: 'Latest Reports',
   appointmentsTitle: 'Appointments',
+  realTime: 'Real-time',
+  sendReports: 'Send Reports',
+  sending: 'Sending…',
+  noAppointmentsBooked: 'No appointments booked',
   findNearbyCare: 'Find Nearby Care',
 
   // Dashboard Stats
@@ -192,6 +196,8 @@ const FALLBACK_PACK: Record<string, string> = {
   virtualClinic: 'Virtual Clinic',
   talkToAI: 'Talk to our AI specialist instantly.',
   startCheckup: 'Start Checkup',
+  finishAndAnalyze: 'Finish & Analyze',
+  languageMode: 'Language Mode',
   caseSaved: 'Case record saved',
   clinicalEntitiesWarning: 'ACADEMIC PROJECT: Clinical entities are AI-extracted. Call 102/108 for emergencies.',
 
@@ -212,6 +218,9 @@ const FALLBACK_PACK: Record<string, string> = {
   aWeek: 'A Week',
   fewDays: 'A Few Days',
   months: 'Months',
+  monthsLower: 'months',
+  years: 'Years',
+  yearsLower: 'years',
 
   // Report Viewer
   docViewer: 'Clinical Document Viewer',
@@ -232,6 +241,7 @@ const FALLBACK_PACK: Record<string, string> = {
   minorHospitals: 'Minor Clinics',
   labsAndDiagnostics: 'Labs & Diagnostics',
   km: 'KM',
+  kmLower: 'km',
   call: 'Call',
 
   // Healthcare Types
@@ -282,10 +292,45 @@ const FALLBACK_PACK: Record<string, string> = {
   consultProfessional: 'Consult a professional.',
   aiMedicalIntake: 'AI Medical Intake',
   recordFiled: 'Record Filed',
+
+  // Auth & Profile Extension
+  patientPortal: 'Patient Portal',
+  clinicalStaff: 'Clinical Staff',
+  secureAccess: 'Secure Access',
+  createCredentials: 'Create Credentials',
+  precisionHealthDesc: 'Precision health infrastructure. Automated triage, real-time reporting, and intelligent patient tracking.',
+  joinMedEcho: 'Join MedEcho? Register',
+  alreadyHaveAccess: 'Already have access? Login',
+  medicalProfileId: 'Medical Profile ID',
+  enterAddress: 'Enter your complete residential address for medical shipping and emergencies...',
+  gold: 'Gold',
+  languageGlobal: 'English (Global)',
+  hindiLL: 'Hindi (हिन्दी)',
+  teleguLL: 'Telugu (తెలుగు)',
+  tamilLL: 'Tamil (தமிழ்)',
+  marathiLL: 'Marathi (మరాఠీ)',
+  bengaliLL: 'Bengali (বাংলা)',
+  kannadaLL: 'Kannada (ಕನ್ನಡ)',
+  malayalamLL: 'Malayalam (മലയാളം)',
+  gujaratiLL: 'Gujarati (ગુજરાતી)',
+  punjabiLL: 'Punjabi (ਪੰਜਾਬੀ)',
+
+  // AI Chat Extension
+  multilingualAI: 'Multilingual AI',
+  aiConsultation: 'AI Consultation',
+  quickChatIntake: 'Quick Chat Intake Record',
+  consultHumanDoctor: 'Please consult a human doctor for confirmation.',
+  aiAssistantName: 'MedEcho AI Assistant',
+  reportGenQuickChat: 'Report generated via quick chat assistant.',
+  standardPrecautions: 'Standard precautions advised.',
+  saveReportError: 'I couldn’t save your report. Please check your network connection.',
+  aiConnectError: '❌ Error connecting to AI service. Please ensure the backend and ML servers are running.',
 };
 
-// In-memory store for the current language pack
-let currentPack: Record<string, string> = { ...FALLBACK_PACK };
+// In-memory store for loaded language packs
+let packs: Record<string, Record<string, string>> = {
+  en: { ...FALLBACK_PACK }
+};
 let currentLang: string = 'en';
 let loadingLang: string | null = null;
 
@@ -300,40 +345,43 @@ export const subscribeToTranslations = (cb: () => void) => {
 const notifyObservers = () => observers.forEach(cb => cb());
 
 /**
- * Loads a language pack from the backend and caches it.
+ * Loads a language pack (or specific namespace) from the backend and caches it.
  */
-export const loadTranslations = async (lang: string = 'en') => {
+export const loadTranslations = async (lang: string = 'en', ns?: string) => {
   const code = (lang || 'en').toLowerCase().slice(0, 2);
-
-  // Avoid redundant loads
-  if (currentLang === code || loadingLang === code) return currentPack;
 
   try {
     loadingLang = code;
 
-    // 1. Check Local Storage
-    const cached = localStorage.getItem(`med_echo_lang_v2_${code}`);
-    if (cached) {
-      currentPack = { ...FALLBACK_PACK, ...JSON.parse(cached) };
-      currentLang = code;
-      notifyObservers();
+    // 1. Check Local Storage for the base pack first if no namespace
+    if (!ns) {
+      const cached = localStorage.getItem(`med_echo_lang_v3_${code}`);
+      if (cached && !packs[code]) {
+        packs[code] = { ...FALLBACK_PACK, ...JSON.parse(cached) };
+        currentLang = code;
+        notifyObservers();
+      }
     }
 
     // 2. Fetch Fresh from Backend
-    const response = await api.get(`/translations/${code}`);
-    const freshPack = response.data;
+    const url = ns ? `/translations/${code}?ns=${ns}` : `/translations/${code}`;
+    const response = await api.get(url);
+    const freshData = response.data;
 
-    // 3. Update memory + local storage
-    let mergedPack = { ...FALLBACK_PACK, ...freshPack };
-    currentPack = mergedPack;
+    // 3. Update memory + local storage (Merge namespaces)
+    packs[code] = { ...FALLBACK_PACK, ...(packs[code] || {}), ...freshData };
     currentLang = code;
-    localStorage.setItem(`med_echo_lang_v2_${code}`, JSON.stringify(freshPack));
+
+    // Only persist the global pack to local storage, not partials (to avoid corruption)
+    if (!ns) {
+      localStorage.setItem(`med_echo_lang_v3_${code}`, JSON.stringify(freshData));
+    }
 
     notifyObservers();
-    return currentPack;
+    return packs[code];
   } catch (err) {
-    console.error("Translation load failed:", err);
-    return currentPack;
+    console.error(`Translation load failed for ${code}${ns ? ':' + ns : ''}`, err);
+    return packs[code] || FALLBACK_PACK;
   } finally {
     loadingLang = null;
   }
@@ -345,7 +393,7 @@ export const loadTranslations = async (lang: string = 'en') => {
  */
 export const getTranslation = (lang: string = 'en') => {
   const code = (lang || 'en').toLowerCase().slice(0, 2);
-  const base = code === 'en' ? FALLBACK_PACK : currentPack;
+  const base = packs[code] || FALLBACK_PACK;
 
   return new Proxy(base, {
     get: (target, key: string) => {
@@ -361,6 +409,20 @@ export const getTranslation = (lang: string = 'en') => {
 export const translateClinical = (text: string = '', lang: string = 'en') => {
   if (!text) return '';
   const t = getTranslation(lang);
+  // 1. Regex handles for dynamic durations (Instant Fallback)
+  if (lang === 'te') {
+    text = text.replace(/(\d+)\s*months/gi, '$1 నెలలు');
+    text = text.replace(/(\d+)\s*years/gi, '$1 సంవత్సరాలు');
+    text = text.replace(/(\d+)\s*days/gi, '$1 రోజులు');
+    text = text.replace(/(\d+)\s*week/gi, '$1 వారం');
+  }
+  if (lang === 'hi') {
+    text = text.replace(/(\d+)\s*months/gi, '$1 महीने');
+    text = text.replace(/(\d+)\s*years/gi, '$1 साल');
+    text = text.replace(/(\d+)\s*days/gi, '$1 दिन');
+    text = text.replace(/(\d+)\s*week/gi, '$1 सप्ताह');
+  }
+
   const normalized = text.toLowerCase().trim();
 
   if (normalized.includes('cardiol')) return t.cardiology;
@@ -392,14 +454,106 @@ export const translateClinical = (text: string = '', lang: string = 'en') => {
 };
 
 /**
- * Async utility to translate a string using the ML service
+ * High-Performance Translation Queue & Cache
+ */
+class TranslationQueue {
+  private queue: Map<string, { texts: Set<string>; resolvers: Map<string, Array<(t: string) => void>> }> = new Map();
+  private timers: Map<string, any> = new Map();
+  private cache: Map<string, Record<string, string>> = new Map();
+
+  constructor() {
+    this.loadGlobalCache();
+  }
+
+  private loadGlobalCache() {
+    try {
+      const keys = Object.keys(localStorage);
+      keys.filter(k => k.startsWith('med_echo_dynamic_v1_')).forEach(k => {
+        const lang = k.split('_').pop() || '';
+        this.cache.set(lang, JSON.parse(localStorage.getItem(k) || '{}'));
+      });
+    } catch (e) { }
+  }
+
+  private saveToCache(lang: string, text: string, translated: string) {
+    if (!this.cache.has(lang)) this.cache.set(lang, {});
+    const langCache = this.cache.get(lang)!;
+    langCache[text] = translated;
+    try {
+      localStorage.setItem(`med_echo_dynamic_v1_${lang}`, JSON.stringify(langCache));
+    } catch (e) { }
+  }
+
+  public getCached(text: string, lang: string): string | null {
+    return this.cache.get(lang)?.[text] || null;
+  }
+
+  public async push(text: string, lang: string): Promise<string> {
+    const cached = this.getCached(text, lang);
+    if (cached) return cached;
+
+    return new Promise((resolve) => {
+      if (!this.queue.has(lang)) {
+        this.queue.set(lang, { texts: new Set(), resolvers: new Map() });
+      }
+
+      const q = this.queue.get(lang)!;
+      q.texts.add(text);
+
+      const resList = q.resolvers.get(text) || [];
+      resList.push(resolve);
+      q.resolvers.set(text, resList);
+
+      if (this.timers.has(lang)) clearTimeout(this.timers.get(lang));
+      this.timers.set(lang, setTimeout(() => this.flush(lang), 50));
+    });
+  }
+
+  private async flush(lang: string) {
+    const q = this.queue.get(lang);
+    if (!q) return;
+    this.queue.delete(lang);
+    this.timers.delete(lang);
+
+    const textsToTranslate = Array.from(q.texts);
+    if (textsToTranslate.length === 0) return;
+
+    try {
+      const res = await api.post('/ml/translate_batch', { texts: textsToTranslate, target_lang: lang });
+      const results: string[] = res.data.translations || [];
+
+      textsToTranslate.forEach((original, idx) => {
+        const translated = results[idx] || original;
+        this.saveToCache(lang, original, translated);
+        const resolvers = q.resolvers.get(original);
+        resolvers?.forEach(resolve => resolve(translated));
+      });
+    } catch (err) {
+      textsToTranslate.forEach(original => {
+        const resolvers = q.resolvers.get(original);
+        resolvers?.forEach(resolve => resolve(original));
+      });
+    }
+  }
+}
+
+const batchQueue = new TranslationQueue();
+
+/**
+ * Async utility to translate a string using the ML service (with batching & caching)
  */
 export const translateString = async (text: string, targetLang: string = 'en') => {
   if (!text || targetLang === 'en') return text;
-  try {
-    const res = await api.post('/ml/translate', { text, target_lang: targetLang });
-    return res.data.translated || text;
-  } catch (e) {
-    return text;
+
+  // 1. Check Dictionary First (Synchronous)
+  const code = targetLang.toLowerCase().slice(0, 2);
+  const t = getTranslation(code);
+  const lowerText = text.toLowerCase().trim();
+  const dictVal = t[lowerText] || t[text.trim()];
+  if (dictVal && dictVal !== lowerText && dictVal !== text.trim()) {
+    return dictVal;
   }
+
+  // 2. Use Batching Queue
+  return await batchQueue.push(text, code);
 };

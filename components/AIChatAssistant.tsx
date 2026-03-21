@@ -12,7 +12,8 @@ import {
   CheckCircleIcon,
   GlobeAltIcon
 } from '@heroicons/react/24/solid';
-import { getTranslation } from '../services/translations';
+import { getTranslation, translateString, loadTranslations } from '../services/translations';
+import TranslatedText from './TranslatedText';
 
 const LANGUAGES = [
   { code: 'auto', name: 'Auto Detect', label: 'Auto Detect' },
@@ -38,6 +39,12 @@ interface AIChatAssistantProps {
 const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isModal, onReportGenerated }) => {
   const user = dbService.auth.getCurrentUser();
   const t = getTranslation(user?.preferredLanguage);
+
+  React.useEffect(() => {
+    if (user?.preferredLanguage) {
+      loadTranslations(user.preferredLanguage, 'chat');
+    }
+  }, [user?.preferredLanguage]);
 
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', sender: 'ai', text: initialContext ? t.aiContextReceived : t.aiGreeting, timestamp: new Date() }
@@ -180,8 +187,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       // Auto-translate AI response if needed
       if (langShort !== 'en' && aiResponse) {
         try {
-          const transRes = await api.post('/ml/translate', { text: aiResponse, target_lang: langShort });
-          aiResponse = transRes.data.translated || aiResponse;
+          aiResponse = await translateString(aiResponse, langShort);
         } catch (e) {
           console.error("AI translation failed", e);
         }
@@ -253,14 +259,14 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       // Async translate metadata if user is not on English
       if (langShort !== 'en') {
         try {
-          const transBatch = await Promise.all([
-            api.post('/ml/translate', { text: diagnosis, target_lang: langShort }),
-            api.post('/ml/translate', { text: summary, target_lang: langShort }),
-            Promise.all(precautions.map((p: string) => api.post('/ml/translate', { text: p, target_lang: langShort })))
+          const transResults = await Promise.all([
+            translateString(diagnosis, langShort),
+            translateString(summary, langShort),
+            Promise.all(precautions.map((p: string) => translateString(p, langShort)))
           ]);
-          diagnosis = transBatch[0].data.translated || diagnosis;
-          summary = transBatch[1].data.translated || summary;
-          precautions = (transBatch[2] as any[]).map(r => r.data.translated);
+          diagnosis = transResults[0];
+          summary = transResults[1];
+          precautions = transResults[2] as string[];
         } catch (e) {
           console.error("Metadata translation failed", e);
         }
@@ -334,9 +340,11 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
             <SparklesIcon className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div>
-            <h2 className="text-sm sm:text-lg font-bold tracking-tight uppercase">{t.aiChatTitle}</h2>
+            <h2 className="text-sm sm:text-lg font-bold tracking-tight uppercase"><TranslatedText text={t.aiChatTitle} lang={user?.preferredLanguage} /></h2>
             <div className="flex items-center space-x-2 mt-0.5">
-              <span className="text-slate-400 text-[8px] font-black uppercase tracking-widest leading-none">Multilingual AI</span>
+              <span className="text-slate-400 text-[8px] font-black uppercase tracking-widest leading-none">
+                <TranslatedText text={t.multilingualAI} lang={user?.preferredLanguage} />
+              </span>
               <div className="h-2 w-px bg-slate-700"></div>
               <div className="flex items-center space-x-1">
                 <GlobeAltIcon className="w-3 h-3 text-blue-400" />
@@ -347,7 +355,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
                 >
                   {LANGUAGES.map(l => (
                     <option key={l.code} value={l.code} className="bg-slate-800 text-white">
-                      {l.code === 'auto' ? t.autoDetect : l.name}
+                      {l.code === 'auto' ? <TranslatedText text={t.autoDetect} lang={user?.preferredLanguage} /> : l.name}
                     </option>
                   ))}
                 </select>
@@ -382,7 +390,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       <div className="bg-amber-50 border-y border-amber-100 px-4 py-2 flex items-center space-x-2 flex-shrink-0">
         <ExclamationTriangleIcon className="w-3 h-3 text-amber-600 flex-shrink-0" />
         <p className="text-[8px] text-amber-800 font-bold uppercase tracking-tight">
-          {t.aiWarning}
+          <TranslatedText text={t.aiWarning} lang={user?.preferredLanguage} />
         </p>
       </div>
 

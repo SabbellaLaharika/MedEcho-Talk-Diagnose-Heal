@@ -12,7 +12,7 @@ import {
   UserCircleIcon
 } from '@heroicons/react/24/outline';
 import { UserRole, User } from '../types';
-import { getTranslation } from '../services/translations';
+import { getTranslation, translateString } from '../services/translations';
 import TranslatedText from './TranslatedText';
 
 interface SidebarProps {
@@ -28,20 +28,22 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, ro
   const t = getTranslation(user?.preferredLanguage);
 
   const patientItems = [
-    { id: 'dashboard', name: t.dashboard, icon: HomeIcon },
-    { id: 'appointments', name: t.bookVisit, icon: CalendarIcon },
-    { id: 'reports', name: t.medicalFiles, icon: ClipboardDocumentListIcon },
-    { id: 'chat', name: t.chatSupport, icon: ChatBubbleBottomCenterTextIcon },
-    { id: 'virtual-doc', name: (<TranslatedText text={'Virtual Doctor'} lang={user.preferredLanguage} />), icon: MicrophoneIcon },
-    { id: 'profile', name: t.myProfile, icon: UserCircleIcon },
+    { id: 'dashboard', name: t.dashboard || 'Dashboard', icon: HomeIcon },
+    { id: 'appointments', name: t.bookVisit || 'Book Visit', icon: CalendarIcon },
+    { id: 'reports', name: t.medicalFiles || 'Medical Files', icon: ClipboardDocumentListIcon },
+    { id: 'chat', name: t.chatSupport || 'Chat Support', icon: ChatBubbleBottomCenterTextIcon },
+    { id: 'virtual-doc', name: t.virtualDoctor || 'Virtual Doctor', icon: MicrophoneIcon },
+    { id: 'profile', name: t.myProfile || 'My Profile', icon: UserCircleIcon },
   ];
 
   const doctorItems = [
-    { id: 'dashboard', name: t.overview, icon: HomeIcon },
-    { id: 'schedule', name: t.mySchedule, icon: ClockIcon },
-    { id: 'reports', name: t.records, icon: ClipboardDocumentListIcon },
-    { id: 'chat', name: t.aiResearch, icon: AcademicCapIcon },
+    { id: 'dashboard', name: t.overview || 'Overview', icon: HomeIcon },
+    { id: 'schedule', name: t.mySchedule || 'My Schedule', icon: ClockIcon },
+    { id: 'reports', name: t.records || 'Records', icon: ClipboardDocumentListIcon },
+    { id: 'chat', name: t.aiResearch || 'AI Research', icon: AcademicCapIcon },
   ];
+
+  // Translations are now handled by TranslatedText component in JSX
 
   const menuItems = role === 'DOCTOR' ? doctorItems : patientItems;
   const themeColor = role === 'DOCTOR' ? 'indigo' : 'blue';
@@ -56,8 +58,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, ro
             {role === 'DOCTOR' ? 'DR' : 'ME'}
           </div>
           <div>
-            <span className="text-lg sm:text-xl font-black text-slate-800 tracking-tight">{t.medEchoLogo}</span>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{staffDisplay}</p>
+            <span className="text-lg sm:text-xl font-black text-slate-800 tracking-tight"><TranslatedText text={t.medEchoLogo} lang={user.preferredLanguage} /></span>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest"><TranslatedText text={staffDisplay} lang={user.preferredLanguage} /></p>
           </div>
         </div>
         {onClose && (
@@ -91,7 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout, ro
           className="w-full flex items-center space-x-4 px-5 py-4 sm:py-3.5 rounded-2xl text-rose-500 hover:bg-rose-50 transition-all font-black uppercase text-[11px] sm:text-sm tracking-wider"
         >
           <ArrowLeftOnRectangleIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-          <span>{t.logout}</span>
+          <span><TranslatedText text={t.logout} lang={user.preferredLanguage} /></span>
         </button>
       </div>
     </div>

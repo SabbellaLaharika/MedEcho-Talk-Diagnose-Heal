@@ -94,3 +94,22 @@ export const translateText = async (req: Request, res: Response) => {
         });
     }
 };
+
+export const translateBatch = async (req: Request, res: Response) => {
+    const { texts, target_lang, source_lang } = req.body;
+    try {
+        const response = await axios.post(`${ML_SERVICE_URL}/translate_batch`, {
+            texts: texts || [],
+            target_lang: target_lang || 'en',
+            source_lang: source_lang || 'en'
+        });
+        
+        res.json(response.data);
+    } catch (error) {
+        console.error('Translate Batch Proxy Error:', error);
+        res.status(503).json({ 
+            message: 'Translation Service Unavailable',
+            translations: texts // Fallback to originals
+        });
+    }
+};

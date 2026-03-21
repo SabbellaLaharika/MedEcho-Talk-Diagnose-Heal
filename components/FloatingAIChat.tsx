@@ -12,7 +12,8 @@ import {
   CheckCircleIcon,
   GlobeAltIcon
 } from '@heroicons/react/24/solid';
-import { getTranslation } from '../services/translations';
+import { getTranslation, translateString, loadTranslations } from '../services/translations';
+import TranslatedText from './TranslatedText';
 
 const LANGUAGES = [
   { code: 'auto', name: 'Auto Detect', label: 'Auto Detect' },
@@ -34,6 +35,15 @@ interface FloatingAIChatProps {
 }
 
 const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) => {
+  const user = dbService.auth.getCurrentUser();
+  const t = getTranslation(user?.preferredLanguage);
+
+  useEffect(() => {
+    if (user?.preferredLanguage) {
+      loadTranslations(user.preferredLanguage, 'chat');
+    }
+  }, [user?.preferredLanguage]);
+
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -44,8 +54,6 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
-  const user = dbService.auth.getCurrentUser();
-  const t = getTranslation(user?.preferredLanguage);
 
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', sender: 'ai', text: t.aiGreeting, timestamp: new Date() }
@@ -129,13 +137,13 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
         patientId: user.id,
         patientName: user.name,
         doctorId: null,
-        doctorName: 'Unassigned',
-        diagnosis: mlContext.diagnosis || 'Clinical Consultation',
+        doctorName: t.unassigned,
+        diagnosis: mlContext.diagnosis || t.aiConsultation,
         confidenceScore: parseFloat(mlContext.confidence) || 85,
         preventions: mlContext.precautions 
            ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : String(mlContext.precautions).split(/,\s*/))
-           : ['Please consult a human doctor for confirmation.'],
-        summary: mlContext.summary || 'Quick Chat Intake Record',
+           : [t.consultHumanDoctor],
+        summary: mlContext.summary || t.quickChatIntake,
         symptoms: mlContext.collected_symptoms || [],
         history: mlContext.history || {},
         vitals: vitals,
@@ -150,13 +158,13 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
           id: savedReport.id,
           patientId: user.id,
           doctorId: null,
-          doctorName: 'MedEcho AI Assistant',
+          doctorName: t.aiAssistantName,
           date: new Date().toISOString().split('T')[0],
-          diagnosis: mlContext.diagnosis || 'Consultation',
-          summary: 'Report generated via quick chat assistant.',
+          diagnosis: mlContext.diagnosis || t.consultation,
+          summary: t.reportGenQuickChat,
           prescription: mlContext.precautions 
              ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : String(mlContext.precautions).split(/,\s*/))
-             : ['Standard precautions advised.'],
+             : [t.standardPrecautions],
           aiConfidence: parseFloat(mlContext.confidence) || 85,
           symptoms: mlContext.collected_symptoms || [],
           history: mlContext.history || {},
@@ -168,7 +176,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
       const successMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: `✓ Record Filed: **${mlContext.diagnosis}**. View details in your Records dashboard.`,
+        text: `✓ ${t.recordFiled}: **${mlContext.diagnosis}**. ${t.viewDetailsDashboard || 'View details in your dashboard.'}`,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, successMsg]);
@@ -179,7 +187,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
       const errorMsg: Message = {
         id: Date.now().toString(),
         sender: 'ai',
-        text: "I couldn't save your report. Please check your network connection.",
+        text: t.saveReportError,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -202,10 +210,19 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
         lang: langShort
       });
 
+      let aiResponse = data.response || '';
+      if (langShort !== 'en' && aiResponse) {
+        try {
+          aiResponse = await translateString(aiResponse, langShort);
+        } catch (e) {
+          console.error("AI translation failed", e);
+        }
+      }
+
       const aiMsg: Message = { 
         id: (Date.now() + 1).toString(), 
         sender: 'ai', 
-        text: data.response || '', 
+        text: aiResponse, 
         timestamp: new Date() 
       };
       
@@ -232,7 +249,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
       const errorMsg: Message = {
         id: Date.now().toString(),
         sender: 'ai',
-        text: "❌ Error connecting to AI service. Please ensure the backend and ML servers are running.",
+        text: t.aiConnectError,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -255,7 +272,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
                 <ChatBubbleLeftRightIcon className="w-5 h-5 text-white" />
               </div>
               <div className="flex flex-col">
-                <h3 className="font-bold text-sm">{t.aiChatTitle}</h3>
+                <h3 className="font-bold text-sm"><TranslatedText text={t.aiChatTitle} lang={user?.preferredLanguage} /></h3>
                 <div className="flex items-center space-x-1">
                   <GlobeAltIcon className="w-3 h-3 text-blue-200" />
                   <select 
@@ -265,7 +282,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
                   >
                     {LANGUAGES.map(l => (
                       <option key={l.code} value={l.code} className="bg-slate-800 text-white">
-                        {l.code === 'auto' ? t.autoDetect : l.name}
+                        {l.code === 'auto' ? <TranslatedText text={t.autoDetect} lang={user?.preferredLanguage} /> : l.name}
                       </option>
                     ))}
                   </select>
@@ -314,7 +331,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
             <div className="flex items-start space-x-2">
               <ExclamationTriangleIcon className="w-3 h-3 text-amber-600 mt-0.5" />
               <p className="text-[8px] text-amber-800 font-bold leading-tight uppercase">
-                {t.aiWarning}
+                <TranslatedText text={t.aiWarning} lang={user?.preferredLanguage} />
               </p>
             </div>
             {reportSaved && <CheckCircleIcon className="w-4 h-4 text-emerald-600" />}

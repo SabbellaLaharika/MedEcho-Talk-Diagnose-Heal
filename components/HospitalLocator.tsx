@@ -4,7 +4,9 @@ import {
   BeakerIcon, BuildingOffice2Icon, HomeModernIcon, PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
 import { User } from '../types';
-import { getTranslation } from '../services/translations';
+import { getTranslation, translateString, loadTranslations } from '../services/translations';
+import api from '../services/api';
+import TranslatedText from './TranslatedText';
 
 interface HospitalLocatorProps {
   user?: User;
@@ -34,8 +36,14 @@ const TAB_KEYS: Record<string, string> = {
 
 const HospitalLocator: React.FC<HospitalLocatorProps> = ({ user }) => {
   const t = getTranslation(user?.preferredLanguage);
+  
+  useEffect(() => {
+    loadTranslations(user?.preferredLanguage, 'hospitals');
+  }, [user?.preferredLanguage]);
   const [activeTab, setActiveTab] = useState<'MAJOR' | 'MINOR' | 'LABS'>('MAJOR');
   const [uLoc, setULoc] = useState<{ lat: number, lng: number } | null>(null);
+
+  // Translations are now handled by TranslatedText component in JSX
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
@@ -57,12 +65,12 @@ const HospitalLocator: React.FC<HospitalLocatorProps> = ({ user }) => {
     <div className="p-6 bg-white rounded-[2rem] shadow-lg border border-slate-100">
       <div className="flex flex-wrap gap-2 mb-6">
         {(['MAJOR', 'MINOR', 'LABS'] as const).map(tab => (
-          <button 
-            key={tab} 
-            onClick={() => setActiveTab(tab)} 
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
           >
-            {t[TAB_KEYS[tab]]}
+            <TranslatedText text={t[TAB_KEYS[tab]] || TAB_KEYS[tab]} lang={user?.preferredLanguage} />
           </button>
         ))}
       </div>
@@ -73,29 +81,29 @@ const HospitalLocator: React.FC<HospitalLocatorProps> = ({ user }) => {
             <div className="flex justify-between items-start mb-2">
               <div className="min-w-0">
                 <h3 className="font-black text-slate-800 text-lg truncate group-hover:text-indigo-600 transition-colors">
-                  {t[item.name] || item.name}
+                  <TranslatedText text={t[item.name] || item.name} lang={user?.preferredLanguage} />
                 </h3>
-                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{t[item.type] || item.type}</span>
+                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest"><TranslatedText text={t[item.type] || item.type} lang={user?.preferredLanguage} /></span>
               </div>
               {getDist(item.coords.lat, item.coords.lng) && (
                 <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md shrink-0">
-                  {getDist(item.coords.lat, item.coords.lng)} {t.km}
+                  {getDist(item.coords.lat, item.coords.lng)} <TranslatedText text={t.km} lang={user?.preferredLanguage} />
                 </span>
               )}
             </div>
             <p className="text-[10px] text-slate-400 font-bold mb-4 uppercase">
-              {t[item.location] || item.location}
+              <TranslatedText text={t[item.location] || item.location} lang={user?.preferredLanguage} />
             </p>
             <div className="flex gap-2">
-              <a 
-                href={`tel:${item.contact}`} 
+              <a
+                href={`tel:${item.contact}`}
                 className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-center text-[10px] font-black uppercase tracking-widest hover:bg-black transition-colors"
               >
-                {t.call}
+                <TranslatedText text={t.call} lang={user?.preferredLanguage} />
               </a>
-              <a 
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.name + " " + item.location)}`} 
-                target="_blank" 
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.name + " " + item.location)}`}
+                target="_blank"
                 rel="noreferrer"
                 className="px-4 bg-indigo-50 text-indigo-600 py-2.5 rounded-xl flex items-center justify-center hover:bg-indigo-100 transition-colors"
               >
@@ -109,4 +117,4 @@ const HospitalLocator: React.FC<HospitalLocatorProps> = ({ user }) => {
   );
 };
 
-export default HospitalLocator;
+export default HospitalLocator;
