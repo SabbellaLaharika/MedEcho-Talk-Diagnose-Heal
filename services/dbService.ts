@@ -167,6 +167,10 @@ export const dbService = {
       };
       const { data } = await api.post('/reports', reportPayload);
       return mapBackendReportToFrontend(data);
+    },
+    updateDoctor: async (reportId: string, doctorId: string): Promise<MedicalReport> => {
+      const { data } = await api.put(`/reports/${reportId}/doctor`, { doctorId });
+      return mapBackendReportToFrontend(data);
     }
   },
 

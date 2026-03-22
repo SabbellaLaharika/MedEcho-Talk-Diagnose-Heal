@@ -82,6 +82,18 @@ class ChatEngine:
             print(f"Error building correlations: {e}")
             return {}
 
+    def _parse_duration(self, text):
+        import re
+        match = re.search(r'\b(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|couple\s*of|few)\s+(hours?|days?|weeks?|months?|years?|weekend)\b', text)
+        if match:
+            qty, unit = match.groups()
+            map_qty = {"a": "1", "an": "1", "one": "1", "two": "2", "three": "3", "four": "4", "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10", "couple of": "2", "few": "3"}
+            qty = map_qty.get(qty, qty)
+            return f"{qty} {unit}"
+        if "yesterday" in text: return "1 day"
+        if "morning" in text: return "less than a day"
+        return text.strip()
+
     def process_message(self, user_text, context):
         """
         Process user input and return (bot_response, updated_context)
@@ -93,10 +105,16 @@ class ChatEngine:
         
         # Questions to ask
         questions_map = {
-            'duration': "How long have you been experiencing these symptoms? (e.g., 2 days, a week)",
-            'appetite': "How is your appetite lately? (Good/Average/Poor)",
-            'gastric': "Do you experience any acidity, gas, or stomach bloating? (Yes/No)",
-            'sleep': "How is your sleep quality? (Good/Disturbed/Insomnia)"
+            'duration': "How long have you been experiencing these symptoms?",
+            'appetite': "How is your appetite lately?",
+            'gastric': "Do you experience any acidity, gas, or stomach bloating?",
+            'sleep': "How is your sleep quality?"
+        }
+        options_map = {
+            'duration': ["1 day", "3 days", "1 week", "2 weeks"],
+            'appetite': ["Good", "Average", "Poor"],
+            'gastric': ["Yes", "No"],
+            'sleep': ["Good", "Disturbed", "Insomnia"]
         }
         
         # --- State Machine ---
@@ -108,16 +126,29 @@ class ChatEngine:
             if any(word in user_text for word in greetings) or (user_text and user_text.strip()):
                 context['state'] = 'GATHERING_SYMPTOMS'
                 if any(word in user_text for word in ["bad", "unwell", "sick", "not well"]):
-                     return "I am sorry to hear that. I am MedEcho, your health assistant. Please describe exactly what symptoms you are feeling (e.g., fever, cough, headache).", context
-                return "Namaste! I am MedEcho. I can help diagnose your condition by analyzing your symptoms. Please tell me, how can I help you today?", context
+                     return "I am sorry to hear that. Please describe exactly what symptoms you are feeling (e.g., fever, cough, headache).", context
+                return "Please tell me exactly what symptoms you are experiencing so I can assist you.", context
             else:
                 context['state'] = 'GATHERING_SYMPTOMS'
-                return "Namaste! I am MedEcho. I can help diagnose your condition. Please describe your symptoms to begin.", context
+                return "Please describe your symptoms to begin.", context
 
         # 2. SYMPTOM GATHERING
         if context.get('state') == 'GATHERING_SYMPTOMS':
-            new_symptoms = self._extract_symptoms(user_text)
+            new_symptoms, negated_symptoms = self._extract_symptoms(user_text)
             
+            # Handle Negations (Removing symptoms)
+            removed = []
+            for ns in negated_symptoms:
+                if ns in collected_symptoms:
+                    collected_symptoms.remove(ns)
+                    removed.append(ns)
+            
+            if removed:
+                context['collected_symptoms'] = collected_symptoms
+                removed_str = ", ".join([s.replace('_', ' ') for s in removed])
+                if not new_symptoms:
+                    return f"Okay, I've removed **{removed_str}** from your list. What else are you experiencing?", context
+                    
             if new_symptoms:
                 for s in new_symptoms:
                     if s not in collected_symptoms:
@@ -129,6 +160,7 @@ class ChatEngine:
                      # Increased threshold to 6 to encourage more detail, or user says done
                     context['state'] = 'GATHERING_DETAILS'
                     first_q_key = list(questions_map.keys())[0]
+                    context['pending_suggestions'] = options_map[first_q_key]
                     return f"I noted: {', '.join(collected_symptoms).replace('_', ' ')}. Now, {questions_map[first_q_key]}", context
                 else:
                     # SMART SUGGESTION LOGIC
@@ -136,39 +168,75 @@ class ChatEngine:
                     suggestions = self.related_symptoms.get(last_symptom, [])
                     
                     # Filter out already collected ones
-                    valid_suggestions = [s.replace('_', ' ') for s in suggestions if s not in collected_symptoms]
+                    canonical_suggestions = [s for s in suggestions if s not in collected_symptoms]
                     
-                    if valid_suggestions:
-                        # Pick top 2-3
-                        suggest_list: list[str] = valid_suggestions[:3]
-                        suggest_str = ", ".join(suggest_list)
-                        return f"I noted **{last_symptom.replace('_', ' ')}**. Do you also experience **{suggest_str}**? (Or tell me what else)", context
+                    if canonical_suggestions:
+                        # Suggest up to 3 symptoms
+                        suggest_list = canonical_suggestions[:3]
+                        context['pending_suggestions'] = suggest_list
+                        return f"I noted **{last_symptom.replace('_', ' ')}**. Do you also experience any of the following? (Or select 'None')", context
                     else:
+                        context.pop('pending_suggestions', None)
                         return f"I have noted {', '.join(new_symptoms).replace('_', ' ')}. Do you have any other symptoms? (Or say 'that\\'s all')", context
             else:
-                # No symptoms found
+                # No new explicit symptoms found
+
                 # Check for "stop" words
-                if len(collected_symptoms) > 0 and ("no" in user_text or "done" in user_text or "that's all" in user_text or "nothing" in user_text):
+                stop_keywords = ["no", "done", "that's all", "none", "nothing", "nope", "not really", "other"]
+                if len(collected_symptoms) > 0 and any(word in user_text for word in stop_keywords):
+                    context.pop('pending_suggestions', None)
+                    if "other" in user_text.lower():
+                        return "Please tell me exactly what those other symptoms are.", context
                     context['state'] = 'GATHERING_DETAILS'
                     first_q_key = list(questions_map.keys())[0]
+                    context['pending_suggestions'] = options_map[first_q_key]
                     return f"Okay. Let's get some more details. {questions_map[first_q_key]}", context
                 
-                # Check for "continuation" words 
-                continuation_keywords = ["yes", "yeah", "i have", "there are", "more", "ok", "okay", "unnayi", "avunu"] 
+                # Check for "continuation" or "confirmation" words 
+                continuation_keywords = ["yes", "yeah", "i have", "there are", "more", "ok", "okay", "unnayi", "avunu", "yep", "yup"] 
                 
                 if any(word in user_text for word in continuation_keywords):
-                     return "Please tell me what those symptoms are.", context
+                    pending = context.get('pending_suggestions', [])
+                    if len(pending) == 1:
+                        # Only 1 was suggested, safely assume 'yes' means this one
+                        confirmed_symptom = pending[0]
+                        if confirmed_symptom not in collected_symptoms:
+                            collected_symptoms.append(confirmed_symptom)
+                        context['collected_symptoms'] = collected_symptoms
+                        context.pop('pending_suggestions', None)
+                        
+                        # Check threshold before suggesting another
+                        if len(collected_symptoms) >= 6:
+                            context['state'] = 'GATHERING_DETAILS'
+                            first_q_key = list(questions_map.keys())[0]
+                            context['pending_suggestions'] = options_map[first_q_key]
+                            return f"Got it, noted **{confirmed_symptom.replace('_', ' ')}**. Now, {questions_map[first_q_key]}", context
+                        
+                        # Suggest the next ones based on newly confirmed symptom
+                        next_suggestions = self.related_symptoms.get(confirmed_symptom, [])
+                        next_canonical = [s for s in next_suggestions if s not in collected_symptoms]
+                        
+                        if next_canonical:
+                            suggest_list = next_canonical[:3]
+                            context['pending_suggestions'] = suggest_list
+                            return f"Got it. Do you also experience any of these?", context
+                        else:
+                            return f"Got it, noted **{confirmed_symptom.replace('_', ' ')}**. Do you have any other symptoms?", context
+                    elif len(pending) > 1:
+                        return "Please select which exact symptoms you have from the list, or type 'None'.", context
+                    else:
+                        return "Please tell me what those symptoms are.", context
 
                 # FALLBACK: Use history to suggest if possible
                 if collected_symptoms:
                     last_symptom = collected_symptoms[-1]
                     suggestions = self.related_symptoms.get(last_symptom, [])
-                    valid_suggestions = [s.replace('_', ' ') for s in suggestions if s not in collected_symptoms]
+                    canonical_suggestions = [s for s in suggestions if s not in collected_symptoms]
                     
-                    if valid_suggestions:
-                        suggest_list: list[str] = valid_suggestions[:3]
-                        suggest_str: str = ", ".join(suggest_list)
-                        return f"I understand you're not feeling well. Based on **{last_symptom.replace('_', ' ')}**, do you also have **{suggest_str}**? If not, please describe any other feelings.", context
+                    if canonical_suggestions:
+                        suggest_list = canonical_suggestions[:3]
+                        context['pending_suggestions'] = suggest_list
+                        return f"I understand you're not feeling well. Based on your symptoms, do you also have any of these?", context
 
                 # If no symptoms yet and generic "unwell" input
                 unwell_keywords = ["not feeling good", "i am sick", "help me", "pain", "issue", "problem"]
@@ -188,7 +256,10 @@ class ChatEngine:
             
             # Save answer
             if answered_key:
-                history[answered_key] = user_text
+                if answered_key == 'duration':
+                    history[answered_key] = self._parse_duration(user_text)
+                else:
+                    history[answered_key] = user_text
                 context['history'] = history
             
             # Find NEXT question
@@ -199,6 +270,7 @@ class ChatEngine:
                     break
             
             if next_key and next_key in questions_map:
+                context['pending_suggestions'] = options_map[next_key]
                 return questions_map[next_key], context
             else:
                 # All questions answered -> DIAGNOSIS
@@ -227,18 +299,58 @@ class ChatEngine:
 
     def _extract_symptoms(self, text):
         found = []
-        # Naive matching: check if symptom string exists in user text
-        # Improve this with NLP/fuzzy later
+        negated = []
+        import re
+        import difflib
+        
+        text = text.lower()
+        words = re.findall(r'\b\w+\b', text)
+        negation_words = {"not", "no", "remove", "don", "dont", "without", "none", "neither"}
+        
         for natural_name, key in self.symptom_map.items():
-            # Check for exact matches or partials
+            match = False
+            match_idx = -1
+            
+            # 1. Exact or partial word match
             if natural_name in text or key in text:
-                found.append(key)
+                match = True
             else:
-                # Handle splitting "skin rash" -> "skin", "rash" checks
                 parts = natural_name.split()
                 if len(parts) > 1 and all(p in text for p in parts):
+                    match = True
+            
+            # 2. Fuzzy matching if no exact match
+            if not match:
+                length = len(natural_name.split())
+                for i in range(len(words) - length + 1):
+                    phrase = " ".join(words[i:i+length])
+                    if difflib.get_close_matches(phrase, [natural_name], n=1, cutoff=0.85):
+                        match = True
+                        match_idx = i
+                        break
+            
+            if match:
+                # 3. Negation Check (Look at preceding 3 words)
+                is_negated = False
+                # Try to find the matched word index if not already found via fuzzy
+                if match_idx == -1:
+                    symptom_first_word = natural_name.split()[0]
+                    for i, w in enumerate(words):
+                        if w == symptom_first_word or difflib.get_close_matches(w, [symptom_first_word], n=1, cutoff=0.85):
+                            match_idx = i
+                            break
+                            
+                if match_idx > -1:
+                    prev_words = words[max(0, match_idx-4):match_idx]
+                    if any(nw in prev_words for nw in negation_words):
+                        is_negated = True
+                        
+                if is_negated:
+                    negated.append(key)
+                else:
                     found.append(key)
-        return list(set(found))
+                    
+        return list(set(found)), list(set(negated))
 
     def _predict_disease(self, symptoms):
         if not self.model:

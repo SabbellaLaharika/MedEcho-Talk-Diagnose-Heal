@@ -34,7 +34,7 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
       <div className="flex justify-end mb-6 no-print space-x-3">
         <div className="flex items-center space-x-2 bg-slate-100 px-4 py-2 rounded-xl">
           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-          <TranslatedText text={t.reportLang} lang={targetLang} />
+            <TranslatedText text={t.reportLang} lang={targetLang} />
           </span>
           <select
             value={targetLang}

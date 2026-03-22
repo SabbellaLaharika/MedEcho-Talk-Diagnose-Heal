@@ -1,5 +1,5 @@
 import express from 'express';
-import { createReport, getPatientReports, getReportById, sendPatientReportsToDoctor, getDoctorReports } from '../controllers/reportController';
+import { createReport, getPatientReports, getReportById, sendPatientReportsToDoctor, getDoctorReports, updateReportDoctor } from '../controllers/reportController';
 import { protect } from '../middleware/authMiddleware';
 
 const router = express.Router();
@@ -9,5 +9,6 @@ router.post('/patient/:patientId/send/:appointmentId', protect, sendPatientRepor
 router.get('/patient/:patientId', protect, getPatientReports);
 router.get('/doctor/:doctorId', protect, getDoctorReports);
 router.get('/:id', protect, getReportById);
+router.put('/:id/doctor', protect, updateReportDoctor);
 
 export default router;

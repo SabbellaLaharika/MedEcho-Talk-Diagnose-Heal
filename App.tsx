@@ -49,6 +49,7 @@ const App: React.FC = () => {
   const [authRole, setAuthRole] = useState<'PATIENT' | 'DOCTOR'>('PATIENT');
 
   const [formData, setFormData] = useState({ name: '', email: '', password: '', language: 'en' });
+  const [preselectedDoctorId, setPreselectedDoctorId] = useState<string | null>(null);
 
   const generateReminders = useCallback((user: User, apts: Appointment[]) => {
     const today = new Date();
@@ -349,20 +350,31 @@ const App: React.FC = () => {
               />
               : <PatientDashboard user={user} appointments={appointments} reports={reports} onUpdateUser={(u) => setUser(u)} />
           )}
-          {activeTab === 'appointments' && <AppointmentBooking user={user} onBook={async (apt) => {
-            const newApt = { ...apt, patientId: user.id, patientName: user.name, status: 'PENDING', doctorContact: apt.doctorContact || '' } as Appointment;
-            try {
-              const saved = await dbService.appointments.create(newApt);
-              setAppointments(prev => [saved, ...prev]);
-              setActiveTab('dashboard');
-            } catch (e) {
-              console.error("Booking failed:", e);
-              alert("Wait, there was an issue booking this appointment.");
-            }
-          }} />}
+          {activeTab === 'appointments' && <AppointmentBooking
+            user={user}
+            preselectedDoctorId={preselectedDoctorId}
+            onBook={async (apt) => {
+              const newApt = { ...apt, patientId: user.id, patientName: user.name, status: 'PENDING', doctorContact: apt.doctorContact || '' } as Appointment;
+              try {
+                const saved = await dbService.appointments.create(newApt);
+                setAppointments(prev => [saved, ...prev]);
+                setActiveTab('dashboard');
+                setPreselectedDoctorId(null);
+              } catch (e) {
+                console.error("Booking failed:", e);
+                alert("Wait, there was an issue booking this appointment.");
+              }
+            }}
+          />}
           {activeTab === 'schedule' && <DoctorScheduleManager doctor={user} />}
           {activeTab === 'reports' && <ReportsList reports={reports} user={user} />}
-          {activeTab === 'chat' && <AIChatAssistant onReportGenerated={(report) => setReports(prev => [report, ...prev])} />}
+          {activeTab === 'chat' && <AIChatAssistant
+            onReportGenerated={(report) => setReports(prev => [report, ...prev])}
+            onConsultDoctor={(doctorId) => {
+              setPreselectedDoctorId(doctorId);
+              setActiveTab('appointments');
+            }}
+          />}
           {activeTab === 'virtual-doc' && <VirtualDoctor patientId={user.id} user={user} onSessionComplete={async (r) => {
             try {
               // Snapshot the user's current vitals at report-generation time

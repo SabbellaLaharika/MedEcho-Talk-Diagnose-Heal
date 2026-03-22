@@ -94,6 +94,9 @@ export interface Message {
   sender: 'user' | 'ai';
   text: string;
   timestamp: Date;
+  recommendedDoctors?: { id: string, name: string, specialization?: string }[];
+  suggestions?: { id: string, label: string }[];
+  chatState?: string;
 }
 
 export interface AppNotification {

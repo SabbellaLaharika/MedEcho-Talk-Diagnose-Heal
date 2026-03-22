@@ -39,6 +39,24 @@ export const createReport = async (req: Request, res: Response) => {
     }
 };
 
+export const updateReportDoctor = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { doctorId } = req.body;
+        
+        const report = await prisma.report.update({
+            where: { id },
+            data: { doctorId },
+            include: { doctor: { select: { name: true } } }
+        });
+        
+        res.json(report);
+    } catch (error) {
+        console.error("Error updating report doctor:", error);
+        res.status(500).json({ error: "Failed to update report doctor assignment" });
+    }
+};
+
 // Get Reports for a Patient (Localized)
 export const getPatientReports = async (req: Request, res: Response) => {
     try {

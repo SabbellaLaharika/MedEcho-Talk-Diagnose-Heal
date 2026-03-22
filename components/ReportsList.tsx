@@ -2,9 +2,9 @@
 import React, { useState } from 'react';
 import { MedicalReport, User } from '../types';
 import ReportDetailModal from './ReportDetailModal';
-import { 
-  DocumentTextIcon, 
-  ArrowDownTrayIcon, 
+import {
+  DocumentTextIcon,
+  ArrowDownTrayIcon,
   GlobeAltIcon,
   MagnifyingGlassIcon,
   XMarkIcon,
@@ -41,8 +41,8 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
     setIsPreviewOpen(false);
   };
 
-  const filteredReports = reports.filter(r => 
-    r.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredReports = reports.filter(r =>
+    r.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.doctorName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -63,7 +63,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
         <div className="w-80 flex-shrink-0 flex flex-col space-y-4">
           <div className="relative">
             <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
+            <input
               type="text"
               placeholder={t.filterDiagnosis}
               className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-xs focus:ring-2 focus:ring-blue-500 transition-all"
@@ -74,8 +74,8 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
 
           <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
             {filteredReports.map((report) => (
-              <button 
-                key={report.id} 
+              <button
+                key={report.id}
                 onClick={() => setSelectedReport(report)}
                 className={`w-full p-5 rounded-2xl border-2 text-left transition-all ${activeReport?.id === report.id ? 'border-slate-800 bg-white shadow-md shadow-slate-200' : 'border-transparent bg-slate-50 hover:bg-white hover:border-slate-200'}`}
               >
@@ -160,7 +160,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                       {activeReport.vitals.temperature && (
                         <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 flex flex-col items-center text-center">
                           <span className="text-lg mb-1">🌡️</span>
-                          <p className="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-0.5"><TranslatedText text={t.temperature || 'Temp'} lang={user.preferredLanguage} /></p>
+                          <p className="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-0.5"><TranslatedText text={t.temperature || 'Temperature'} lang={user.preferredLanguage} /></p>
                           <p className="text-sm font-black text-purple-700">{activeReport.vitals.temperature}</p>
                         </div>
                       )}
@@ -179,7 +179,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                         </span>
                       ))
                     ) : (
-                        <p className="text-xs text-slate-400 italic">{t.noSymptoms}</p>
+                      <p className="text-xs text-slate-400 italic">{t.noSymptoms}</p>
                     )}
                   </div>
                 </section>
@@ -213,25 +213,25 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
 
                 {/* Advice Section */}
                 {activeReport.prescription && activeReport.prescription.length > 0 && (
-                   <section>
+                  <section>
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{t.advicePrecautions}</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {activeReport.prescription.map((p, i) => (
-                          <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm flex items-start space-x-3">
-                            <div className="mt-1 w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
-                            <p className="text-xs font-bold text-slate-600 leading-relaxed">
-                              <TranslatedText text={p} lang={user.preferredLanguage} />
-                            </p>
-                          </div>
-                        ))}
+                      {activeReport.prescription.map((p, i) => (
+                        <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm flex items-start space-x-3">
+                          <div className="mt-1 w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
+                          <p className="text-xs font-bold text-slate-600 leading-relaxed">
+                            <TranslatedText text={p} lang={user.preferredLanguage} />
+                          </p>
+                        </div>
+                      ))}
                     </div>
-                   </section>
+                  </section>
                 )}
               </div>
 
               {/* Action Bar */}
               <div className="p-8 border-t border-slate-50 flex justify-end">
-                <button 
+                <button
                   onClick={() => setIsPreviewOpen(true)}
                   className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-800 transition-all flex items-center space-x-3 shadow-lg shadow-slate-200"
                 >
@@ -243,7 +243,9 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center space-y-4 text-slate-300">
               <DocumentTextIcon className="w-20 h-20" />
-              <p className="font-black uppercase tracking-[0.3em] text-xs leading-none">Select a report to view details</p>
+              <p className="font-black uppercase tracking-[0.3em] text-xs leading-none">
+                <TranslatedText text="Select a report to view details" lang={user.preferredLanguage} />
+              </p>
             </div>
           )}
         </div>
@@ -252,8 +254,8 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
       {/* Modern Print Preview Modal */}
       {isPreviewOpen && activeReport && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 sm:p-10 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
-           {/* Add dynamic print styles here instead of global CSS */}
-           <style>{`
+          {/* Add dynamic print styles here instead of global CSS */}
+          <style>{`
              @media print {
                body * { visibility: hidden !important; }
                #printable-area, #printable-area * { visibility: visible !important; }
@@ -273,32 +275,32 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
              }
            `}</style>
 
-           <div className="bg-white w-full max-w-4xl max-h-[95vh] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
-             <div className="p-6 bg-slate-100 flex justify-between items-center flex-shrink-0 no-print">
-               <div className="flex items-center space-x-2">
-                 <div className="p-2 bg-slate-800 text-white rounded-lg">
-                   <PrinterIcon className="w-4 h-4" />
-                 </div>
-                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{t.reportReview}</h3>
-               </div>
-               <button onClick={() => setIsPreviewOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-all">
-                 <XMarkIcon className="w-6 h-6 text-slate-500" />
-               </button>
-             </div>
+          <div className="bg-white w-full max-w-4xl max-h-[95vh] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+            <div className="p-6 bg-slate-100 flex justify-between items-center flex-shrink-0 no-print">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 bg-slate-800 text-white rounded-lg">
+                  <PrinterIcon className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{t.reportReview}</h3>
+              </div>
+              <button onClick={() => setIsPreviewOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-all">
+                <XMarkIcon className="w-6 h-6 text-slate-500" />
+              </button>
+            </div>
 
-             <div className="flex-1 overflow-y-auto p-10 bg-slate-200/30 custom-scrollbar">
-                {/* The Paper Component */}
-                <ClinicalReportPaper report={activeReport} user={user} />
-             </div>
+            <div className="flex-1 overflow-y-auto p-10 bg-slate-200/30 custom-scrollbar">
+              {/* The Paper Component */}
+              <ClinicalReportPaper report={activeReport} user={user} />
+            </div>
 
-             <div className="p-8 bg-white border-t flex space-x-4 no-print">
-               <button onClick={handlePrint} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center space-x-3">
-                 <PrinterIcon className="w-4 h-4" />
-                 <span>{t.confirmPrint}</span>
-               </button>
-               <button onClick={() => setIsPreviewOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-100 transition-all">{t.cancel}</button>
-             </div>
-           </div>
+            <div className="p-8 bg-white border-t flex space-x-4 no-print">
+              <button onClick={handlePrint} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center space-x-3">
+                <PrinterIcon className="w-4 h-4" />
+                <span>{t.confirmPrint}</span>
+              </button>
+              <button onClick={() => setIsPreviewOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-100 transition-all">{t.cancel}</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

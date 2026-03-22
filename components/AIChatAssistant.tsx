@@ -3,17 +3,110 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Message, MedicalReport } from '../types';
 import api from '../services/api';
 import { dbService } from '../services/dbService';
-import { 
-  PaperAirplaneIcon, 
-  ExclamationTriangleIcon, 
-  SparklesIcon, 
-  MicrophoneIcon, 
-  SpeakerWaveIcon, 
+import {
+  PaperAirplaneIcon,
+  ExclamationTriangleIcon,
+  SparklesIcon,
+  MicrophoneIcon,
+  SpeakerWaveIcon,
   CheckCircleIcon,
   GlobeAltIcon
 } from '@heroicons/react/24/solid';
 import { getTranslation, translateString, loadTranslations } from '../services/translations';
 import TranslatedText from './TranslatedText';
+
+const SymptomSelector = ({ suggestions, onSend, isTyping, preferredLanguage, chatState }: any) => {
+  const [selected, setSelected] = useState<string[]>([]);
+
+  if (chatState === 'GATHERING_DETAILS') {
+    return (
+      <div className="mt-3 flex flex-wrap gap-2 animate-in slide-in-from-top-2 duration-300">
+        {suggestions.map((sug: any, idx: number) => (
+          <button
+            key={idx}
+            disabled={isTyping}
+            onClick={() => onSend(sug.id, sug.label)}
+            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl transition-all border border-blue-200 shadow-sm active:scale-95"
+          >
+            {sug.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  const toggle = (id: string) => {
+    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleSend = async () => {
+    if (selected.length > 0) {
+      const selectedLabels = suggestions.filter((s: any) => selected.includes(s.id)).map((s: any) => s.label);
+      const backendText = `yes, I experience ${selected.join(', ')}`;
+      const langCode = preferredLanguage?.slice(0, 2) || 'en';
+      let uiPrefix = langCode === 'en' ? 'Yes, I experience:' : await translateString('Yes, I experience:', langCode);
+      onSend(backendText, `${uiPrefix} ${selectedLabels.join(', ')}`);
+    }
+  };
+
+  const handleOther = async () => {
+    const langCode = preferredLanguage?.slice(0, 2) || 'en';
+    const localized = langCode === 'en' ? 'I am experiencing other symptoms' : await translateString('I am experiencing other symptoms', langCode);
+    onSend('I am experiencing other symptoms', localized);
+  };
+
+  const handleNone = async () => {
+    const langCode = preferredLanguage?.slice(0, 2) || 'en';
+    const localized = langCode === 'en' ? 'None of these' : await translateString('None of these', langCode);
+    onSend('none', localized);
+  };
+
+  return (
+    <div className="mt-3 space-y-2 animate-in slide-in-from-top-2 duration-300">
+      <div className="flex flex-wrap gap-2">
+        {suggestions.map((sug: any, idx: number) => (
+          <button
+            key={idx}
+            disabled={isTyping}
+            onClick={() => toggle(sug.id)}
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all border shadow-sm active:scale-95 ${selected.includes(sug.id)
+                ? 'bg-blue-600 text-white border-blue-700'
+                : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'
+              }`}
+          >
+            {sug.label}
+          </button>
+        ))}
+      </div>
+      <div className="flex space-x-2 pt-1 border-t border-slate-100 mt-2 pt-3">
+        <button
+          disabled={isTyping || selected.length === 0}
+          onClick={handleSend}
+          className={`px-4 py-1.5 text-[10px] uppercase tracking-widest font-black rounded-lg transition-all shadow-sm ${selected.length > 0
+              ? 'bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-600'
+              : 'bg-slate-200 text-slate-400 cursor-not-allowed border outline-none'
+            }`}
+        >
+          <TranslatedText text="Confirm Selected" lang={preferredLanguage} />
+        </button>
+        <button
+          disabled={isTyping}
+          onClick={handleOther}
+          className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] uppercase tracking-widest font-black rounded-lg transition-all border border-slate-200 shadow-sm active:scale-95"
+        >
+          <TranslatedText text="Other" lang={preferredLanguage} />
+        </button>
+        <button
+          disabled={isTyping}
+          onClick={handleNone}
+          className="px-4 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-[10px] uppercase tracking-widest font-black rounded-lg transition-all border border-red-200 shadow-sm active:scale-95"
+        >
+          <TranslatedText text="None" lang={preferredLanguage} />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const LANGUAGES = [
   { code: 'auto', name: 'Auto Detect', label: 'Auto Detect' },
@@ -34,9 +127,10 @@ interface AIChatAssistantProps {
   initialContext?: string;
   isModal?: boolean;
   onReportGenerated?: (report: MedicalReport) => void;
+  onConsultDoctor?: (doctorId: string) => void;
 }
 
-const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isModal, onReportGenerated }) => {
+const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isModal, onReportGenerated, onConsultDoctor }) => {
   const user = dbService.auth.getCurrentUser();
   const t = getTranslation(user?.preferredLanguage);
 
@@ -166,16 +260,17 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
     }
   };
 
-  const processMessage = async (text: string) => {
+  const processMessage = async (text: string, uiText?: string) => {
     if (!text.trim()) return;
-    
-    const userMsg: Message = { id: Date.now().toString(), sender: 'user', text, timestamp: new Date() };
+
+    const userMsg: Message = { id: Date.now().toString(), sender: 'user', text: uiText || text, timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
 
     try {
       const langShort = selectedLang.split('-')[0];
+
       const { data } = await api.post('/ml/chat', {
         text,
         context: conversationContext,
@@ -183,31 +278,53 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       });
 
       let aiResponse = data.response || '';
-      
-      // Auto-translate AI response if needed
-      if (langShort !== 'en' && aiResponse) {
+      let rawSuggestions = data.context?.pending_suggestions || [];
+
+      // Map to object preserving the valid ML engine lookup ID vs localized Label
+      let formattedSuggestions = rawSuggestions.map((s: string) => ({
+        id: s.replace(/_/g, ' '),
+        label: s.replace(/_/g, ' ')
+      }));
+
+      const returnedLang = data.lang || langShort;
+
+      // Auto-translate AI response and suggestions if needed
+      if (returnedLang !== 'en') {
         try {
-          aiResponse = await translateString(aiResponse, langShort);
+          if (aiResponse) {
+            aiResponse = await translateString(aiResponse, returnedLang);
+          }
+          if (formattedSuggestions.length > 0) {
+            const translatedSugs = await Promise.all(
+              formattedSuggestions.map((s: any) => translateString(s.label, returnedLang))
+            );
+            formattedSuggestions = formattedSuggestions.map((s: any, idx: number) => ({
+              id: s.id,
+              label: translatedSugs[idx]
+            }));
+          }
         } catch (e) {
           console.error("AI translation failed", e);
         }
       }
 
-      const aiMsg: Message = { 
-        id: (Date.now() + 1).toString(), 
-        sender: 'ai', 
-        text: aiResponse, 
-        timestamp: new Date() 
+      const aiMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        sender: 'ai',
+        text: aiResponse,
+        timestamp: new Date(),
+        suggestions: formattedSuggestions.length > 0 ? formattedSuggestions : undefined,
+        chatState: data.context?.state
       };
-      
+
       setMessages(prev => [...prev, aiMsg]);
       setConversationContext(data.context);
-      
+
       if (selectedLang === 'auto' && data.lang && data.lang !== 'en') {
         const found = LANGUAGES.find(l => l.code.startsWith(data.lang));
         if (found) setSelectedLang(found.code);
       }
-      
+
       setIsTyping(false);
       speakText(data.response, data.lang || langShort);
 
@@ -233,7 +350,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
 
   const saveToMedicalFiles = async (mlContext: any) => {
     if (!user || reportSaved) return;
-    
+
     setIsTyping(true);
     try {
       const transcript = messages.map(m => ({
@@ -244,17 +361,18 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
 
       const fullText = messages.map(m => m.text).join(' ');
       const vitals = {
-        bp: fullText.match(/(\d{2,3}\/\d{2,3})/)?.[1] || mlContext.history?.['bp'],
-        weight: fullText.match(/(\d{1,3})\s*(kg|kilograms|lbs)/i)?.[0] || mlContext.history?.['weight'],
-        temperature: fullText.match(/(\d{2,3}(\.\d)?)\s*(f|c|fahrenheit|celsius|degree)/i)?.[0] || mlContext.history?.['temperature']
+        bp: fullText.match(/(\d{2,3}\/\d{2,3})/)?.[1] || mlContext.history?.['bp'] || user.vitalBp || undefined,
+        weight: fullText.match(/(\d{1,3})\s*(kg|kilograms|lbs)/i)?.[0] || mlContext.history?.['weight'] || user.vitalWeight || undefined,
+        temperature: fullText.match(/(\d{2,3}(\.\d)?)\s*(f|c|fahrenheit|celsius|degree)/i)?.[0] || mlContext.history?.['temperature'] || user.vitalTemperature || undefined,
+        glucose: user.vitalGlucose || undefined
       };
 
       const langShort = selectedLang.split('-')[0];
       let diagnosis = mlContext.diagnosis || t.clinicalConsult;
       let summary = mlContext.summary || t.aiMedicalIntake;
-      let precautions = mlContext.precautions 
-           ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : String(mlContext.precautions).split(/,\s*/))
-           : [t.consultProfessional];
+      let precautions = mlContext.precautions
+        ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : String(mlContext.precautions).split(/,\s*/))
+        : [t.consultProfessional];
 
       // Async translate metadata if user is not on English
       if (langShort !== 'en') {
@@ -289,7 +407,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
 
       const { data: savedReport } = await api.post('/reports', reportPayload);
       setReportSaved(true);
-      
+
       if (onReportGenerated) {
         const report: MedicalReport = {
           id: savedReport.id,
@@ -306,12 +424,50 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
         };
         onReportGenerated(report);
       }
-      
+
+      let recommendedDocs: { id: string, name: string, specialization?: string }[] = [];
+      try {
+        const doctors = await dbService.users.getDoctors();
+        if (doctors && doctors.length > 0) {
+
+          // Smart ML-Diagnosis to Specialty Mapping
+          const diagLower = diagnosis.toLowerCase();
+          let targetSpecialty = 'General Physician';
+
+          if (diagLower.includes('heart') || diagLower.includes('stroke') || diagLower.includes('blood')) targetSpecialty = 'Cardiologist';
+          else if (diagLower.includes('brain') || diagLower.includes('paralysis') || diagLower.includes('headache') || diagLower.includes('migraine')) targetSpecialty = 'Neurologist';
+          else if (diagLower.includes('asthma') || diagLower.includes('lungs') || diagLower.includes('breath') || diagLower.includes('covid')) targetSpecialty = 'Pulmonologist';
+          else if (diagLower.includes('skin') || diagLower.includes('rash') || diagLower.includes('acne') || diagLower.includes('fungal')) targetSpecialty = 'Dermatologist';
+          else if (diagLower.includes('stomach') || diagLower.includes('gastro') || diagLower.includes('acid') || diagLower.includes('ulcer') || diagLower.includes('diarrhea')) targetSpecialty = 'Gastroenterologist';
+          else if (diagLower.includes('bone') || diagLower.includes('joint') || diagLower.includes('arthritis') || diagLower.includes('osteo')) targetSpecialty = 'Orthopedic';
+          else if (diagLower.includes('sugar') || diagLower.includes('diabet') || diagLower.includes('thyroid')) targetSpecialty = 'Endocrinologist';
+          else if (diagLower.includes('eye') || diagLower.includes('vision')) targetSpecialty = 'Ophthalmologist';
+          else if (diagLower.includes('fever') || diagLower.includes('malaria') || diagLower.includes('dengue') || diagLower.includes('typhoid')) targetSpecialty = 'General Physician';
+
+          // Filter doctors by the target specialty
+          const matchedDocs = doctors.filter(d =>
+            d.specialization && d.specialization.toLowerCase().includes(targetSpecialty.toLowerCase())
+          );
+
+          // Use matched doctors, or fallback to any doctors if none match
+          const selectedDocs = matchedDocs.length > 0 ? matchedDocs : doctors;
+
+          recommendedDocs = selectedDocs.slice(0, 2).map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            specialization: d.specialization || 'General Physician'
+          }));
+        }
+      } catch (docErr) {
+        console.error("Could not fetch recommended doctors", docErr);
+      }
+
       const successMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
         text: `✓ ${t.recordFiled}: **${diagnosis}**.`,
-        timestamp: new Date()
+        timestamp: new Date(),
+        recommendedDoctors: recommendedDocs.length > 0 ? recommendedDocs : undefined
       };
       setMessages(prev => [...prev, successMsg]);
       setIsTyping(false);
@@ -348,8 +504,8 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
               <div className="h-2 w-px bg-slate-700"></div>
               <div className="flex items-center space-x-1">
                 <GlobeAltIcon className="w-3 h-3 text-blue-400" />
-                <select 
-                  value={selectedLang} 
+                <select
+                  value={selectedLang}
                   onChange={(e) => setSelectedLang(e.target.value)}
                   className="bg-transparent border-none text-[8px] font-bold text-blue-400 uppercase tracking-widest p-0 focus:ring-0 outline-none cursor-pointer"
                 >
@@ -370,6 +526,45 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
           <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] sm:max-w-[75%] p-3 sm:p-4 rounded-2xl shadow-sm relative group ${m.sender === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white text-slate-800 border rounded-tl-none'}`}>
               <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-line">{m.text}</p>
+
+              {/* Symptom Suggestions UI Chips */}
+              {m.suggestions && m.suggestions.length > 0 && m.id === messages[messages.length - 1].id && !reportSaved && (
+                <SymptomSelector
+                  suggestions={m.suggestions}
+                  onSend={processMessage}
+                  isTyping={isTyping}
+                  preferredLanguage={user?.preferredLanguage}
+                  chatState={m.chatState}
+                />
+              )}
+
+              {/* Recommended Doctors UI Block */}
+              {m.recommendedDoctors && m.recommendedDoctors.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <TranslatedText text="Recommended Specialists" lang={user?.preferredLanguage} />
+                  </p>
+                  {m.recommendedDoctors.map(doc => (
+                    <div key={doc.id} className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100 animate-in slide-in-from-bottom-2 duration-500">
+                      <div>
+                        <p className="text-xs font-bold text-slate-800">{doc.name}</p>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                          <TranslatedText text={doc.specialization || 'General Physician'} lang={user?.preferredLanguage} />
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (onConsultDoctor) onConsultDoctor(doc.id);
+                        }}
+                        className="px-3 py-1.5 bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-blue-200 transition-colors"
+                      >
+                        <TranslatedText text="Consult" lang={user?.preferredLanguage} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <p className={`text-[8px] sm:text-[10px] mt-1 ${m.sender === 'user' ? 'text-blue-200' : 'text-slate-400'}`}>
                 {m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
