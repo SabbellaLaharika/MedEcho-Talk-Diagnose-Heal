@@ -22,6 +22,7 @@ const mapBackendReportToFrontend = (report: any): MedicalReport => {
       patientName: String(report.patient?.name || report.patientName || 'Patient').trim(),
       summary: String(report.summary || 'No summary available').trim(),
       diagnosis: diagnosis, // Ensure it's a valid string
+      medications: Array.isArray(report.medications) ? report.medications : [],
       prescription: Array.isArray(report.precautions) ? report.precautions : (Array.isArray(report.prescription) ? report.prescription : []),
       aiConfidence: Number(report.confidenceScore) || 0,
       vitals: report.vitals || {},

@@ -45,7 +45,8 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
   // 3. SOCKET CONNECTION
   useEffect(() => {
     // Initialize Socket
-    socketRef.current = io("http://localhost:5000");
+    const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || "http://localhost:5000";
+    socketRef.current = io(socketUrl);
 
     // Listen for real-time updates from other users
     socketRef.current.on("appointment_booked", (newApt: Appointment) => {
