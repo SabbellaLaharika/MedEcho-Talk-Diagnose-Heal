@@ -25,7 +25,7 @@ import {
   MapPinIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/solid';
-import VoiceConsultation from './VoiceConsultation';
+import VideoConsultation from './VideoConsultation';
 
 
 interface PatientDashboardProps {
@@ -44,6 +44,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
   const [sendReportsMessage, setSendReportsMessage] = useState<string>('');
   const [activeCallApt, setActiveCallApt] = useState<Appointment | null>(null);
   const [isCallInitiator, setIsCallInitiator] = useState(false);
+  const [isCallVoiceOnly, setIsCallVoiceOnly] = useState(false);
 
   // Deep Link Handling (Join from Email)
   useEffect(() => {
@@ -62,7 +63,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
 
   // Automatic Call Detection (Patient side)
   useEffect(() => {
-    const incoming = notifications.find(n => !n.isRead && n.title === 'Incoming Voice Call');
+    const incoming = notifications.find(n => !n.isRead && (n.title === 'Incoming Voice Call' || n.title === 'Incoming Video Call'));
     if (incoming && !activeCallApt) {
       const notifTime = new Date(incoming.timestamp).getTime();
       const now = new Date().getTime();
@@ -70,16 +71,17 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
       // Only auto-open if less than 60 seconds old
       if (now - notifTime < 60000) {
         // Mark as read immediately to prevent loop
-        api.put(`/notifications/${incoming.id}/read`);
+        api.put(`notifications/${incoming.id}/read`);
         // Find matching appointment by doctor name mention
         const apt = appointments.find(a => incoming.message.includes(a.doctorName || a.doctor?.name || ''));
         if (apt) {
+          setIsCallVoiceOnly(incoming.title === 'Incoming Voice Call');
           setActiveCallApt(apt);
           setIsCallInitiator(false);
         }
       } else {
          // It's an old notification, just mark it as read so it doesn't bother us.
-         api.put(`/notifications/${incoming.id}/read`);
+         api.put(`notifications/${incoming.id}/read`);
       }
     }
   }, [notifications, appointments, activeCallApt]);
@@ -143,13 +145,17 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
     setEditValue(current);
   };
 
-  const dialDoctor = async (apt: Appointment) => {
+  const dialDoctor = async (apt: Appointment, isVoice: boolean = false) => {
     // Notify doctor of incoming call via backend
     try {
-      await api.post(`/appointments/${apt.id}/start-call`, { initiatorId: user.id });
+      await api.post(`appointments/${apt.id}/start-call`, { 
+        initiatorId: user.id,
+        callType: isVoice ? 'VOICE' : 'VIDEO'
+      });
     } catch (err) {
       console.warn("Call notification failed, but opening channel...");
     }
+    setIsCallVoiceOnly(isVoice);
     setIsCallInitiator(true);
     setActiveCallApt(apt);
   };
@@ -280,10 +286,18 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => dialDoctor(apt)}
-                        className="p-3.5 sm:p-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl sm:rounded-2xl shadow-lg transition-transform active:scale-95"
+                        onClick={() => dialDoctor(apt, true)}
+                        className={`p-3.5 sm:p-4 transition-all rounded-xl sm:rounded-2xl shadow-lg active:scale-95 ${notifications.some(n => !n.isRead && n.title === 'Incoming Voice Call' && n.message.includes(doctorDisplayName)) ? 'bg-red-500 animate-pulse text-white' : 'bg-white/10 text-white border border-white/10 hover:bg-white/20'}`}
+                        title="Voice Call"
                       >
                         <PhoneIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </button>
+                      <button
+                        onClick={() => dialDoctor(apt, false)}
+                        className={`p-3.5 sm:p-4 transition-all rounded-xl sm:rounded-2xl shadow-lg active:scale-95 ${notifications.some(n => !n.isRead && n.title === 'Incoming Video Call' && n.message.includes(doctorDisplayName)) ? 'bg-red-500 animate-pulse text-white' : 'bg-emerald-500 text-white hover:bg-emerald-600'}`}
+                        title="Video Call"
+                      >
+                        <VideoCameraIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <button
                         onClick={() => sendAllPatientReportsToDoctor(apt)}
@@ -381,10 +395,11 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
       
       {/* Embedded P2P Voice Consultation */}
       {activeCallApt && (
-        <VoiceConsultation
+        <VideoConsultation
           user={user}
           appointment={activeCallApt}
           isInitiator={isCallInitiator}
+          isVoiceOnly={isCallVoiceOnly}
           onClose={() => setActiveCallApt(null)}
         />
       )}

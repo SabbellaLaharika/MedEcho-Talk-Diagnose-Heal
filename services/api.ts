@@ -2,7 +2,7 @@ import axios from 'axios';
 import { dbService } from './dbService';
 
 // Backend Base URL
-let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+export let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Safety check: Ensure URL ends with /api to match backend routes
 if (API_URL && !API_URL.endsWith('/api')) {

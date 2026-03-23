@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { dbService } from '../services/dbService';
-import api from '../services/api';
+import api, { API_URL } from '../services/api';
 import { getTranslation, translateClinical, translateString, loadTranslations } from '../services/translations';
 import TranslatedText from './TranslatedText';
 import { User, Appointment } from '../types';
@@ -45,7 +45,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
   // 3. SOCKET CONNECTION
   useEffect(() => {
     // Initialize Socket
-    const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || "http://localhost:5000";
+    const socketUrl = API_URL.replace('/api', '');
     socketRef.current = io(socketUrl);
 
     // Listen for real-time updates from other users
