@@ -78,7 +78,7 @@ export const dbService = {
     register: async (user: User, password?: string): Promise<User> => {
       // Send password with user data
       const payload = { ...user, password: password || '123456' };
-      const { data } = await api.post('/auth/register', payload);
+      const { data } = await api.post('auth/register', payload);
       localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(data)); // Save { token, user }
       return data.user;
     },
@@ -87,12 +87,12 @@ export const dbService = {
       // In real app, we need password field in UI
       // Use provided password or default to '123456' for demo accounts
       const defaultPassword = '123456';
-      const { data } = await api.post('/auth/login', { email, password: password || defaultPassword });
+      const { data } = await api.post('auth/login', { email, password: password || defaultPassword });
       localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(data)); // Save { token, user }
       return data.user;
     },
     updateUser: async (updatedUser: User): Promise<User> => {
-      const { data } = await api.put('/auth/update', updatedUser);
+      const { data } = await api.put('auth/update', updatedUser);
       const currentSession = JSON.parse(localStorage.getItem(KEYS.CURRENT_USER) || '{}');
       const newSession = { ...currentSession, user: data };
       localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(newSession));
@@ -102,10 +102,10 @@ export const dbService = {
       localStorage.removeItem(KEYS.CURRENT_USER);
     },
     forgotPassword: async (email: string): Promise<void> => {
-      await api.post('/auth/forgot-password', { email });
+      await api.post('auth/forgot-password', { email });
     },
     resetPassword: async (email: string, otp: string, newPassword: string): Promise<void> => {
-      await api.post('/auth/reset-password', { email, otp, newPassword });
+      await api.post('auth/reset-password', { email, otp, newPassword });
     },
     getCurrentUser: (): User | null => {
       const data = localStorage.getItem(KEYS.CURRENT_USER);
@@ -117,19 +117,19 @@ export const dbService = {
     getAll: async (): Promise<Appointment[]> => {
       const user = dbService.auth.getCurrentUser();
       if (!user) return [];
-      const { data } = await api.get(`/appointments/${user.id}?role=${user.role}`);
+      const { data } = await api.get(`appointments/${user.id}?role=${user.role}`);
       return data;
     },
     create: async (apt: Appointment): Promise<Appointment> => {
-      const { data } = await api.post('/appointments', apt);
+      const { data } = await api.post('appointments', apt);
       return data;
     },
     update: async (updatedApt: Appointment): Promise<Appointment> => {
-      const { data } = await api.put(`/appointments/${updatedApt.id}`, updatedApt);
+      const { data } = await api.put(`appointments/${updatedApt.id}`, updatedApt);
       return data;
     },
     delete: async (id: string): Promise<void> => {
-      await api.delete(`/appointments/${id}`);
+      await api.delete(`appointments/${id}`);
     }
   },
 
@@ -137,12 +137,12 @@ export const dbService = {
     getAll: async (): Promise<MedicalReport[]> => {
       const user = dbService.auth.getCurrentUser();
       if (!user) return [];
-
+  
       if (user.role === 'PATIENT') {
         try {
-          const { data } = await api.get(`/reports/patient/${user.id}`);
+          const { data } = await api.get(`reports/patient/${user.id}`);
           const reportsArray = Array.isArray(data) ? data : (data.value || []);
-
+  
           // Map each report using the helper function
           return reportsArray.map((report: any) => mapBackendReportToFrontend(report));
         } catch (error) {
@@ -150,10 +150,10 @@ export const dbService = {
           return [];
         }
       }
-
+  
       if (user.role === 'DOCTOR') {
         try {
-          const { data } = await api.get(`/reports/doctor/${user.id}`);
+          const { data } = await api.get(`reports/doctor/${user.id}`);
           const reportsArray = Array.isArray(data) ? data : (data.value || []);
           return reportsArray.map((report: any) => mapBackendReportToFrontend(report));
         } catch (error) {
@@ -172,11 +172,11 @@ export const dbService = {
         symptoms: report.symptoms || [],
         history: report.history || {}
       };
-      const { data } = await api.post('/reports', reportPayload);
+      const { data } = await api.post('reports', reportPayload);
       return mapBackendReportToFrontend(data);
     },
     updateDoctor: async (reportId: string, doctorId: string): Promise<MedicalReport> => {
-      const { data } = await api.put(`/reports/${reportId}/doctor`, { doctorId });
+      const { data } = await api.put(`reports/${reportId}/doctor`, { doctorId });
       return mapBackendReportToFrontend(data);
     }
   },
@@ -185,7 +185,7 @@ export const dbService = {
     getDoctors: async (): Promise<User[]> => {
       const user = dbService.auth.getCurrentUser();
       const lang = user?.preferredLanguage || 'en';
-      const { data } = await api.get(`/users/doctors/list?lang=${lang}`);
+      const { data } = await api.get(`users/doctors/list?lang=${lang}`);
       return data;
     }
   },
@@ -195,7 +195,7 @@ export const dbService = {
       const user = dbService.auth.getCurrentUser();
       if (!user) return [];
       try {
-        const { data } = await api.get(`/notifications/${user.id}`);
+        const { data } = await api.get(`notifications/${user.id}`);
         return data.map((n: any) => ({
           id: n.id,
           userId: n.userId,
@@ -211,11 +211,11 @@ export const dbService = {
       }
     },
     markAsRead: async (id: string): Promise<void> => {
-      await api.put(`/notifications/${id}/read`);
+      await api.put(`notifications/${id}/read`);
     },
     markAllAsRead: async (): Promise<void> => {
       const user = dbService.auth.getCurrentUser();
-      if (user) await api.put(`/notifications/user/${user.id}/read-all`);
+      if (user) await api.put(`notifications/user/${user.id}/read-all`);
     }
   }
 };

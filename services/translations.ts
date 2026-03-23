@@ -365,7 +365,7 @@ export const loadTranslations = async (lang: string = 'en', ns?: string) => {
     }
 
     // 2. Fetch Fresh from Backend
-    const url = ns ? `/translations/${code}?ns=${ns}` : `/translations/${code}`;
+    const url = ns ? `translations/${code}?ns=${ns}` : `translations/${code}`;
     const response = await api.get(url);
     const freshData = response.data;
 
@@ -574,7 +574,7 @@ class TranslationQueue {
     if (textsToTranslate.length === 0) return;
 
     try {
-      const res = await api.post('/ml/translate_batch', { texts: textsToTranslate, target_lang: lang });
+      const res = await api.post('ml/translate_batch', { texts: textsToTranslate, target_lang: lang });
       const results: string[] = res.data.translations || [];
 
       textsToTranslate.forEach((original, idx) => {
