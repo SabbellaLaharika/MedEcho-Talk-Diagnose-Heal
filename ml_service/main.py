@@ -130,8 +130,22 @@ def analyze():
 def translate():
     data = request.json
     text = data.get('text', '')
-    target_lang = data.get('target_lang', 'hi')
-    source_lang = data.get('source_lang', 'en')
+    target_lang = data.get('target_lang', 'en').lower()
+    source_lang = data.get('source_lang', 'auto').lower()
+
+    # Normalize common full names to codes
+    norm = {'english': 'en', 'hindi': 'hi', 'telugu': 'te', 'tamil': 'ta', 'marathi': 'mr', 'bengali': 'bn'}
+    
+    if target_lang in norm:
+        target_lang = norm[target_lang]
+    else:
+        target_lang = target_lang[:2]
+
+    if source_lang != 'auto':
+        if source_lang in norm:
+            source_lang = norm[source_lang]
+        else:
+            source_lang = source_lang[:2]
 
     if not text:
         return jsonify({'error': 'No text provided'}), 400
@@ -147,8 +161,22 @@ def translate():
 def translate_batch():
     data = request.json
     texts = data.get('texts', [])
-    target_lang = data.get('target_lang', 'hi')
-    source_lang = data.get('source_lang', 'en')
+    target_lang = data.get('target_lang', 'en').lower()
+    source_lang = data.get('source_lang', 'auto').lower()
+
+    # Normalize
+    norm = {'english': 'en', 'hindi': 'hi', 'telugu': 'te', 'tamil': 'ta', 'marathi': 'mr', 'bengali': 'bn'}
+    
+    if target_lang in norm:
+        target_lang = norm[target_lang]
+    else:
+        target_lang = target_lang[:2]
+
+    if source_lang != 'auto':
+        if source_lang in norm:
+            source_lang = norm[source_lang]
+        else:
+            source_lang = source_lang[:2]
 
     if not texts:
         return jsonify({'translations': []})

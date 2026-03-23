@@ -1,4 +1,4 @@
-import { User, Appointment, MedicalReport } from '../types';
+import { User, Appointment, MedicalReport, AppNotification } from '../types';
 import api from './api';
 
 const KEYS = {
@@ -100,6 +100,12 @@ export const dbService = {
     logout: () => {
       localStorage.removeItem(KEYS.CURRENT_USER);
     },
+    forgotPassword: async (email: string): Promise<void> => {
+      await api.post('/auth/forgot-password', { email });
+    },
+    resetPassword: async (email: string, otp: string, newPassword: string): Promise<void> => {
+      await api.post('/auth/reset-password', { email, otp, newPassword });
+    },
     getCurrentUser: (): User | null => {
       const data = localStorage.getItem(KEYS.CURRENT_USER);
       return data ? JSON.parse(data).user : null;
@@ -180,6 +186,35 @@ export const dbService = {
       const lang = user?.preferredLanguage || 'en';
       const { data } = await api.get(`/users/doctors/list?lang=${lang}`);
       return data;
+    }
+  },
+
+  notifications: {
+    getAll: async (): Promise<AppNotification[]> => {
+      const user = dbService.auth.getCurrentUser();
+      if (!user) return [];
+      try {
+        const { data } = await api.get(`/notifications/${user.id}`);
+        return data.map((n: any) => ({
+          id: n.id,
+          userId: n.userId,
+          title: n.title,
+          message: n.message,
+          type: 'ALERT',
+          timestamp: new Date(n.createdAt),
+          isRead: n.isRead
+        }));
+      } catch (e) {
+        console.error('Fetch notifications error', e);
+        return [];
+      }
+    },
+    markAsRead: async (id: string): Promise<void> => {
+      await api.put(`/notifications/${id}/read`);
+    },
+    markAllAsRead: async (): Promise<void> => {
+      const user = dbService.auth.getCurrentUser();
+      if (user) await api.put(`/notifications/user/${user.id}/read-all`);
     }
   }
 };

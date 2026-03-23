@@ -45,10 +45,10 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(false);
   const [, setTick] = useState(0); // For forcing re-render on translation load
 
-  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT_PASSWORD' | 'RESET_PASSWORD'>('LOGIN');
   const [authRole, setAuthRole] = useState<'PATIENT' | 'DOCTOR'>('PATIENT');
 
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', language: 'en' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', language: 'en', otp: '', newPassword: '' });
   const [preselectedDoctorId, setPreselectedDoctorId] = useState<string | null>(null);
 
   const generateReminders = useCallback((user: User, apts: Appointment[]) => {
@@ -65,8 +65,8 @@ const App: React.FC = () => {
         newNotifications.push({
           id: `reminder-${apt.id}`,
           userId: user.id,
-          title: <TranslatedText text="Appointment Reminder" lang={user.preferredLanguage} />,
-          message: <TranslatedText text={`Your visit with ${user.role === 'DOCTOR' ? apt.patientName : apt.doctorName} is tomorrow at ${apt.time}.`} lang={user.preferredLanguage} />,
+          title: <TranslatedText text="Upcoming Appointment" lang={user.preferredLanguage} /> as any,
+          message: <TranslatedText text={`You have an upcoming appointment scheduled for tomorrow at ${apt.time}.`} lang={user.preferredLanguage} /> as any,
           type: 'REMINDER',
           timestamp: new Date(),
           isRead: false,
@@ -85,11 +85,31 @@ const App: React.FC = () => {
   useEffect(() => {
     dbService.init();
     const currentUser = dbService.auth.getCurrentUser();
+
+    // 1. One-time Emergency Purge for Cross-Language Hallucinations
+    if (localStorage.getItem('medecho_purge_v10_global') !== 'true') {
+      const keys = Object.keys(localStorage);
+      keys.forEach(k => {
+        if (k.startsWith('med_echo_')) localStorage.removeItem(k);
+      });
+      localStorage.setItem('medecho_purge_v10_global', 'true');
+      window.location.reload();
+      return;
+    }
+
     if (currentUser) {
       setUser(currentUser);
       loadTranslations(currentUser.preferredLanguage, 'common');
     } else {
       loadTranslations('en', 'common');
+      // Check for pending password reset after logout/reload
+      const pendingReset = localStorage.getItem('medecho_pending_reset');
+      if (pendingReset) {
+        setAuthMode('RESET_PASSWORD');
+        const { email } = JSON.parse(pendingReset);
+        setFormData(prev => ({ ...prev, email }));
+        localStorage.removeItem('medecho_pending_reset');
+      }
     }
     setLoading(false);
 
@@ -105,10 +125,16 @@ const App: React.FC = () => {
       loadTranslations(user.preferredLanguage, 'common');
       loadTranslations(user.preferredLanguage, 'dashboard'); // Pre-load dashboard
       const fetchData = async () => {
-        const [apts, reps] = await Promise.all([
+        const [apts, reps, notifs] = await Promise.all([
           dbService.appointments.getAll(),
-          dbService.reports.getAll()
+          dbService.reports.getAll(),
+          dbService.notifications.getAll()
         ]);
+        setNotifications(prev => {
+          const combined = [...notifs, ...prev];
+          const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+          return unique.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        });
 
         if (user.role === 'DOCTOR') {
           setAppointments(apts.filter(a => a.doctorId === user.id));
@@ -130,7 +156,19 @@ const App: React.FC = () => {
     e.preventDefault();
     setAuthLoading(true);
     try {
-      if (authMode === 'LOGIN') {
+      if (authMode === 'FORGOT_PASSWORD') {
+        await dbService.auth.forgotPassword(formData.email);
+        setAuthMode('RESET_PASSWORD');
+        alert("OTP sent to your email!");
+        setAuthLoading(false);
+        return;
+      } else if (authMode === 'RESET_PASSWORD') {
+        await dbService.auth.resetPassword(formData.email, formData.otp, formData.newPassword);
+        setAuthMode('LOGIN');
+        alert("Password reset successfully. You can now login.");
+        setAuthLoading(false);
+        return;
+      } else if (authMode === 'LOGIN') {
         const loggedUser = await dbService.auth.login(formData.email, formData.password);
         if (loggedUser.role !== authRole) throw new Error(`Role mismatch. Use ${loggedUser.role} portal.`);
         setUser(loggedUser);
@@ -209,7 +247,7 @@ const App: React.FC = () => {
             <div className="p-8 sm:p-14 space-y-8">
               <div className="text-center">
                 <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">
-                  <TranslatedText text={authMode === 'LOGIN' ? t.secureAccess : t.createCredentials} lang={formData.language} />
+                  <TranslatedText text={authMode === 'LOGIN' ? t.secureAccess : authMode === 'FORGOT_PASSWORD' ? 'Forgot Password' : authMode === 'RESET_PASSWORD' ? 'Reset Password' : t.createCredentials} lang={formData.language} />
                 </h2>
               </div>
               <form onSubmit={handleAuth} className="space-y-4">
@@ -224,19 +262,40 @@ const App: React.FC = () => {
                       <option value="mr">Marathi (मराठी)</option>
                       <option value="bn">Bengali (বাংলা)</option>
                       <option value="kn">Kannada (ಕನ್ನಡ)</option>
-                      <option value="ml">Malayalam (മലയാളం)</option>
+                      <option value="ml">Malayalam (മലയാളം)</option>
                       <option value="gu">Gujarati (ગુજરાતી)</option>
-                      <option value="pa">Punjabi (ਪੰਜਾਬీ)</option>
+                      <option value="pa">Punjabi (ਪੰਜਾਬੀ)</option>
                     </select>
                   </>
                 )}
-                <input required type="email" placeholder={t.primaryEmail} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-                <input required type="password" placeholder={t.changePassword} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
+                
+                {authMode !== 'RESET_PASSWORD' && (
+                  <input required type="email" placeholder={t.primaryEmail} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                )}
+                
+                {(authMode === 'LOGIN' || authMode === 'REGISTER') && (
+                  <input required type="password" placeholder={t.changePassword} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
+                )}
+
+                {authMode === 'RESET_PASSWORD' && (
+                  <>
+                    <input required type="text" placeholder="Enter 6-digit OTP" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold tracking-[0.5em] text-center" value={formData.otp} onChange={(e) => setFormData({ ...formData, otp: e.target.value })} />
+                    <input required type="password" placeholder="Enter New Password" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.newPassword} onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })} />
+                  </>
+                )}
+
+                {(authMode === 'LOGIN') && (
+                  <div className="flex justify-end w-full">
+                    <button type="button" onClick={() => setAuthMode('FORGOT_PASSWORD')} className="text-blue-600 text-[10px] font-bold uppercase tracking-widest hover:underline">Forgot password?</button>
+                  </div>
+                )}
+
                 <button type="submit" disabled={authLoading} className={`w-full py-5 rounded-2xl text-white font-black uppercase text-xs shadow-xl tracking-widest ${authRole === 'PATIENT' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
-                  {authLoading ? <TranslatedText text="Verifying..." lang={formData.language} /> : (authMode === 'LOGIN' ? <TranslatedText text="Sign In" lang={formData.language} /> : <TranslatedText text="Register" lang={formData.language} />)}
+                  {authLoading ? <TranslatedText text="Verifying..." lang={formData.language} /> : (authMode === 'LOGIN' ? <TranslatedText text="Sign In" lang={formData.language} /> : authMode === 'FORGOT_PASSWORD' ? <TranslatedText text="Send OTP" lang={formData.language} /> : authMode === 'RESET_PASSWORD' ? <TranslatedText text="Reset Password" lang={formData.language} /> : <TranslatedText text="Register" lang={formData.language} />)}
                 </button>
               </form>
-              <button onClick={() => setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN')} className="w-full text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-blue-600">
+              
+              <button type="button" onClick={() => setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN')} className="w-full text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-blue-600">
                 <TranslatedText text={authMode === 'LOGIN' ? t.joinMedEcho : t.alreadyHaveAccess} lang={formData.language} />
               </button>
             </div>
@@ -290,15 +349,66 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className={`p-3 rounded-2xl transition-all relative ${showNotifications ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
-            >
-              <BellIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-              {notifications.some(n => !n.isRead) && (
-                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-rose-600 rounded-full border-2 border-white"></span>
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className={`p-3 rounded-2xl transition-all relative ${showNotifications ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+              >
+                <BellIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+                {notifications.some(n => !n.isRead) && (
+                  <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-rose-600 rounded-full border-2 border-white"></span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-slate-100 rounded-2xl shadow-2xl py-2 z-50 overflow-hidden text-left flex flex-col max-h-[80vh]">
+                  <div className="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">
+                      <TranslatedText text="Notifications" lang={user.preferredLanguage} />
+                    </h3>
+                    <div className="flex items-center space-x-3">
+                      {notifications.some(n => !n.isRead) && (
+                        <button 
+                          onClick={async () => {
+                            await dbService.notifications.markAllAsRead();
+                            setNotifications(prev => prev.map(n => ({...n, isRead: true})));
+                          }}
+                          className="text-[10px] uppercase font-bold text-blue-600 hover:underline"
+                        >
+                          <TranslatedText text="Mark all read" lang={user.preferredLanguage} />
+                        </button>
+                      )}
+                      <button onClick={() => setShowNotifications(false)} className="text-slate-400 hover:text-slate-600">
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="overflow-y-auto flex-1 custom-scrollbar">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">
+                        <TranslatedText text="No notifications yet." lang={user.preferredLanguage} />
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-slate-50">
+                        {notifications.map((n, i) => (
+                          <li key={i} className={`p-4 transition-colors ${n.isRead ? 'bg-white opacity-70' : 'bg-blue-50 border-l-4 border-blue-600'}`}>
+                            <div className="flex justify-between items-start mb-1">
+                              <p className={`text-xs font-bold ${n.isRead ? 'text-slate-600' : 'text-slate-900'}`}>
+                                {typeof n.title === 'string' ? <TranslatedText text={n.title} lang={user.preferredLanguage} /> : n.title}
+                              </p>
+                              <span className="text-[10px] text-slate-400 font-bold ml-2 shrink-0">{new Date(n.timestamp || Date.now()).toLocaleDateString()}</span>
+                            </div>
+                            <p className={`text-xs leading-relaxed ${n.isRead ? 'text-slate-500' : 'text-slate-700'}`}>
+                                {typeof n.message === 'string' ? <TranslatedText text={n.message} lang={user.preferredLanguage} /> : n.message}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
               )}
-            </button>
+            </div>
             <button
               onClick={() => setActiveTab('profile')}
               className="hidden sm:flex items-center space-x-3 bg-slate-50 p-1.5 pr-4 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-all active:scale-95"

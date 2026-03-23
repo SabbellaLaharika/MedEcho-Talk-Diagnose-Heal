@@ -19,10 +19,11 @@ const TranslatedText: React.FC<TranslatedTextProps> = ({ text, lang, isClinical 
 
   useEffect(() => {
     if (!text) return;
-    
+
     const updateTranslation = async () => {
-      // 1. Skip ML for English
-      if (lang === 'en') {
+      const code = (lang || 'en').toLowerCase().slice(0, 2);
+      // 1. Skip ML for pure English text
+      if (code === 'en' && !/[^\x00-\x7F]/.test(text)) {
         setTranslated(text);
         return;
       }
@@ -39,21 +40,21 @@ const TranslatedText: React.FC<TranslatedTextProps> = ({ text, lang, isClinical 
       try {
         let result = text;
         if (isClinical) {
-          result = translateClinical(text, lang);
+          result = translateClinical(text, code);
           // Fallback to ML service if formatting doesn't change text
-          if ((result === text || result === text.replace(/_/g, ' ')) && lang !== 'en') {
-            result = await translateString(text, lang);
+          if (result === text || result === text.replace(/_/g, ' ')) {
+            result = await translateString(text, code);
           }
         } else {
-          result = await translateString(text, lang);
+          result = await translateString(text, code);
         }
-        
+
         // Final sanity check
         const halls = ['thank you', 'dhanyavad', 'answer', 'uttar', 'उत्तर', 'धन्यवाद', 'not available'];
         if (halls.some(h => result.toLowerCase().trim().includes(h)) && !halls.some(h => lowerText.includes(h))) {
-           setTranslated(text);
+          setTranslated(text);
         } else {
-           setTranslated(result);
+          setTranslated(result);
         }
       } catch (err) {
         setTranslated(text);

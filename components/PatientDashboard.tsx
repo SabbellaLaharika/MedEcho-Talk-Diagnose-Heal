@@ -35,7 +35,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
   const [sendReportsMessage, setSendReportsMessage] = useState<string>('');
   const upcoming = appointments.filter(a => a.status === 'PENDING').slice(0, 2);
   const latestReport = reports[0];
-
+  console.log(latestReport);
   // Vitals CRUD state
   const [editingVital, setEditingVital] = useState<'bp' | 'weight' | 'glucose' | 'temperature' | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -146,7 +146,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
         {stats.map((stat) => (
           <div key={stat.key} className="relative bg-white p-6 sm:p-8 rounded-[2rem] shadow-sm border border-slate-50 flex items-center justify-between group hover:shadow-xl hover:-translate-y-1 transition-all">
             <div className="flex-1">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1"><TranslatedText text={stat.label} lang={user.preferredLanguage} /></p>
               {editingVital === stat.key ? (
                 <div className="flex items-center gap-2 mt-1">
                   <input

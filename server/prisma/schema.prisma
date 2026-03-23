@@ -47,6 +47,8 @@ model User {
   vitalWeight       String?
   vitalGlucose      String?
   vitalTemperature  String?
+  otp               String?   // For forgot password
+  otpExpiry         DateTime? // Expiration time for OTP
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

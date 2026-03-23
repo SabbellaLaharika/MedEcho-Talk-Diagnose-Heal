@@ -288,18 +288,20 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
 
       const returnedLang = data.lang || langShort;
 
-      // Auto-translate AI response and suggestions if needed
-      if (returnedLang !== 'en') {
+      const targetLang = user?.preferredLanguage || 'en';
+
+      // Auto-translate AI response and suggestions to user's preferred language
+      if (targetLang !== 'en' || /[^\x00-\x7F]/.test(aiResponse)) {
         try {
           if (aiResponse) {
-            aiResponse = await translateString(aiResponse, returnedLang);
+            aiResponse = await translateString(aiResponse, targetLang);
           }
           if (formattedSuggestions.length > 0) {
             const translatedSugs = await Promise.all(
-              formattedSuggestions.map((s: any) => translateString(s.label, returnedLang))
+              formattedSuggestions.map((s: any) => translateString(s.label, targetLang))
             );
             formattedSuggestions = formattedSuggestions.map((s: any, idx: number) => ({
-              id: s.id,
+              id: s.id, // Keep original ID for backend
               label: translatedSugs[idx]
             }));
           }
@@ -367,26 +369,28 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
         glucose: user.vitalGlucose || undefined
       };
 
-      const langShort = selectedLang.split('-')[0];
       let diagnosis = mlContext.diagnosis || t.clinicalConsult;
       let summary = mlContext.summary || t.aiMedicalIntake;
       let precautions = mlContext.precautions
         ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : String(mlContext.precautions).split(/,\s*/))
         : [t.consultProfessional];
 
-      // Async translate metadata if user is not on English
-      if (langShort !== 'en') {
+      // CRITICAL: Always translate medical metadata back to English for storage.
+      // This ensures the database is consistent. Frontend handles display translation.
+      const storageLang = 'en';
+
+      if (/[^\x00-\x7F]/.test(diagnosis) || /[^\x00-\x7F]/.test(summary)) {
         try {
           const transResults = await Promise.all([
-            translateString(diagnosis, langShort),
-            translateString(summary, langShort),
-            Promise.all(precautions.map((p: string) => translateString(p, langShort)))
+            translateString(diagnosis, storageLang),
+            translateString(summary, storageLang),
+            Promise.all(precautions.map((p: string) => translateString(p, storageLang)))
           ]);
           diagnosis = transResults[0];
           summary = transResults[1];
           precautions = transResults[2] as string[];
         } catch (e) {
-          console.error("Metadata translation failed", e);
+          console.error("Database stabilization failed", e);
         }
       }
 
@@ -395,10 +399,10 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
         patientName: user.name,
         doctorId: null,
         doctorName: t.unassigned,
-        diagnosis,
+        diagnosis, // Now standardized to English
         confidenceScore: parseFloat(mlContext.confidence) || 85,
-        preventions: precautions,
-        summary,
+        preventions: precautions, // Standardized to English
+        summary, // Standardized to English
         symptoms: mlContext.collected_symptoms || [],
         history: mlContext.history || {},
         vitals: vitals,

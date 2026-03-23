@@ -355,7 +355,7 @@ export const loadTranslations = async (lang: string = 'en', ns?: string) => {
 
     // 1. Check Local Storage for the base pack first if no namespace
     if (!ns) {
-      const cached = localStorage.getItem(`med_echo_lang_v3_${code}`);
+      const cached = localStorage.getItem(`med_echo_lang_v10_${code}`);
       if (cached && !packs[code]) {
         packs[code] = { ...FALLBACK_PACK, ...JSON.parse(cached) };
         currentLang = code;
@@ -374,7 +374,7 @@ export const loadTranslations = async (lang: string = 'en', ns?: string) => {
 
     // Only persist the global pack to local storage, not partials (to avoid corruption)
     if (!ns) {
-      localStorage.setItem(`med_echo_lang_v3_${code}`, JSON.stringify(freshData));
+      localStorage.setItem(`med_echo_lang_v10_${code}`, JSON.stringify(freshData));
     }
 
     notifyObservers();
@@ -465,10 +465,58 @@ class TranslationQueue {
     this.loadGlobalCache();
   }
 
+  public clear() {
+    this.cache.clear();
+    this.queue.clear();
+    this.timers.forEach(t => clearTimeout(t));
+    this.timers.clear();
+  }
+
+  private isScriptMismatch(text: string, lang: string): boolean {
+    const scripts: Record<string, RegExp> = {
+      hi: /[\u0900-\u097F]/, // Devanagari
+      te: /[\u0C00-\u0C7F]/, // Telugu
+      ta: /[\u0B80-\u0BFF]/, // Tamil
+      ml: /[\u0D00-\u0D7F]/, // Malayalam
+      kn: /[\u0C80-\u0CFF]/, // Kannada
+      bn: /[\u0980-\u09FF]/, // Bengali
+      gu: /[\u0A80-\u0AFF]/, // Gujarati
+      mr: /[\u0900-\u097F]/, // Marathi (same script as Hindi)
+      pa: /[\u0A00-\u0A7F]/, // Gurmukhi
+    };
+
+    // If target is English, any non-ASCII is a mismatch
+    if (lang === 'en') return /[^\x00-\x7F]/.test(text);
+
+    // If target is an Indian language, it SHOULD contain its script OR be pure ASCII
+    // If it contains a DIFFERENT Indian script, it's a mismatch
+    const targetScript = scripts[lang];
+    if (!targetScript) return false;
+
+    // Check against all OTHER scripts
+    for (const [sLang, sRegex] of Object.entries(scripts)) {
+      if (sLang === lang) continue;
+      // If Hindi target, Marathi script (Devanagari) is okay
+      if (lang === 'hi' && sLang === 'mr') continue;
+      if (lang === 'mr' && sLang === 'hi') continue;
+
+      if (sRegex.test(text)) return true; // Found foreign script!
+    }
+
+    return false;
+  }
+
   private loadGlobalCache() {
     try {
       const keys = Object.keys(localStorage);
-      keys.filter(k => k.startsWith('med_echo_dynamic_v1_')).forEach(k => {
+      // GLOBAL PURGE: Remove all legacy caches to resolve "న్యుమోనియా" hallucinations
+      keys.forEach(k => {
+        if (k.startsWith('med_echo_') && !k.includes('_v10_')) {
+          localStorage.removeItem(k);
+        }
+      });
+
+      keys.filter(k => k.startsWith('med_echo_dynamic_v10_')).forEach(k => {
         const lang = k.split('_').pop() || '';
         this.cache.set(lang, JSON.parse(localStorage.getItem(k) || '{}'));
       });
@@ -476,11 +524,17 @@ class TranslationQueue {
   }
 
   private saveToCache(lang: string, text: string, translated: string) {
+    // CRITICAL: Reject if there is a script mismatch (e.g. Telugu in Hindi or vice-versa)
+    if (this.isScriptMismatch(translated, lang)) {
+      console.warn(`Translation script mismatch rejected for ${lang}:`, translated);
+      return;
+    }
+
     if (!this.cache.has(lang)) this.cache.set(lang, {});
     const langCache = this.cache.get(lang)!;
     langCache[text] = translated;
     try {
-      localStorage.setItem(`med_echo_dynamic_v1_${lang}`, JSON.stringify(langCache));
+      localStorage.setItem(`med_echo_dynamic_v10_${lang}`, JSON.stringify(langCache));
     } catch (e) { }
   }
 
@@ -543,7 +597,8 @@ const batchQueue = new TranslationQueue();
  * Async utility to translate a string using the ML service (with batching & caching)
  */
 export const translateString = async (text: string, targetLang: string = 'en') => {
-  if (!text || targetLang === 'en') return text;
+  if (!text) return text;
+  if (targetLang === 'en' && !/[^\x00-\x7F]/.test(text)) return text;
 
   // 1. Check Dictionary First (Synchronous)
   const code = targetLang.toLowerCase().slice(0, 2);
@@ -556,4 +611,22 @@ export const translateString = async (text: string, targetLang: string = 'en') =
 
   // 2. Use Batching Queue
   return await batchQueue.push(text, code);
+};
+
+/**
+ * Force clear all translation-related caches (Memory + LocalStorage)
+ */
+export const clearTranslationCache = () => {
+  const keys = Object.keys(localStorage);
+  keys.forEach(k => {
+    if (k.startsWith('med_echo_lang_') || k.startsWith('med_echo_dynamic_')) {
+      localStorage.removeItem(k);
+    }
+  });
+  // Reset packs but keep English fallback
+  packs = {
+    en: { ...FALLBACK_PACK }
+  };
+  batchQueue.clear();
+  notifyObservers();
 };

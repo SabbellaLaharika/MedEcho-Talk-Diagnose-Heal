@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { sendEmail } from '../services/emailService';
 
 const prisma = new PrismaClient();
 
@@ -92,5 +93,71 @@ export const updateProfile = async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error("Update error:", error);
         res.status(500).json({ message: 'Server error updating profile', error: error.message });
+    }
+};
+
+export const forgotPassword = async (req: Request, res: Response) => {
+    try {
+        const { email } = req.body;
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+        await (prisma.user as any).update({
+            where: { email },
+            data: { otp, otpExpiry }
+        });
+
+        await sendEmail({
+            to: email,
+            subject: 'MedEcho - Password Reset OTP',
+            text: `Your OTP for password reset is ${otp}. It expires in 15 minutes.`,
+            html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; text-align: center;">
+                <h2>Password Reset</h2>
+                <p>You requested a password reset. Use the OTP below to set a new password:</p>
+                <h1 style="letter-spacing: 5px; color: #2563eb; background: #e0e7ff; padding: 10px; border-radius: 8px; display: inline-block;">${otp}</h1>
+                <p>This code will expire in 15 minutes.</p>
+            </div>
+            `
+        });
+
+        res.json({ message: 'OTP sent to email' });
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+
+        const user: any = await prisma.user.findUnique({ where: { email } });
+        if (!user || user.otp !== otp || !user.otpExpiry) {
+            return res.status(400).json({ message: 'Invalid OTP' });
+        }
+
+        if (new Date(user.otpExpiry) < new Date()) {
+            return res.status(400).json({ message: 'OTP has expired' });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        await (prisma.user as any).update({
+            where: { email },
+            data: {
+                passwordHash: hashedPassword,
+                otp: null,
+                otpExpiry: null
+            }
+        });
+
+        res.json({ message: 'Password reset completely successfully' });
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.status(500).json({ message: 'Internal server error' });
     }
 };

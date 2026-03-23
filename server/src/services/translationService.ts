@@ -11,7 +11,9 @@ export const translationService = {
    * Translates a text string using the ML service
    */
   translate: async (text: string, targetLang: string): Promise<string> => {
-    if (!text || !targetLang || targetLang === 'en') return text;
+    if (!text || !targetLang) return text;
+    // Allow translation to English only if source contains non-ASCII (Telugu/Hindi etc.)
+    if (targetLang === 'en' && !/[^\x00-\x7F]/.test(text)) return text;
 
     // 1. Static Overrides for common UI terms to prevent ML Hallucinations
     const lowerText = text.toLowerCase().trim();
@@ -28,7 +30,7 @@ export const translationService = {
       const response = await axios.post(`${ML_SERVICE_URL}/translate`, {
         text,
         target_lang: targetLang,
-        source_lang: 'en'
+        source_lang: 'auto'
       });
       let translated = response.data.translated || text;
       const isVirtual = translated.includes('వర్చువల్') || translated.includes('वर्चुअल') || translated.toLowerCase().includes('virtual');
@@ -51,7 +53,7 @@ export const translationService = {
    * Translates multiple fields of an object
    */
   translateObject: async <T>(obj: T, fields: string[], targetLang: string): Promise<T> => {
-    if (!targetLang || targetLang === 'en' || !obj) return obj;
+    if (!targetLang || !obj) return obj;
 
     const translatedObj = { ...obj } as any;
 
@@ -75,7 +77,7 @@ export const translationService = {
    * Translates an array of objects
    */
   translateArray: async <T>(arr: T[], fields: string[], targetLang: string): Promise<T[]> => {
-    if (!targetLang || targetLang === 'en' || !arr || arr.length === 0) return arr;
+    if (!targetLang || !arr || arr.length === 0) return arr;
 
     return Promise.all(arr.map(item => translationService.translateObject(item, fields, targetLang)));
   }

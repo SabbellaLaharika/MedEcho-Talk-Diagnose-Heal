@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { getTranslation, translateString, loadTranslations } from '../services/translations';
+import { getTranslation, translateString, loadTranslations, clearTranslationCache } from '../services/translations';
+import { dbService } from '../services/dbService';
 import TranslatedText from './TranslatedText';
 import {
   UserCircleIcon,
@@ -58,6 +59,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
     e.preventDefault();
     setSaving(true);
     try {
+      if (formData.preferredLanguage !== user.preferredLanguage) {
+        clearTranslationCache();
+      }
       await onUpdate({
         ...user,
         ...formData,
@@ -299,7 +303,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
                 <span className="text-sm font-black uppercase tracking-widest"><TranslatedText text={t.systemAuthenticated} lang={user.preferredLanguage} /></span>
               </div>
               <p className="text-xs text-white/40 leading-relaxed font-medium">{t.securityDesc}</p>
-              <button className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 mt-6">
+              <button 
+                onClick={async () => {
+                  if (window.confirm("We will send a secure OTP to your email to reset your password. You will be logged out to complete this security process. Proceed?")) {
+                    try {
+                      await dbService.auth.forgotPassword(user.email);
+                      alert("OTP sent successfully! Please check your email.");
+                      // Set pending reset flag to redirect to OTP screen after logout/reload
+                      localStorage.setItem('medecho_pending_reset', JSON.stringify({ email: user.email }));
+                      dbService.auth.logout();
+                      window.location.reload();
+                    } catch(e) {
+                      alert("Failed to initiate password reset.");
+                    }
+                  }
+                }}
+                className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 mt-6">
                 <TranslatedText text={t.changePassword} lang={user.preferredLanguage} />
               </button>
             </div>

@@ -54,8 +54,8 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
   return (
     <div className="p-4 sm:p-8 max-w-[1400px] mx-auto h-[calc(100vh-100px)] flex flex-col space-y-6">
       <div className="flex-shrink-0">
-        <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">{t.medicalReports}</h2>
-        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">{t.aiHistory}</p>
+        <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase"><TranslatedText text={t.medicalReports} lang={user.preferredLanguage} /></h2>
+        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1"><TranslatedText text={t.aiHistory} lang={user.preferredLanguage} /></p>
       </div>
 
       <div className="flex flex-1 overflow-hidden gap-8">
@@ -107,7 +107,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
             <>
               {/* Report Header */}
               <div className="p-8 border-b border-slate-50 flex justify-between items-center">
-                <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">{t.diagnosisReport}</h2>
+                <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight"><TranslatedText text={t.diagnosisReport} lang={user.preferredLanguage} /></h2>
                 <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">ID: {getShortId(activeReport.id)}</span>
               </div>
 
@@ -115,7 +115,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
               <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
                 {/* Predicted Condition */}
                 <section>
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{t.predictedCondition}</h4>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4"><TranslatedText text={t.predictedCondition} lang={user.preferredLanguage} /></h4>
                   <div className="flex items-center space-x-6">
                     <div className="p-4 bg-slate-50 rounded-2xl text-slate-800 animate-pulse border border-slate-100">
                       <HeartIcon className="w-8 h-8" />
@@ -134,7 +134,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                 {/* Vitals Panel — only shown if report has vitals */}
                 {activeReport.vitals && Object.values(activeReport.vitals).some(v => v) && (
                   <section>
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{t.vitals || 'Vitals at Time of Report'}</h4>
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4"><TranslatedText text={t.vitals || 'Vitals at Time of Report'} lang={user.preferredLanguage} /></h4>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {activeReport.vitals.bp && (
                         <div className="bg-rose-50 p-4 rounded-2xl border border-rose-100 flex flex-col items-center text-center">
@@ -170,7 +170,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
 
                 {/* Reported Symptoms */}
                 <section>
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{t.reportedSymptoms}</h4>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4"><TranslatedText text={t.reportedSymptoms} lang={user.preferredLanguage} /></h4>
                   <div className="flex flex-wrap gap-2">
                     {activeReport.symptoms && activeReport.symptoms.length > 0 ? (
                       activeReport.symptoms.map((s, idx) => (
@@ -179,14 +179,14 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                         </span>
                       ))
                     ) : (
-                      <p className="text-xs text-slate-400 italic">{t.noSymptoms}</p>
+                      <p className="text-xs text-slate-400 italic"><TranslatedText text={t.noSymptoms} lang={user.preferredLanguage} /></p>
                     )}
                   </div>
                 </section>
 
                 {/* Patient History */}
                 <section>
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{t.patientHistory}</h4>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4"><TranslatedText text={t.patientHistory} lang={user.preferredLanguage} /></h4>
                   <div className="bg-slate-50/50 rounded-3xl border border-slate-100 overflow-hidden">
                     <table className="w-full text-left border-collapse">
                       <tbody>
@@ -194,7 +194,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                           Object.entries(activeReport.history).map(([key, val], idx) => (
                             <tr key={key} className={idx % 2 === 0 ? 'bg-transparent' : 'bg-slate-50/30'}>
                               <td className="py-4 px-8 text-xs font-black text-slate-800 uppercase tracking-widest w-1/3">
-                                {t[key.toLowerCase()] || key}
+                                <TranslatedText text={t[key.toLowerCase()] || key} lang={user.preferredLanguage} />
                               </td>
                               <td className="py-4 px-8 text-xs font-bold text-slate-600">
                                 <TranslatedText text={typeof val === 'string' ? translateClinical(val, user.preferredLanguage) : String(val)} lang={user.preferredLanguage} />
@@ -203,7 +203,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={2} className="py-8 px-8 text-xs text-slate-400 italic text-center">{t.noHistory}</td>
+                            <td colSpan={2} className="py-8 px-8 text-xs text-slate-400 italic text-center"><TranslatedText text={t.noHistory} lang={user.preferredLanguage} /></td>
                           </tr>
                         )}
                       </tbody>
@@ -214,7 +214,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                 {/* Advice Section */}
                 {activeReport.prescription && activeReport.prescription.length > 0 && (
                   <section>
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{t.advicePrecautions}</h4>
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4"><TranslatedText text={t.advicePrecautions} lang={user.preferredLanguage} /></h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {activeReport.prescription.map((p, i) => (
                         <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm flex items-start space-x-3">
@@ -236,7 +236,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                   className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-800 transition-all flex items-center space-x-3 shadow-lg shadow-slate-200"
                 >
                   <PrinterIcon className="w-4 h-4" />
-                  <span>{t.previewPrint}</span>
+                  <span><TranslatedText text={t.previewPrint} lang={user.preferredLanguage} /></span>
                 </button>
               </div>
             </>
@@ -281,7 +281,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
                 <div className="p-2 bg-slate-800 text-white rounded-lg">
                   <PrinterIcon className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{t.reportReview}</h3>
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest"><TranslatedText text={t.reportReview} lang={user.preferredLanguage} /></h3>
               </div>
               <button onClick={() => setIsPreviewOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-all">
                 <XMarkIcon className="w-6 h-6 text-slate-500" />
@@ -296,9 +296,9 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user }) => {
             <div className="p-8 bg-white border-t flex space-x-4 no-print">
               <button onClick={handlePrint} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center space-x-3">
                 <PrinterIcon className="w-4 h-4" />
-                <span>{t.confirmPrint}</span>
+                <span><TranslatedText text={t.confirmPrint} lang={user.preferredLanguage} /></span>
               </button>
-              <button onClick={() => setIsPreviewOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-100 transition-all">{t.cancel}</button>
+              <button onClick={() => setIsPreviewOpen(false)} className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-100 transition-all"><TranslatedText text={t.cancel} lang={user.preferredLanguage} /></button>
             </div>
           </div>
         </div>
