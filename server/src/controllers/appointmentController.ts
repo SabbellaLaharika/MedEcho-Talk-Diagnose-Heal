@@ -27,6 +27,21 @@ export const createAppointment = async (req: Request, res: Response) => {
         }
 
         const appointmentDate = new Date(date);
+        
+        // --- 1. PREVENT BOOKING IN THE PAST ---
+        const now = new Date();
+        const bookingDateObj = new Date(date);
+        if (time) {
+            const [h, m] = time.split(':').map(Number);
+            bookingDateObj.setHours(h, m, 0, 0);
+        } else {
+            // If no time, only compare the date portion
+            bookingDateObj.setHours(23, 59, 59, 999);
+        }
+
+        if (bookingDateObj < now) {
+            return res.status(400).json({ message: 'Cannot book appointments for past dates or times' });
+        }
 
         // Prevent duplicate bookings: same doctor + date + time + not cancelled
         if (time) {

@@ -18,6 +18,8 @@ import {
   TrashIcon,
   CheckIcon,
   BeakerIcon,
+  CheckCircleIcon,
+  CheckBadgeIcon,
 } from '@heroicons/react/24/solid';
 
 
@@ -32,10 +34,19 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
   const t = getTranslation(user.preferredLanguage);
   const [viewingReport, setViewingReport] = useState<MedicalReport | null>(null);
   const [sendingReportsId, setSendingReportsId] = useState<string | null>(null);
+  const [localSentDoctorId, setLocalSentDoctorId] = useState<string | null>(null);
   const [sendReportsMessage, setSendReportsMessage] = useState<string>('');
-  const upcoming = appointments.filter(a => a.status === 'PENDING').slice(0, 2);
-  const latestReport = reports[0];
-  console.log(latestReport);
+  const upcoming = appointments.filter(a => a.status === 'PENDING');
+  const latestReports = reports.slice(0, 2);
+  
+  // VOICE CALL LOGIC UNDERSTANDING:
+  // 1. Physical Dialer: dialDoctor uses tel: protocol to trigger native phone calls.
+  // 2. Chat Assistant: Uses Web Speech API (Recognition/Synthesis) for basic voice I/O.
+  // 3. Virtual Doctor: Uses Multimodal Live API (@google/genai) for real-time PCM audio streaming.
+
+  // Multi-doctor send prevention logic
+  const effectiveSentDoctorId = localSentDoctorId || reports[0]?.doctorId;
+
   // Vitals CRUD state
   const [editingVital, setEditingVital] = useState<'bp' | 'weight' | 'glucose' | 'temperature' | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -104,9 +115,13 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
     try {
       const { data } = await api.post(`/reports/patient/${user.id}/send/${apt.id}`);
       setSendReportsMessage(`Sent ${data.reports.length} report(s) to doctor.`);
+      // Per user request: Only one doctor can have the reports.
+      setLocalSentDoctorId(apt.doctorId);
+      setTimeout(() => setSendReportsMessage(''), 4000);
     } catch (error) {
       console.error('Send reports failed:', error);
       setSendReportsMessage('Failed to send reports.');
+      setTimeout(() => setSendReportsMessage(''), 4000);
     } finally {
       setSendingReportsId(null);
     }
@@ -200,10 +215,11 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
               <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight">{t.appointmentsTitle}</h2>
               <span className="text-[9px] font-black bg-white/10 px-3 py-1 rounded-full text-blue-300 uppercase tracking-widest">{t.realTime}</span>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[380px] overflow-y-auto pr-2 custom-scrollbar">
               {upcoming.length > 0 ? upcoming.map(apt => {
                 const doctorDisplayName = apt.doctorName || apt.doctor?.name || 'Doctor';
                 const dateStr = new Date(apt.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                const isSent = !!effectiveSentDoctorId && (apt.doctorId === effectiveSentDoctorId);
                 return (
                   <div key={apt.id} className="bg-white/5 border border-white/10 p-4 sm:p-6 rounded-[2rem] flex items-center justify-between group hover:bg-white/10 transition-colors">
                     <div className="flex items-center space-x-4 sm:space-x-5">
@@ -226,10 +242,15 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
                       </button>
                       <button
                         onClick={() => sendAllPatientReportsToDoctor(apt)}
-                        className="text-[10px] font-black uppercase bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded-xl"
-                        disabled={sendingReportsId === apt.id}
+                        className={`text-[9px] sm:text-[10px] font-black uppercase px-4 py-2 rounded-xl transition-all ${isSent ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg'}`}
+                        disabled={sendingReportsId === apt.id || isSent}
                       >
-                        {sendingReportsId === apt.id ? <TranslatedText text={t.sending} lang={user.preferredLanguage} /> : <TranslatedText text={t.sendReports} lang={user.preferredLanguage} />}
+                        {sendingReportsId === apt.id 
+                          ? <TranslatedText text={t.sending} lang={user.preferredLanguage} /> 
+                          : isSent
+                            ? <div className="flex items-center gap-1.5"><CheckCircleIcon className="w-3.5 h-3.5" /><TranslatedText text={t.reportsSent} lang={user.preferredLanguage} /></div>
+                            : <TranslatedText text={t.sendReports} lang={user.preferredLanguage} />
+                        }
                       </button>
                     </div>
                   </div>
@@ -245,38 +266,58 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
           <div className="flex justify-between items-center mb-10">
             <h2 className="text-xl sm:text-2xl font-black text-slate-800 uppercase tracking-tight">{t.latestReports}</h2>
           </div>
-          {latestReport ? (
-            <button
-              onClick={() => setViewingReport(latestReport)}
-              className="flex-1 bg-slate-50 p-6 sm:p-8 rounded-[2rem] border border-slate-100 flex flex-col justify-between hover:bg-blue-50 hover:border-blue-100 transition-all text-left group"
-            >
-              <div>
-                <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest bg-blue-100/50 px-3 py-1 rounded-full border border-blue-200">{t.latestReports}</span>
-                <p className="text-base sm:text-lg font-bold text-slate-800 mt-6 leading-relaxed">
-                  <TranslatedText text={latestReport.diagnosis} lang={user.preferredLanguage} isClinical={true} />
-                </p>
-                <div className="mt-4 flex items-center space-x-2 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-[10px] font-black uppercase tracking-widest">{t.noReports === 'No reports found.' ? <TranslatedText text='See Full Details' lang={user.preferredLanguage} /> : <TranslatedText text={t.reports} lang={user.preferredLanguage} />}</span>
-                  <ArrowRightCircleIcon className="w-4 h-4" />
+          <div className="space-y-4 flex-1 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
+            {latestReports.length > 0 ? latestReports.map((report) => (
+              <button
+                key={report.id}
+                onClick={() => setViewingReport(report)}
+                className="w-full bg-slate-50 p-6 sm:p-8 rounded-[2rem] border border-slate-100 flex flex-col justify-between hover:bg-blue-50 hover:border-blue-100 transition-all text-left group"
+              >
+                <div>
+                  <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest bg-blue-100/50 px-3 py-1 rounded-full border border-blue-200">{t.latestReports}</span>
+                  <p className="text-base sm:text-lg font-bold text-slate-800 mt-6 leading-relaxed">
+                    <TranslatedText text={report.diagnosis} lang={user.preferredLanguage} isClinical={true} />
+                  </p>
+                  <div className="mt-4 flex items-center space-x-2 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[10px] font-black uppercase tracking-widest">
+                      <TranslatedText text="See Detailed Report" lang={user.preferredLanguage} />
+                    </span>
+                    <ArrowRightCircleIcon className="w-4 h-4" />
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 mt-10 pt-6 border-t border-slate-200">
-                <span className="text-[11px] font-black text-slate-700 uppercase">
-                  {t.patient}: <TranslatedText text={latestReport.patientName || 'Unknown'} lang={user.preferredLanguage} />
-                </span>
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-                  {t.doctor}: <TranslatedText text={latestReport.doctorName || 'Unassigned'} lang={user.preferredLanguage} />
-                </span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{latestReport.date}</span>
-              </div>
-            </button>
-          ) : <div className="text-center py-20 text-slate-300 font-black uppercase text-[10px] tracking-widest">{t.noReports}</div>}
+
+                <div className="flex flex-wrap items-center gap-2 mt-10 pt-6 border-t border-slate-200">
+                  <span className="text-[11px] font-black text-slate-700 uppercase">
+                    {t.patient}: <TranslatedText text={report.patientName || user.name} lang={user.preferredLanguage} />
+                  </span>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                    {t.doctor}: <TranslatedText text={report.doctorName || 'Unassigned'} lang={user.preferredLanguage} />
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    {report.date || new Date(report.createdAt).toISOString().split('T')[0]}
+                  </span>
+                </div>
+              </button>
+            )) : (
+              <div className="text-center py-20 text-slate-300 font-black uppercase text-[10px] tracking-widest">{t.noReports}</div>
+            )}
+          </div>
         </section>
       </div>
 
       {sendReportsMessage && (
-        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-[12px] font-bold uppercase tracking-widest">
-          <TranslatedText text={sendReportsMessage} lang={user.preferredLanguage} />
+        <div className="fixed top-10 right-10 z-[100] animate-in slide-in-from-right-10 fade-in duration-300">
+          <div className="bg-emerald-500 text-white px-6 py-4 rounded-[1.5rem] shadow-2xl border border-emerald-400 flex items-center gap-3">
+             <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                <CheckBadgeIcon className="w-5 h-5 text-white" />
+             </div>
+             <div>
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-70">MedEcho System</p>
+                <p className="font-bold text-sm">
+                  <TranslatedText text={sendReportsMessage} lang={user.preferredLanguage} />
+                </p>
+             </div>
+          </div>
         </div>
       )}
       <div className="mt-8">

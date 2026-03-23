@@ -11,6 +11,7 @@ import {
   CheckBadgeIcon,
   CheckCircleIcon,
   UserIcon,
+  NoSymbolIcon,
 } from '@heroicons/react/24/solid';
 
 interface AppointmentBookingProps {
@@ -175,6 +176,19 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
     return slots;
   }, [selectedDoc, date, doctorSchedule, blockedSlots, allAppointments]);
 
+  // 11. HELPER: IS PAST SLOT
+  const isPastSlot = (time: string) => {
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    if (date !== today) return false;
+    
+    const [h, m] = time.split(':').map(Number);
+    const currentH = now.getHours();
+    const currentM = now.getMinutes();
+    // 5 min buffer
+    return (h * 60 + m) <= (currentH * 60 + currentM + 5);
+  };
+
   // 8. HANDLERS
   const handleBookClick = () => {
     const summary = {
@@ -298,18 +312,29 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
               <div className="p-10 flex-1">
                 {availableSlots.length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
-                    {availableSlots.map((time) => (
-                      <button
-                        key={time}
-                        onClick={() => setSelectedTime(time)}
-                        className={`py-4 px-2 rounded-2xl border-2 font-black text-xs transition-all ${selectedTime === time
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg scale-105'
-                          : 'bg-white border-slate-50 text-slate-600 hover:border-indigo-100'
-                          }`}
-                      >
-                        {time}
-                      </button>
-                    ))}
+                    {availableSlots.map((time) => {
+                      const disabled = isPastSlot(time);
+                      return (
+                        <button
+                          key={time}
+                          disabled={disabled}
+                          onClick={() => setSelectedTime(time)}
+                          className={`py-4 px-2 rounded-2xl border-2 font-black text-xs transition-all relative ${selectedTime === time
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg scale-105'
+                            : disabled
+                              ? 'bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed'
+                              : 'bg-white border-slate-50 text-slate-600 hover:border-indigo-100'
+                            }`}
+                        >
+                          {time}
+                          {disabled && (
+                            <div className="absolute top-1 right-1">
+                              <NoSymbolIcon className="w-3 h-3 text-slate-200" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="h-48 flex flex-col items-center justify-center text-center p-8 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-100">

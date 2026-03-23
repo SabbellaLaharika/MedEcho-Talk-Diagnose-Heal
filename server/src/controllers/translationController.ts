@@ -68,6 +68,7 @@ const NAMESPACED_DICTIONARY: Record<string, Record<string, string>> = {
     realTime: 'Real-time',
     sendReports: 'Send Reports',
     sending: 'Sending…',
+    reportsSent: 'Reports Sent',
     noAppointmentsBooked: 'No appointments booked',
     findNearbyCare: 'Find Nearby Care',
     bpm: 'B P',
