@@ -255,6 +255,78 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
     }
 };
 
+export const startCall = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { initiatorId } = req.body;
+
+        const appointment = await prisma.appointment.findUnique({
+            where: { id },
+            include: { 
+                patient: { select: { id: true, name: true, email: true } }, 
+                doctor: { select: { id: true, name: true, email: true } } 
+            }
+        });
+
+        if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
+
+        const isPatient = initiatorId === appointment.patientId;
+        const targetUserId = isPatient ? appointment.doctorId : appointment.patientId;
+        const targetEmail = isPatient ? appointment.doctor.email : appointment.patient.email;
+        const initiatorName = isPatient ? appointment.patient.name : appointment.doctor.name;
+
+        // Create notification for the receiver
+        await prisma.notification.create({
+            data: {
+                userId: targetUserId,
+                title: 'Incoming Voice Call',
+                message: `${initiatorName} is starting the voice consultation for your appointment.`
+            }
+        });
+
+        // Send Email Alert
+        if (targetEmail) {
+            sendEmail({
+                to: targetEmail,
+                subject: 'MedEcho: Call Invitation',
+                text: `${initiatorName} is waiting for you in the consultation room. Please login to MedEcho to join the call.`,
+                html: `
+                    <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                        <h2 style="color: #4f46e5;">Incoming Consultation</h2>
+                        <p><strong>${initiatorName}</strong> is starting the voice call for your appointment.</p>
+                        <div style="margin: 30px 0;">
+                            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}?joinCall=${appointment.id}" style="background: #4f46e5; color: white; padding: 12px 25px; border-radius: 8px; text-decoration: none; font-weight: bold;">Join Call on MedEcho</a>
+                        </div>
+                        <p style="color: #666; font-size: 12px;">Secure P2P Line • Automated Reminder</p>
+                    </div>
+                `
+            });
+        }
+
+        res.json({ message: 'Call started' });
+    } catch (error) {
+        console.error('Error starting call:', error);
+        res.status(500).json({ message: 'Server error starting call' });
+    }
+};
+
+export const getDoctorAppointmentsByStatus = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const updated = await prisma.appointment.update({
+            where: { id },
+            data: { status }
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error updating appointment' });
+    }
+};
+
 // Delete Appointment
 export const deleteAppointment = async (req: Request, res: Response) => {
     try {

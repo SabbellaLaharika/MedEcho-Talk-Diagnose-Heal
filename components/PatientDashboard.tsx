@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { User, Appointment, MedicalReport } from '../types';
+import React, { useState, useEffect } from 'react';
+import { User, Appointment, MedicalReport, AppNotification } from '../types';
 import HospitalLocator from './HospitalLocator';
 import ReportDetailModal from './ReportDetailModal';
 import api from '../services/api';
@@ -20,29 +20,71 @@ import {
   BeakerIcon,
   CheckCircleIcon,
   CheckBadgeIcon,
+  CalendarDaysIcon,
+  ClockIcon,
+  MapPinIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/solid';
+import VoiceConsultation from './VoiceConsultation';
 
 
 interface PatientDashboardProps {
   user: User;
   appointments: Appointment[];
   reports: MedicalReport[];
+  notifications: AppNotification[];
   onUpdateUser?: (u: User) => void;
 }
 
-const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments, reports, onUpdateUser }) => {
+const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments, reports, notifications, onUpdateUser }) => {
   const t = getTranslation(user.preferredLanguage);
   const [viewingReport, setViewingReport] = useState<MedicalReport | null>(null);
   const [sendingReportsId, setSendingReportsId] = useState<string | null>(null);
   const [localSentDoctorId, setLocalSentDoctorId] = useState<string | null>(null);
   const [sendReportsMessage, setSendReportsMessage] = useState<string>('');
+  const [activeCallApt, setActiveCallApt] = useState<Appointment | null>(null);
+  const [isCallInitiator, setIsCallInitiator] = useState(false);
+
+  // Deep Link Handling (Join from Email)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const joinAptId = params.get('joinCall');
+    if (joinAptId && !activeCallApt) {
+       const apt = appointments.find(a => a.id === joinAptId);
+       if (apt) {
+          setActiveCallApt(apt);
+          setIsCallInitiator(false);
+          // Clean up URL
+          window.history.replaceState({}, '', window.location.pathname);
+       }
+    }
+  }, [appointments, activeCallApt]);
+
+  // Automatic Call Detection (Patient side)
+  useEffect(() => {
+    const incoming = notifications.find(n => !n.isRead && n.title === 'Incoming Voice Call');
+    if (incoming && !activeCallApt) {
+      const notifTime = new Date(incoming.timestamp).getTime();
+      const now = new Date().getTime();
+      
+      // Only auto-open if less than 60 seconds old
+      if (now - notifTime < 60000) {
+        // Mark as read immediately to prevent loop
+        api.put(`/notifications/${incoming.id}/read`);
+        // Find matching appointment by doctor name mention
+        const apt = appointments.find(a => incoming.message.includes(a.doctorName || a.doctor?.name || ''));
+        if (apt) {
+          setActiveCallApt(apt);
+          setIsCallInitiator(false);
+        }
+      } else {
+         // It's an old notification, just mark it as read so it doesn't bother us.
+         api.put(`/notifications/${incoming.id}/read`);
+      }
+    }
+  }, [notifications, appointments, activeCallApt]);
   const upcoming = appointments.filter(a => a.status === 'PENDING');
   const latestReports = reports.slice(0, 2);
-  
-  // VOICE CALL LOGIC UNDERSTANDING:
-  // 1. Physical Dialer: dialDoctor uses tel: protocol to trigger native phone calls.
-  // 2. Chat Assistant: Uses Web Speech API (Recognition/Synthesis) for basic voice I/O.
-  // 3. Virtual Doctor: Uses Multimodal Live API (@google/genai) for real-time PCM audio streaming.
 
   // Multi-doctor send prevention logic
   const effectiveSentDoctorId = localSentDoctorId || reports[0]?.doctorId;
@@ -101,12 +143,15 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
     setEditValue(current);
   };
 
-  const dialDoctor = (apt: Appointment) => {
-    const phone = apt.doctorContact || apt.doctor?.contact || '6300292724';
-    const cleaned = phone.replace(/[^\d+]/g, '');
-    if (cleaned.length > 0) {
-      window.location.href = `tel:${cleaned}`;
+  const dialDoctor = async (apt: Appointment) => {
+    // Notify doctor of incoming call via backend
+    try {
+      await api.post(`/appointments/${apt.id}/start-call`, { initiatorId: user.id });
+    } catch (err) {
+      console.warn("Call notification failed, but opening channel...");
     }
+    setIsCallInitiator(true);
+    setActiveCallApt(apt);
   };
 
   const sendAllPatientReportsToDoctor = async (apt: Appointment) => {
@@ -245,8 +290,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
                         className={`text-[9px] sm:text-[10px] font-black uppercase px-4 py-2 rounded-xl transition-all ${isSent ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg'}`}
                         disabled={sendingReportsId === apt.id || isSent}
                       >
-                        {sendingReportsId === apt.id 
-                          ? <TranslatedText text={t.sending} lang={user.preferredLanguage} /> 
+                        {sendingReportsId === apt.id
+                          ? <TranslatedText text={t.sending} lang={user.preferredLanguage} />
                           : isSent
                             ? <div className="flex items-center gap-1.5"><CheckCircleIcon className="w-3.5 h-3.5" /><TranslatedText text={t.reportsSent} lang={user.preferredLanguage} /></div>
                             : <TranslatedText text={t.sendReports} lang={user.preferredLanguage} />
@@ -308,15 +353,15 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
       {sendReportsMessage && (
         <div className="fixed top-10 right-10 z-[100] animate-in slide-in-from-right-10 fade-in duration-300">
           <div className="bg-emerald-500 text-white px-6 py-4 rounded-[1.5rem] shadow-2xl border border-emerald-400 flex items-center gap-3">
-             <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                <CheckBadgeIcon className="w-5 h-5 text-white" />
-             </div>
-             <div>
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-70">MedEcho System</p>
-                <p className="font-bold text-sm">
-                  <TranslatedText text={sendReportsMessage} lang={user.preferredLanguage} />
-                </p>
-             </div>
+            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+              <CheckBadgeIcon className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest opacity-70">MedEcho System</p>
+              <p className="font-bold text-sm">
+                <TranslatedText text={sendReportsMessage} lang={user.preferredLanguage} />
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -331,6 +376,16 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
           report={viewingReport}
           user={user}
           onClose={() => setViewingReport(null)}
+        />
+      )}
+      
+      {/* Embedded P2P Voice Consultation */}
+      {activeCallApt && (
+        <VoiceConsultation
+          user={user}
+          appointment={activeCallApt}
+          isInitiator={isCallInitiator}
+          onClose={() => setActiveCallApt(null)}
         />
       )}
     </div>

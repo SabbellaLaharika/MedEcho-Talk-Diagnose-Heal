@@ -1,10 +1,11 @@
 import express from 'express';
-import { createReport, getPatientReports, getReportById, sendPatientReportsToDoctor, getDoctorReports, updateReportDoctor } from '../controllers/reportController';
+import { createReport, getPatientReports, getReportById, sendPatientReportsToDoctor, getDoctorReports, updateReportDoctor, generateReportFromCall } from '../controllers/reportController';
 import { protect } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
 router.post('/', protect, createReport);
+router.post('/analyze-transcript', protect, generateReportFromCall);
 router.post('/patient/:patientId/send/:appointmentId', protect, sendPatientReportsToDoctor);
 router.get('/patient/:patientId', protect, getPatientReports);
 router.get('/doctor/:doctorId', protect, getDoctorReports);

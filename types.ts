@@ -78,6 +78,7 @@ export interface MedicalReport {
   summary: string;
   diagnosis: string;
   prescription: string[];
+  medications?: string[];
   aiConfidence?: number;
   inputLanguage?: string;
   symptoms?: string[];

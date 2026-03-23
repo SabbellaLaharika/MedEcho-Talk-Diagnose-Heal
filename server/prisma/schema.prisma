@@ -88,6 +88,7 @@ model Report {
   chatTranscript  Json     // Stored as JSON object for conversation history
   summary         String?
   symptoms        Json?    // Array of symptoms
+  medications     Json?    // Array of medication objects or strings for reminders
   history         Json?    // Patient Q&A
   vitals          Json?    // {bp, weight, temperature}
   createdAt       DateTime @default(now())

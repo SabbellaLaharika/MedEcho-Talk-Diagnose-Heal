@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { User, Appointment, MedicalReport } from '../types';
+import { User, Appointment, MedicalReport, AppNotification } from '../types';
 import AIChatAssistant from './AIChatAssistant';
 import ReportDetailModal from './ReportDetailModal';
 import { getTranslation, translateClinical, translateString, loadTranslations } from '../services/translations';
@@ -18,8 +18,10 @@ import {
   BoltIcon,
   ShieldCheckIcon,
   TrashIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  PhoneIcon
 } from '@heroicons/react/24/solid';
+import VoiceConsultation from './VoiceConsultation';
 
 
 import api from '../services/api';
@@ -29,6 +31,7 @@ interface DoctorDashboardProps {
   doctor: User;
   appointments: Appointment[];
   reports: MedicalReport[];
+  notifications: AppNotification[];
   onUpdateUser: (updatedUser: User) => void;
   onUpdateAppointment: (updatedApt: Appointment) => void;
   onDeleteAppointment: (id: string) => void;
@@ -38,6 +41,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
   doctor,
   appointments,
   reports,
+  notifications,
   onUpdateUser,
   onUpdateAppointment,
   onDeleteAppointment
@@ -62,59 +66,48 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
+  const [activeCallApt, setActiveCallApt] = useState<Appointment | null>(null);
+  const [isCallInitiator, setIsCallInitiator] = useState(false);
+  const [isAnalyzingReport, setIsAnalyzingReport] = useState(false);
+  const [draftReport, setDraftReport] = useState<any>(null);
+  const [showReportReview, setShowReportReview] = useState(false);
 
+  // Deep Link Handling (Join from Email)
   useEffect(() => {
-    const socket = io('http://localhost:5000');
-    socketRef.current = socket;
-    socket.emit('join', { userId: doctor.id, role: 'DOCTOR' });
+    const params = new URLSearchParams(window.location.search);
+    const joinAptId = params.get('joinCall');
+    if (joinAptId && !activeCallApt) {
+       const apt = pendingApts.find(a => a.id === joinAptId);
+       if (apt) {
+          setActiveCallApt(apt);
+          setIsCallInitiator(false);
+          // Clean up URL
+          window.history.replaceState({}, '', window.location.pathname);
+       }
+    }
+  }, [pendingApts, activeCallApt]);
 
-    socket.on('offer', async (payload: any) => {
-      if (payload.to !== doctor.id) return;
-      setActiveCall(`${t.callFrom} ${payload.from}`);
-      setCallState('incoming');
+  // Automatic Call Detection (Doctor side)
+  useEffect(() => {
+    const incoming = notifications.find(n => !n.isRead && n.title === 'Incoming Voice Call');
+    if (incoming && !activeCallApt) {
+       const notifTime = new Date(incoming.timestamp).getTime();
+       const now = new Date().getTime();
 
-      pcRef.current = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-      pcRef.current.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit('ice_candidate', { callId: payload.callId, from: doctor.id, to: payload.from, toRole: 'PATIENT', candidate: event.candidate });
-        }
-      };
-      pcRef.current.ontrack = (event) => {
-        remoteStreamRef.current = event.streams[0];
-        setCallState('in_call');
-      };
-
-      const localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      localStreamRef.current = localStream;
-      localStream.getTracks().forEach(track => pcRef.current?.addTrack(track, localStream));
-
-      await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-      const answer = await pcRef.current.createAnswer();
-      await pcRef.current.setLocalDescription(answer);
-      socket.emit('answer', { callId: payload.callId, from: doctor.id, to: payload.from, sdp: answer });
-      setCallState('in_call');
-    });
-
-    socket.on('ice_candidate', async (payload: any) => {
-      if (payload.to !== doctor.id) return;
-      await pcRef.current?.addIceCandidate(payload.candidate);
-    });
-
-    socket.on('end_call', () => {
-      setCallState('idle');
-      setActiveCall(null);
-      pcRef.current?.close();
-      pcRef.current = null;
-      localStreamRef.current?.getTracks().forEach(t => t.stop());
-      remoteStreamRef.current?.getTracks().forEach(t => t.stop());
-      localStreamRef.current = null;
-      remoteStreamRef.current = null;
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [doctor.id]);
+       if (now - notifTime < 60000) {
+          // Mark as read immediately to prevent loop
+          api.put(`/notifications/${incoming.id}/read`);
+          const apt = pendingApts.find(a => incoming.message.includes(a.patientName || a.patient?.name || ''));
+          if (apt) {
+            setActiveCallApt(apt);
+            setIsCallInitiator(false);
+          }
+       } else {
+          // It's an old notification, mark it as read
+          api.put(`/notifications/${incoming.id}/read`);
+       }
+    }
+  }, [notifications, pendingApts, activeCallApt]);
 
   const stats = [
     { label: t.pendingVisits, value: pendingApts.length.toString(), icon: ClockIcon, color: 'bg-indigo-500' },
@@ -122,12 +115,59 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
     { label: t.finished, value: doctorAppointments.filter(a => a.status === 'COMPLETED').length.toString(), icon: CheckCircleIcon, color: 'bg-emerald-500' },
   ];
 
-  const handleStartCall = (patientName: string, patientId: string) => {
-    const socket = socketRef.current;
-    if (!socket) return;
-    setActiveCall(`${t.callingUser} ${patientName}`);
-    setCallState('calling');
-    socket.emit('start_call', { callId: patientId, from: doctor.id, to: patientId, fromName: doctor.name, toRole: 'PATIENT' });
+  const handleStartCall = async (apt: Appointment) => {
+    // Notify patient of incoming call via backend
+    try {
+      await api.post(`/appointments/${apt.id}/start-call`, { initiatorId: doctor.id });
+    } catch (err) {
+      console.warn("Call notification failed, but opening channel...");
+    }
+    setIsCallInitiator(true);
+    setActiveCallApt(apt);
+  };
+
+  const handleCallEnd = async (transcript?: string) => {
+    setActiveCallApt(null);
+    if (transcript && transcript.length > 20) {
+      setIsAnalyzingReport(true);
+      try {
+        const { data } = await api.post('/analyze-transcript', { text: transcript });
+        setDraftReport({
+          ...data,
+          patientId: activeCallApt?.patientId,
+          appointmentId: activeCallApt?.id,
+          diagnosis: data.condition || 'General Consultation',
+          precautions: data.suggestions || [],
+          medications: data.medications || []
+        });
+        setShowReportReview(true);
+      } catch (err) {
+        console.error("Transcription analysis failed", err);
+      } finally {
+        setIsAnalyzingReport(false);
+      }
+    }
+  };
+
+  const submitFinalReport = async () => {
+    if (!draftReport) return;
+    try {
+      await api.post('/reports', {
+        patientId: draftReport.patientId,
+        doctorId: doctor.id,
+        diagnosis: draftReport.diagnosis,
+        summary: draftReport.summary,
+        preventions: draftReport.precautions,
+        symptoms: draftReport.problems,
+        confidenceScore: draftReport.confidence,
+        medications: draftReport.medications // New field for reminders
+      });
+      setShowReportReview(false);
+      setDraftReport(null);
+      alert("Report verified and sent to patient!");
+    } catch (err) {
+      alert("Failed to save report.");
+    }
   };
 
   const toggleAvailability = (isAvailable: boolean) => {
@@ -232,10 +272,15 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                 </div>
                 <div className="flex space-x-2 w-full sm:w-auto">
                   <button
-                    onClick={() => handleStartCall(apt.patientName || apt.patient?.name || t.patient, apt.patientId || '')}
-                    className="flex-1 sm:flex-none p-3.5 bg-indigo-600 text-white rounded-xl shadow-md"
+                    onClick={() => handleStartCall(apt)}
+                    className={`flex-1 sm:flex-none p-3.5 rounded-xl shadow-md transition-all ${notifications.some(n => !n.isRead && n.message.includes(apt.patientName || apt.patient?.name || '')) ? 'bg-red-500 animate-pulse text-white' : 'bg-indigo-600 text-white'}`}
                   >
-                    <VideoCameraIcon className="w-5 h-5 mx-auto" />
+                    <div className="flex items-center gap-2">
+                      <PhoneIcon className="w-5 h-5 mx-auto" />
+                      {notifications.some(n => !n.isRead && n.message.includes(apt.patientName || apt.patient?.name || '')) && (
+                        <span className="text-[8px] font-black uppercase">JOIN</span>
+                      )}
+                    </div>
                   </button>
                   <button
                     onClick={() => handleStatusChange(apt, 'COMPLETED')}
@@ -319,23 +364,126 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
         </div>
       </div>
 
-      {/* Call Modal */}
-      {(callState !== 'idle') && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white p-5 rounded-2xl shadow-xl w-full max-w-md">
-            <div className="flex justify-between items-center mb-3">
-              <div>
-                <h3 className="font-black text-slate-900">{activeCall || t.liveCall}</h3>
-                <p className="text-[10px] uppercase tracking-widest text-slate-500">
-                  {callState === 'incoming' ? t.incomingCall : callState === 'in_call' ? t.inCall : t.calling}
-                </p>
+      {/* Embedded Jitsi Call Overlay */}
+      {activeCallApt && (
+        <VoiceConsultation
+          user={doctor}
+          appointment={activeCallApt}
+          isInitiator={isCallInitiator}
+          onClose={handleCallEnd}
+        />
+      )}
+
+      {/* AI Report Generation Overlay */}
+      {isAnalyzingReport && (
+        <div className="fixed inset-0 z-[1100] bg-white/80 backdrop-blur-xl flex flex-col items-center justify-center">
+           <div className="w-24 h-24 bg-indigo-600 rounded-[2rem] flex items-center justify-center animate-bounce shadow-2xl">
+              <BoltIcon className="w-12 h-12 text-white" />
+           </div>
+           <h2 className="mt-8 text-xl font-black text-slate-800 uppercase tracking-tighter animate-pulse">
+             Analyzing Consultation...
+           </h2>
+           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+             Detecting problems and extracting medical suggestions
+           </p>
+        </div>
+      )}
+
+      {/* Report Review & Verification Modal */}
+      {showReportReview && draftReport && (
+        <div className="fixed inset-0 z-[1200] bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl flex flex-col my-8">
+              <div className="p-8 border-b bg-indigo-50 flex items-center justify-between">
+                 <div>
+                    <h3 className="text-xl font-black text-slate-800 uppercase">Verify Consultation Report</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Generated by MedEcho AI Assistant</p>
+                 </div>
+                 <button onClick={() => setShowReportReview(false)} className="p-3 bg-white text-slate-400 rounded-2xl hover:text-rose-500 transition-colors">
+                    <XMarkIcon className="w-6 h-6" />
+                 </button>
               </div>
-              <button onClick={() => { setCallState('idle'); setActiveCall(null); pcRef.current?.close(); }} className="text-rose-500 text-sm font-black">
-                {t.endCall}
-              </button>
-            </div>
-            <div className="text-[10px] text-slate-500">{t.webRtcNote}</div>
-          </div>
+
+              <div className="p-10 space-y-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                 {/* Diagnosis */}
+                 <div>
+                    <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-3 block">Primary Diagnosis / Problem</label>
+                    <input 
+                       className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-indigo-600 font-bold text-slate-700"
+                       value={draftReport.diagnosis}
+                       onChange={(e) => setDraftReport({...draftReport, diagnosis: e.target.value})}
+                    />
+                 </div>
+
+                 {/* Suggestions */}
+                 <div>
+                    <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-3 block">Doctor's Suggestions (Editable)</label>
+                    <div className="space-y-3">
+                       {draftReport.precautions.map((p: string, i: number) => (
+                          <div key={i} className="flex gap-2">
+                             <input 
+                                className="flex-1 px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-sm"
+                                value={p}
+                                onChange={(e) => {
+                                   const newP = [...draftReport.precautions];
+                                   newP[i] = e.target.value;
+                                   setDraftReport({...draftReport, precautions: newP});
+                                }}
+                             />
+                          </div>
+                       ))}
+                       <button 
+                         onClick={() => setDraftReport({...draftReport, precautions: [...draftReport.precautions, '']})}
+                         className="text-[10px] font-black text-indigo-500 hover:underline uppercase"
+                       >
+                         + Add Suggestion
+                       </button>
+                    </div>
+                 </div>
+
+                 {/* Medications */}
+                 <div>
+                    <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-3 block">Medications & Prescription</label>
+                    <div className="grid grid-cols-2 gap-3">
+                       {draftReport.medications.map((m: string, i: number) => (
+                          <div key={i} className="flex items-center gap-2 bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                             <ShieldCheckIcon className="w-4 h-4 text-emerald-600" />
+                             <input 
+                               className="bg-transparent font-bold text-xs text-emerald-800 outline-none w-full"
+                               value={m}
+                               onChange={(e) => {
+                                  const newM = [...draftReport.medications];
+                                  newM[i] = e.target.value;
+                                  setDraftReport({...draftReport, medications: newM});
+                               }}
+                             />
+                          </div>
+                       ))}
+                    </div>
+                    <button 
+                         onClick={() => setDraftReport({...draftReport, medications: [...draftReport.medications, '']})}
+                         className="text-[10px] font-black text-emerald-600 hover:underline uppercase mt-4"
+                       >
+                         + Add Medication
+                    </button>
+                    <p className="text-[9px] text-slate-400 mt-2 italic font-medium">Note: Medications will be used to send automated reminders to the patient.</p>
+                 </div>
+              </div>
+
+              <div className="p-8 bg-slate-50 border-t flex items-center justify-between">
+                 <button 
+                    onClick={() => setShowReportReview(false)}
+                    className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600"
+                 >
+                    Discard Draft
+                 </button>
+                 <button 
+                    onClick={submitFinalReport}
+                    className="px-10 py-5 bg-indigo-600 text-white rounded-[2rem] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:scale-105 active:scale-95 transition-all"
+                 >
+                    Verify & Send to Patient
+                 </button>
+              </div>
+           </div>
         </div>
       )}
 

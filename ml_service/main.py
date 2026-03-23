@@ -103,27 +103,60 @@ def analyze():
     if not transcript:
         return jsonify({'error': 'No transcript provided'}), 400
         
-    # Extract symptoms from the entire transcript
-    symptoms = chat_engine._extract_symptoms(transcript.lower())
+    # Split transcript into speakers
+    patient_text = ""
+    doctor_text = ""
     
-    if not symptoms:
-        return jsonify({
-            'condition': 'Undetermined',
-            'confidence': 0,
-            'symptoms_extracted': [],
-            'advice': 'No clear symptoms detected. Please consult a professional.',
-            'summary': 'The system could not identify specific clinical markers in the provided transcript.'
-        })
+    lines = transcript.strip().split('\n')
+    for line in lines:
+        if line.startswith('Patient:'):
+            patient_text += line.replace('Patient:', '').strip() + " "
+        elif line.startswith('Doctor:'):
+            doctor_text += line.replace('Doctor:', '').strip() + " "
+        else:
+            # Ambiguous line, assign to context
+            patient_text += line + " "
+
+    # 1. Extract Problems (Patient Side)
+    symptoms, _ = chat_engine._extract_symptoms(patient_text.lower())
+    disease = "Undetermined"
+    confidence = 0
+    if symptoms:
+        disease, conf_val = chat_engine._predict_disease(symptoms)
+        confidence = float(conf_val.replace('%', ''))
+
+    # 2. Extract Suggestions & Medications (Doctor Side)
+    # Common medical keywords for suggestions
+    suggestion_keywords = ["take", "avoid", "rest", "drink", "apply", "use", "stop", "monitor", "come back", "visit"]
+    suggestions = []
+    
+    # Simple sentence splitter
+    sentences = doctor_text.split('.')
+    for s in sentences:
+        s = s.strip()
+        if any(key in s.lower() for key in suggestion_keywords):
+            suggestions.append(s)
+
+    # 3. Extract Medications
+    common_meds = ["paracetamol", "crocin", "dolo", "antibiotic", "amoxicillin", "cough syrup", "cetirizine", "aspirin", "insulin", "metformin", "omeprazole", "pantoprazole", "allegra", "zyrtec", "vicodin", "ibuprofen", "advil", "motrin", "tylenol"]
+    meds_found = []
+    for m in common_meds:
+        if m in doctor_text.lower():
+            # Try to catch dosage if nearby (simple regex)
+            meds_found.append(m.capitalize())
+
+    # Fallback if no specific doctor suggestions found
+    if not suggestions and doctor_text:
+        suggestions = [doctor_text.strip()]
         
-    disease, confidence = chat_engine._predict_disease(symptoms)
-    precautions = chat_engine.precautions_map.get(disease, "Consult a medical professional for advice.")
-    
     return jsonify({
         'condition': disease,
-        'confidence': float(confidence.replace('%', '')),
+        'confidence': confidence,
         'symptoms_extracted': symptoms,
-        'advice': precautions,
-        'summary': f"Based on symptoms: {', '.join(symptoms).replace('_', ' ')}. Analysis suggests {disease}."
+        'problems': symptoms,
+        'suggestions': suggestions, 
+        'medications': list(set(meds_found)),
+        'summary': f"Patient reported: {', '.join(symptoms).replace('_', ' ')}. Doctor suggested: {'. '.join(suggestions[:2])}."
     })
 
 @app.route('/translate', methods=['POST'])

@@ -51,11 +51,13 @@ const App: React.FC = () => {
   const [formData, setFormData] = useState({ name: '', email: '', password: '', language: 'en', otp: '', newPassword: '' });
   const [preselectedDoctorId, setPreselectedDoctorId] = useState<string | null>(null);
 
-  const generateReminders = useCallback((user: User, apts: Appointment[]) => {
+  const generateReminders = useCallback((user: User, apts: Appointment[], reports: MedicalReport[]) => {
     const today = new Date();
     const oneDayInMs = 24 * 60 * 60 * 1000;
 
     const newNotifications: AppNotification[] = [];
+    
+    // 1. Appointment Reminders
     apts.forEach(apt => {
       if (apt.status !== 'PENDING') return;
       const aptDate = new Date(apt.date);
@@ -65,8 +67,8 @@ const App: React.FC = () => {
         newNotifications.push({
           id: `reminder-${apt.id}`,
           userId: user.id,
-          title: <TranslatedText text="Upcoming Appointment" lang={user.preferredLanguage} /> as any,
-          message: <TranslatedText text={`You have an upcoming appointment scheduled for tomorrow at ${apt.time}.`} lang={user.preferredLanguage} /> as any,
+          title: "Upcoming Appointment",
+          message: `You have an upcoming appointment scheduled for tomorrow at ${apt.time}.`,
           type: 'REMINDER',
           timestamp: new Date(),
           isRead: false,
@@ -74,6 +76,24 @@ const App: React.FC = () => {
         });
       }
     });
+
+    // 2. Medication Reminders (Latest Report)
+    if (user.role === 'PATIENT' && reports.length > 0) {
+       const latest = reports[0];
+       if (latest.medications && latest.medications.length > 0) {
+          latest.medications.forEach((med, idx) => {
+             newNotifications.push({
+                id: `med-${latest.id}-${idx}`,
+                userId: user.id,
+                title: "Medication Reminder",
+                message: `Time to take your prescribed: ${med}. Check your report for dosage.`,
+                type: 'REMINDER',
+                timestamp: new Date(),
+                isRead: false
+             });
+          });
+       }
+    }
 
     setNotifications(prev => {
       const existingIds = new Set(prev.map(n => n.id));
@@ -124,31 +144,40 @@ const App: React.FC = () => {
     if (user) {
       loadTranslations(user.preferredLanguage, 'common');
       loadTranslations(user.preferredLanguage, 'dashboard'); // Pre-load dashboard
+      
       const fetchData = async () => {
-        const [apts, reps, notifs] = await Promise.all([
-          dbService.appointments.getAll(),
-          dbService.reports.getAll(),
-          dbService.notifications.getAll()
-        ]);
-        setNotifications(prev => {
-          const combined = [...notifs, ...prev];
-          const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
-          return unique.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        });
+        try {
+          const [apts, reps, notifs] = await Promise.all([
+            dbService.appointments.getAll(),
+            dbService.reports.getAll(),
+            dbService.notifications.getAll()
+          ]);
+          
+          setNotifications(prev => {
+            const combined = [...notifs, ...prev];
+            // Ensure uniqueness and sort by time
+            const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+            return unique.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          });
 
-        if (user.role === 'DOCTOR') {
-          setAppointments(apts.filter(a => a.doctorId === user.id));
-          // For doctors, we might show all patient reports they've generated
-          const doctorReports = reps.filter(r => r.doctorId === user.id);
-          setReports(doctorReports.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-        } else {
-          setAppointments(apts.filter(a => a.patientId === user.id));
-          const patientReports = reps.filter(r => r.patientId === user.id);
-          setReports(patientReports.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+          if (user.role === 'DOCTOR') {
+            setAppointments(apts.filter(a => a.doctorId === user.id));
+            const doctorReports = reps.filter(r => r.doctorId === user.id);
+            setReports(doctorReports.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+          } else {
+            setAppointments(apts.filter(a => a.patientId === user.id));
+            const patientReports = reps.filter(r => r.patientId === user.id);
+            setReports(patientReports.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+          }
+          generateReminders(user, apts, reps);
+        } catch (e) {
+          console.error("Fetch data error", e);
         }
-        generateReminders(user, apts);
       };
+
       fetchData();
+      const interval = setInterval(fetchData, 10000); // Poll every 10 seconds
+      return () => clearInterval(interval);
     }
   }, [user, generateReminders]);
 
@@ -433,6 +462,7 @@ const App: React.FC = () => {
                 doctor={user}
                 appointments={appointments}
                 reports={reports}
+                notifications={notifications}
                 onUpdateUser={async (u) => {
                   try {
                     const updated = await dbService.auth.updateUser(u);
@@ -458,7 +488,13 @@ const App: React.FC = () => {
                   }
                 }}
               />
-              : <PatientDashboard user={user} appointments={appointments} reports={reports} onUpdateUser={(u) => setUser(u)} />
+              : <PatientDashboard
+                user={user}
+                appointments={appointments}
+                reports={reports}
+                notifications={notifications}
+                onUpdateUser={(u) => setUser(u)}
+              />
           )}
           {activeTab === 'appointments' && <AppointmentBooking
             user={user}

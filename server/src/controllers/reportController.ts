@@ -4,15 +4,31 @@ import { PrismaClient } from '@prisma/client';
 import { translationService } from '../services/translationService';
 import { sendEmail } from '../services/emailService';
 import { getMedicalReportTemplate } from '../services/emailTemplates';
+import axios from 'axios';
 
 const prisma = new PrismaClient();
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+
+// Generate report from call transcript using ML service
+export const generateReportFromCall = async (req: Request, res: Response) => {
+    try {
+        const { text } = req.body;
+        if (!text) return res.status(400).json({ message: "No transcript provided" });
+
+        const { data } = await axios.post(`${ML_SERVICE_URL}/analyze`, { text });
+        res.json(data);
+    } catch (error: any) {
+        console.error("ML Analysis Proxy Error:", error.message);
+        res.status(500).json({ message: "Failed to analyze transcript" });
+    }
+};
 
 // Create Medical Report
 export const createReport = async (req: Request, res: Response) => {
     try {
-        const { patientId, doctorId, diagnosis, confidenceScore, preventions, chatTranscript, summary, symptoms, history, vitals } = req.body;
+        const { patientId, doctorId, diagnosis, confidenceScore, preventions, chatTranscript, summary, symptoms, history, vitals, medications } = req.body;
 
-        console.log("Creating report with payload:", { patientId, diagnosis, hasVitals: !!vitals });
+        console.log("Creating report with payload:", { patientId, diagnosis, hasMedications: !!medications });
 
         if (!patientId || !diagnosis) {
             return res.status(400).json({ message: 'Missing required fields: patientId and diagnosis' });
@@ -28,6 +44,7 @@ export const createReport = async (req: Request, res: Response) => {
                 chatTranscript: chatTranscript || {},
                 summary: summary || '',
                 symptoms: symptoms || [],
+                medications: medications || [],
                 history: history || {},
                 vitals: vitals || {}
             },
