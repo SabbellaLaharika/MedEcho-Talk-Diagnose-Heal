@@ -119,12 +119,12 @@ const App: React.FC = () => {
     const pingInterval = setInterval(pingMLService, 10 * 60 * 1000); // Every 10 min
 
     // 1. One-time Emergency Purge for Cross-Language Hallucinations
-    if (localStorage.getItem('medecho_purge_v10_global') !== 'true') {
+    if (localStorage.getItem('medecho_purge_v11_final') !== 'true') {
       const keys = Object.keys(localStorage);
       keys.forEach(k => {
         if (k.startsWith('med_echo_')) localStorage.removeItem(k);
       });
-      localStorage.setItem('medecho_purge_v10_global', 'true');
+      localStorage.setItem('medecho_purge_v11_final', 'true');
       window.location.reload();
       return;
     }
@@ -262,7 +262,7 @@ const App: React.FC = () => {
               <h1 className="text-6xl font-black text-white tracking-tighter">MedEcho</h1>
             </div>
             <p className="text-slate-400 text-2xl font-medium max-w-lg leading-relaxed">
-              <TranslatedText text={t.precisionHealthDesc} lang={formData.language} />
+              {t.precisionHealthDesc}
             </p>
           </div>
 
@@ -274,7 +274,7 @@ const App: React.FC = () => {
               >
                 <UserIcon className={`w-6 h-6 ${authRole === 'PATIENT' ? 'text-blue-600' : 'text-slate-400'}`} />
                 <span className="text-[10px] font-black uppercase tracking-widest">
-                  <TranslatedText text={t.patientPortal} lang={formData.language} />
+                  {t.patientPortal}
                 </span>
               </button>
               <button
@@ -283,7 +283,7 @@ const App: React.FC = () => {
               >
                 <BriefcaseIcon className={`w-6 h-6 ${authRole === 'DOCTOR' ? 'text-indigo-600' : 'text-slate-400'}`} />
                 <span className="text-[10px] font-black uppercase tracking-widest">
-                  <TranslatedText text={t.clinicalStaff} lang={formData.language} />
+                  {t.clinicalStaff}
                 </span>
               </button>
             </div>
@@ -291,7 +291,7 @@ const App: React.FC = () => {
             <div className="p-8 sm:p-14 space-y-8">
               <div className="text-center">
                 <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">
-                  <TranslatedText text={authMode === 'LOGIN' ? t.secureAccess : authMode === 'FORGOT_PASSWORD' ? 'Forgot Password' : authMode === 'RESET_PASSWORD' ? 'Reset Password' : t.createCredentials} lang={formData.language} />
+                  {authMode === 'LOGIN' ? t.secureAccess : authMode === 'FORGOT_PASSWORD' ? 'Forgot Password' : authMode === 'RESET_PASSWORD' ? 'Reset Password' : t.createCredentials}
                 </h2>
               </div>
               <form onSubmit={handleAuth} className="space-y-4">
@@ -380,15 +380,15 @@ const App: React.FC = () => {
               <Bars3Icon className="w-6 h-6" />
             </button>
             <h1 className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-slate-800">
-              <TranslatedText text={
-                activeTab === 'dashboard' ? (t.dashboard || 'Dashboard') :
+              {
+                activeTab === 'dashboard' ? (user.role === 'DOCTOR' ? t.overview : t.dashboard) || 'Dashboard' :
                   activeTab === 'appointments' ? (t.bookVisit || 'Book Visit') :
                     activeTab === 'schedule' ? (t.mySchedule || 'My Schedule') :
-                      activeTab === 'reports' ? (t.medicalFiles || 'Medical Files') :
-                        activeTab === 'chat' ? (t.chatSupport || 'Chat Support') :
+                      activeTab === 'reports' ? (user.role === 'DOCTOR' ? t.records : t.medicalFiles) || 'Medical Files' :
+                        activeTab === 'chat' ? (user.role === 'DOCTOR' ? t.aiResearch : t.chatSupport) || 'Chat Support' :
                           activeTab === 'virtual-doc' ? (t.virtualDoctor || 'Virtual Doctor') :
                             activeTab === 'profile' ? (t.myProfile || 'My Profile') : activeTab.replace('-', ' ')
-              } lang={user.preferredLanguage} />
+              }
             </h1>
           </div>
 

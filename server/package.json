@@ -23,7 +23,8 @@
     "multer": "^2.0.2",
     "node-cache": "^5.1.2",
     "nodemailer": "^8.0.3",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

@@ -201,7 +201,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
             <UserCircleIcon className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{t.patient?.[0] + " ID" || 'PATIENT ID'}</p>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{(t.patient || 'Patient') + " ID"}</p>
             <span className="font-black text-slate-700 text-xs">P{user.id.replace(/\D/g, '').slice(0, 5).padStart(5, '0')}</span>
           </div>
         </div>
@@ -274,9 +274,6 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
                 return (
                   <div key={apt.id} className="bg-white/5 border border-white/10 p-4 sm:p-6 rounded-[2rem] flex items-center justify-between group hover:bg-white/10 transition-colors">
                     <div className="flex items-center space-x-4 sm:space-x-5">
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-500 rounded-2xl flex items-center justify-center text-white">
-                        <VideoCameraIcon className="w-6 h-6 sm:w-8 sm:h-8" />
-                      </div>
                       <div>
                         <p className="font-black text-sm sm:text-lg">
                           <TranslatedText text={doctorDisplayName} lang={user.preferredLanguage} />

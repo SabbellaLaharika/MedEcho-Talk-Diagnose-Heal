@@ -5,6 +5,7 @@ import { translationService } from '../services/translationService';
 import { sendEmail } from '../services/emailService';
 import { getMedicalReportTemplate } from '../services/emailTemplates';
 import axios from 'axios';
+import Tesseract from 'tesseract.js';
 
 const prisma = new PrismaClient();
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
@@ -216,12 +217,27 @@ export const uploadReport = async (req: Request, res: Response) => {
         // If no file, just create text-based record
         let fileUrl: string | undefined;
         let fileName: string | undefined;
+        let extractedText = '';
 
         if (file) {
             // Store file as base64 data URL to keep it self-contained (no S3 needed)
             const base64 = file.buffer.toString('base64');
             fileUrl = `data:${file.mimetype};base64,${base64}`;
             fileName = file.originalname;
+
+            // OCR Extraction for uploaded images
+            if (file.mimetype.startsWith('image/')) {
+                try {
+                    console.log(`Starting OCR text extraction for: ${fileName}...`);
+                    const result = await Tesseract.recognize(file.buffer, 'eng');
+                    if (result && result.data && result.data.text) {
+                        extractedText = result.data.text.trim();
+                        console.log(`Successfully extracted ${extractedText.length} characters using OCR.`);
+                    }
+                } catch (ocrErr) {
+                    console.error("OCR Extraction failed to parse image:", ocrErr);
+                }
+            }
         }
 
         const report = await (prisma.report as any).create({
@@ -231,7 +247,9 @@ export const uploadReport = async (req: Request, res: Response) => {
                 confidenceScore: 0,
                 precautions: [],
                 chatTranscript: {},
-                summary: notes || 'Manually uploaded report',
+                summary: extractedText 
+                    ? `${notes ? notes + '\n\n' : ''}--- OCR EXTRACTED TEXT ---\n${extractedText}` 
+                    : (notes || 'Manually uploaded report'),
                 symptoms: [],
                 medications: [],
                 history: {},
