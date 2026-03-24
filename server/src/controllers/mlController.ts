@@ -6,6 +6,15 @@ import FormData from 'form-data';
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
 // Proxy Chat/Predict Request
+export const pingML = async (req: Request, res: Response) => {
+    try {
+        await axios.get(`${ML_SERVICE_URL}/ping`);
+        res.status(200).send('ML Service Pong');
+    } catch (error) {
+        res.status(503).send('ML Service Unavailable');
+    }
+};
+
 export const chatWithAI = async (req: Request, res: Response) => {
     try {
         const { text, context, lang } = req.body;

@@ -1,0 +1,17 @@
+{
+  "aiGreeting": "Hi! I am your MedEcho assistant. How can I help you today?",
+  "aiChatTitle": "MedEcho Chat",
+  "autoDetect": "Auto Detect",
+  "aiWarning": "AI Assistant: Collecting clinical intake data in realtime.",
+  "describeSymptoms": "Describe symptoms...",
+  "listening": "Listening...",
+  "multilingualAI": "Multilingual AI",
+  "aiConsultation": "AI Consultation",
+  "quickChatIntake": "Quick Chat Intake Record",
+  "consultHumanDoctor": "Please consult a human doctor for confirmation.",
+  "aiAssistantName": "MedEcho AI Assistant",
+  "reportGenQuickChat": "Report generated via quick chat assistant.",
+  "standardPrecautions": "Standard precautions advised.",
+  "saveReportError": "I couldn’t save your report. Please check your network connection.",
+  "aiConnectError": "❌ Error connecting to AI service. Please ensure the backend and ML servers are running."
+}

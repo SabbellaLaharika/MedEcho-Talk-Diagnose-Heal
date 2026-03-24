@@ -1,0 +1,19 @@
+{
+  "selectSpecialist": "विशेषज्ञ का चयन करें",
+  "searchSpecialists": "विशेषज्ञ खोजें...",
+  "selectTime": "विशेषज्ञ एवं समय का चयन करें",
+  "specialists": "विशेषज्ञों",
+  "backToList": "सूची पर वापस जाएं",
+  "inPerson": "स्वयं",
+  "virtual": "आभासी",
+  "noAvailability": "कोई उपलब्धता नहीं",
+  "reviewAndBook": "समीक्षा करें और बुक करें",
+  "confirmed": "की पुष्टि",
+  "time": "समय",
+  "cardiology": "कार्डियलजी",
+  "neurology": "तंत्रिका-विज्ञान",
+  "orthopedics": "हड्डी रोग",
+  "pediatrics": "बच्चों की दवा करने की विद्या",
+  "generalMedicine": "सामान्य दवा",
+  "urology": "उरोलोजि"
+}

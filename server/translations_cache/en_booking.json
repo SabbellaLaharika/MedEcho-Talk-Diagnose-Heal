@@ -1,0 +1,19 @@
+{
+  "selectSpecialist": "Select Specialist",
+  "searchSpecialists": "Search specialists...",
+  "selectTime": "Select Specialist & Time",
+  "specialists": "Specialists",
+  "backToList": "Back to List",
+  "inPerson": "In-Person",
+  "virtual": "Virtual",
+  "noAvailability": "No Availability",
+  "reviewAndBook": "Review & Book",
+  "confirmed": "Confirmed",
+  "time": "Time",
+  "cardiology": "Cardiology",
+  "neurology": "Neurology",
+  "orthopedics": "Orthopedics",
+  "pediatrics": "Pediatrics",
+  "generalMedicine": "General Medicine",
+  "urology": "Urology"
+}

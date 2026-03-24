@@ -1,0 +1,9 @@
+{
+  "virtualClinic": "Virtual Clinic",
+  "talkToAI": "Talk to our AI specialist instantly.",
+  "startCheckup": "Start Checkup",
+  "finishAndAnalyze": "Finish & Analyze",
+  "languageMode": "Language Mode",
+  "caseSaved": "Case record saved",
+  "clinicalEntitiesWarning": "ACADEMIC PROJECT: Clinical entities are AI-extracted. Call 102/108 for emergencies."
+}

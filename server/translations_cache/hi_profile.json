@@ -1,0 +1,20 @@
+{
+  "coreDemographics": "कोर जनसांख्यिकी",
+  "bloodGroup": "ब्लड ग्रुप",
+  "selectBloodGroup": "ब्लड ग्रुप चुनें",
+  "selectGender": "लिंग चुनें",
+  "dateOfBirth": "जन्मतिथि",
+  "contactInfrastructure": "इंफ्रास्ट्रक्चर से संपर्क करें",
+  "primaryEmail": "प्राथमिक ईमेल",
+  "mobileContact": "मोबाइल संपर्क",
+  "residentialAddress": "आवासीय पता",
+  "medicalProfileId": "मेडिकल प्रोफ़ाइल आईडी",
+  "enterAddress": "चिकित्सा शिपिंग और आपात स्थिति के लिए अपना पूरा आवासीय पता दर्ज करें...",
+  "editProfile": "व्यक्तिगत प्रोफ़ाइल संपादित करें",
+  "profileSyncDesc": "आपके मेडिकल रिकॉर्ड और प्रोफ़ाइल को क्लाउड कोर के साथ सिंक्रनाइज़ किया गया है।",
+  "securityStatus": "सुरक्षा स्थिति",
+  "systemAuthenticated": "सिस्टम प्रमाणित",
+  "changePassword": "पासवर्ड बदलें",
+  "securityDesc": "आपका बायोमेट्रिक और क्लिनिकल डेटा AES-256 प्रोटोकॉल का उपयोग करके एन्क्रिप्ट किया गया है।",
+  "updateProfileFail": "प्रोफ़ाइल अपडेट करने में विफल"
+}

@@ -1,5 +1,5 @@
 import express from 'express';
-import { chatWithAI, speechToText, analyzeSymptoms, translateText, translateBatch } from '../controllers/mlController';
+import { chatWithAI, speechToText, analyzeSymptoms, translateText, translateBatch, pingML } from '../controllers/mlController';
 import { protect } from '../middleware/authMiddleware';
 import multer from 'multer';
 
@@ -9,6 +9,7 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+router.get('/ping', pingML);
 router.post('/chat', protect, chatWithAI);
 router.post('/stt', protect, upload.single('file'), speechToText);
 router.post('/analyze', protect, analyzeSymptoms);

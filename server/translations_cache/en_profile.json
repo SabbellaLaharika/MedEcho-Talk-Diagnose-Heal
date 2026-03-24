@@ -1,0 +1,20 @@
+{
+  "coreDemographics": "Core Demographics",
+  "bloodGroup": "Blood Group",
+  "selectBloodGroup": "Select Blood Group",
+  "selectGender": "Select Gender",
+  "dateOfBirth": "Date of Birth",
+  "contactInfrastructure": "Contact Infrastructure",
+  "primaryEmail": "Primary Email",
+  "mobileContact": "Mobile Contact",
+  "residentialAddress": "Residential Address",
+  "medicalProfileId": "Medical Profile ID",
+  "enterAddress": "Enter your complete residential address for medical shipping and emergencies...",
+  "editProfile": "Edit Personal Profile",
+  "profileSyncDesc": "Your medical records and profile have been synchronized with the cloud core.",
+  "securityStatus": "Security Status",
+  "systemAuthenticated": "System Authenticated",
+  "changePassword": "Change Password",
+  "securityDesc": "Your biometric and clinical data is encrypted using AES-256 protocols.",
+  "updateProfileFail": "Failed to update profile"
+}

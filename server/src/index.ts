@@ -28,6 +28,11 @@ app.get('/', (req, res) => {
     res.send('MedEcho Backend is running');
 });
 
+// Used by frontend for keep-alive pings to prevent Render free-tier cold starts
+app.get('/api/health', (req, res) => {
+    res.status(200).send('OK');
+});
+
 // Import Routes
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';

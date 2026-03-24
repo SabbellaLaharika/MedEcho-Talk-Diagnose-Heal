@@ -2,13 +2,22 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { translationService } from '../services/translationService';
+import NodeCache from 'node-cache';
 
 const prisma = new PrismaClient();
+const apiCache = new NodeCache({ stdTTL: 600, checkperiod: 120 }); // Cache for 10 minutes
 
 // Get all doctors (Localized based on requesting user's preference if provided, or defaults)
 export const getDoctors = async (req: Request, res: Response) => {
     try {
         const { lang } = req.query; // Optional lang query param
+        const cacheKey = `doctors_${lang || 'en'}`;
+
+        // 1. Check Cache
+        if (apiCache.has(cacheKey)) {
+            console.log("Serving doctors from fast memory cache");
+            return res.json(apiCache.get(cacheKey));
+        }
 
         const doctors = await prisma.user.findMany({
             where: { role: 'DOCTOR' },
@@ -41,9 +50,11 @@ export const getDoctors = async (req: Request, res: Response) => {
                 ['name', 'specialization'],
                 lang
             );
+            apiCache.set(cacheKey, translatedDoctors); // 2. Save translated to Cache
             return res.json(translatedDoctors);
         }
 
+        apiCache.set(cacheKey, dedupedDoctors); // 2. Save to Cache
         res.json(dedupedDoctors);
     } catch (error) {
         console.error(error);

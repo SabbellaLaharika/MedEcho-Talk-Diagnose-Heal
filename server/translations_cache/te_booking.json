@@ -1,0 +1,19 @@
+{
+  "selectSpecialist": "నిపుణుడిని ఎంచుకోండి",
+  "searchSpecialists": "శోధన నిపుణులు...",
+  "selectTime": "స్పెషలిస్ట్ & సమయాన్ని ఎంచుకోండి",
+  "specialists": "నిపుణులు",
+  "backToList": "జాబితాకి తిరిగి వెళ్ళు",
+  "inPerson": "వ్యక్తిగతంగా",
+  "virtual": "వర్చువల్",
+  "noAvailability": "లభ్యత లేదు",
+  "reviewAndBook": "రివ్యూ & బుక్",
+  "confirmed": "నిర్ధారించారు",
+  "time": "సమయం",
+  "cardiology": "కార్డియాలజీ",
+  "neurology": "న్యూరాలజీ",
+  "orthopedics": "ఆర్థోపెడిక్స్",
+  "pediatrics": "పీడియాట్రిక్స్",
+  "generalMedicine": "జనరల్ మెడిసిన్",
+  "urology": "యూరాలజీ"
+}
