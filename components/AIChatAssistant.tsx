@@ -1,5 +1,30 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+
+const Waveform = () => (
+  <div className="flex items-center space-x-0.5 h-3">
+    {[1, 2, 3, 4, 5].map((i) => (
+      <div
+        key={i}
+        className="w-0.5 bg-rose-500 rounded-full animate-[wave_1s_ease-in-out_infinite]"
+        style={{ animationDelay: `${i * 0.15}s` }}
+      />
+    ))}
+    <style>{`
+      @keyframes wave {
+        0%, 100% { height: 4px; }
+        50% { height: 12px; }
+      }
+      @keyframes flash {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
+      .animate-flash {
+        animation: flash 1s ease-in-out infinite;
+      }
+    `}</style>
+  </div>
+);
 import { Message, MedicalReport } from '../types';
 import api from '../services/api';
 import { dbService, mapBackendReportToFrontend } from '../services/dbService';
@@ -152,6 +177,8 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
   const [conversationContext, setConversationContext] = useState<any>({ state: 'GREETING' });
   const [lastInputMethod, setLastInputMethod] = useState<'text' | 'voice'>('text');
   const [isUploading, setIsUploading] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const manualStop = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -162,21 +189,57 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = selectedLang;
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = selectedLang === 'auto' ? (user?.preferredLanguage || 'en') : selectedLang;
 
-      recognitionRef.current.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setInput(transcript);
-        processMessage(transcript);
+      recognition.onresult = (event: any) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        if (finalTranscript) {
+          setInput(finalTranscript);
+          processMessage(finalTranscript);
+        } else if (interimTranscript) {
+          setInput(interimTranscript);
+        }
       };
 
-      recognitionRef.current.onend = () => setIsListening(false);
-      recognitionRef.current.onerror = () => setIsListening(false);
+      recognition.onend = () => {
+        if (!manualStop.current && isListening && !isSpeaking) {
+          try {
+            recognition.start();
+          } catch (e) {
+            console.warn("Speech recognition restart failed", e);
+          }
+        } else if (manualStop.current) {
+          setIsListening(false);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech Recognition Error", event.error);
+        if (event.error === 'not-allowed') {
+          setIsListening(false);
+          manualStop.current = true;
+        }
+      };
     }
-  }, [selectedLang]);
+  }, [selectedLang, user?.preferredLanguage, isSpeaking]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -195,6 +258,25 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       }
       utterance.rate = 0.9;
       utterance.pitch = 1.0;
+
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        if (recognitionRef.current && isListening) {
+          recognitionRef.current.stop();
+        }
+      };
+
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        if (recognitionRef.current && isListening && !manualStop.current) {
+          try {
+            recognitionRef.current.start();
+          } catch (e) {
+            console.warn("Auto-restart after speaking failed", e);
+          }
+        }
+      };
+
       synth.speak(utterance);
     } catch (e) {
       console.error("TTS Error", e);
@@ -202,10 +284,15 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
   };
 
   const startRecording = () => {
+    manualStop.current = false;
     if (recognitionRef.current) {
       setLastInputMethod('voice');
-      recognitionRef.current.start();
-      setIsListening(true);
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (e) {
+        console.warn("Initial recognition start failed", e);
+      }
     } else {
       startMediaRecorder();
     }
@@ -233,7 +320,8 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
   };
 
   const stopRecording = () => {
-    if (recognitionRef.current && isListening) {
+    manualStop.current = true;
+    if (recognitionRef.current) {
       recognitionRef.current.stop();
     } else if (mediaRecorderRef.current && isListening) {
       mediaRecorderRef.current.stop();
@@ -636,6 +724,50 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
           <TranslatedText text={t.aiWarning} lang={user?.preferredLanguage} />
         </p>
       </div>
+
+      {/* Voice/AI Status Indicator */}
+      {(isListening || isTyping || isSpeaking) && (
+        <div className="px-4 py-2 bg-white/80 backdrop-blur-sm border-b flex items-center justify-between animate-in slide-in-from-bottom-2 duration-300">
+          <div className="flex items-center space-x-3">
+            {isListening && !isSpeaking ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" />
+                <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest">Listening</span>
+                <Waveform />
+              </div>
+            ) : isSpeaking ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Speaking</span>
+                <div className="flex space-x-0.5">
+                   <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                   <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                   <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce"></div>
+                </div>
+              </div>
+            ) : isTyping ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" />
+                <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest">Thinking</span>
+                <div className="flex space-x-1">
+                  <span className="w-1 h-1 bg-amber-400 rounded-full animate-flash"></span>
+                  <span className="w-1 h-1 bg-amber-400 rounded-full animate-flash [animation-delay:0.2s]"></span>
+                  <span className="w-1 h-1 bg-amber-400 rounded-full animate-flash [animation-delay:0.4s]"></span>
+                </div>
+              </div>
+            ) : null}
+          </div>
+          {isListening && (
+             <button 
+               type="button"
+               onClick={stopRecording} 
+               className="text-[8px] font-black text-slate-400 uppercase hover:text-rose-500 transition-colors tracking-tighter"
+             >
+               [ Stop Assistant ]
+             </button>
+          )}
+        </div>
+      )}
 
       <form onSubmit={handleSend} className="p-3 sm:p-4 bg-white flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
         <button
