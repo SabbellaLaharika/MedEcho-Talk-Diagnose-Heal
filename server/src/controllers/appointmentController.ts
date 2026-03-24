@@ -251,8 +251,8 @@ export const startCall = async (req: Request, res: Response) => {
         const appointment = await prisma.appointment.findUnique({
             where: { id },
             include: { 
-                patient: { select: { id: true, name: true, email: true } }, 
-                doctor: { select: { id: true, name: true, email: true } } 
+                patient: { select: { id: true, name: true, email: true, username: true } }, 
+                doctor: { select: { id: true, name: true, email: true, username: true } } 
             }
         });
 
