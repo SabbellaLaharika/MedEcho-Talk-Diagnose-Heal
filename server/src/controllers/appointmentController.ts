@@ -180,8 +180,8 @@ export const getAppointments = async (req: Request, res: Response) => {
         const appointments = await prisma.appointment.findMany({
             where: whereClause,
             include: {
-                doctor: { select: { id: true, name: true, username: true, specialization: true, contact: true } },
-                patient: { select: { id: true, name: true, username: true } }
+                doctor: { select: { id: true, name: true, specialization: true, contact: true } },
+                patient: { select: { id: true, name: true } }
             },
             orderBy: { date: 'desc' }
         });
@@ -251,8 +251,8 @@ export const startCall = async (req: Request, res: Response) => {
         const appointment = await prisma.appointment.findUnique({
             where: { id },
             include: { 
-                patient: { select: { id: true, name: true, email: true, username: true } }, 
-                doctor: { select: { id: true, name: true, email: true, username: true } } 
+                patient: { select: { id: true, name: true, email: true } }, 
+                doctor: { select: { id: true, name: true, email: true } } 
             }
         });
 
