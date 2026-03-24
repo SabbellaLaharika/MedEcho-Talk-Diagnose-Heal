@@ -61,6 +61,8 @@ const NAMESPACED_DICTIONARY: Record<string, Record<string, string>> = {
     joinMedEcho: 'Join MedEcho? Register',
     alreadyHaveAccess: 'Already have access? Login',
     legalFullName: 'Legal Full Name',
+    primaryEmail: 'Primary Email Address',
+    loginId: 'Email or User ID',
   },
   dashboard: {
     latestReports: 'Latest Reports',

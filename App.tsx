@@ -314,7 +314,14 @@ const App: React.FC = () => {
                 )}
                 
                 {authMode !== 'RESET_PASSWORD' && (
-                  <input required type="email" placeholder={t.primaryEmail} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                  <input 
+                    required 
+                    type={authMode === 'LOGIN' ? "text" : "email"} 
+                    placeholder={authMode === 'LOGIN' ? (t.loginId || 'Email or User ID') : (t.primaryEmail || 'Primary Email Address')} 
+                    className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" 
+                    value={formData.email} 
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
+                  />
                 )}
                 
                 {(authMode === 'LOGIN' || authMode === 'REGISTER') && (

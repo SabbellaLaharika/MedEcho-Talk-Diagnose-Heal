@@ -15,14 +15,36 @@ export const register = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'User already exists' });
         }
 
+        // --- Sequential Username Generation ---
+        const userRole = role || 'PATIENT';
+        const prefix = userRole === 'DOCTOR' ? 'D' : (userRole === 'PATIENT' ? 'P' : 'A');
+        const padLen = userRole === 'PATIENT' ? 5 : 3;
+
+        const latestUser = await prisma.user.findFirst({
+            where: { username: { startsWith: prefix } },
+            orderBy: { username: 'desc' },
+            select: { username: true }
+        });
+
+        let newNum = 1;
+        if (latestUser && latestUser.username) {
+            const currentNumStr = latestUser.username.substring(1);
+            const parsed = parseInt(currentNumStr);
+            if (!isNaN(parsed)) {
+                newNum = parsed + 1;
+            }
+        }
+        const username = `${prefix}${newNum.toString().padStart(padLen, '0')}`;
+
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const user = await prisma.user.create({
             data: {
                 email,
+                username,
                 passwordHash: hashedPassword,
                 name,
-                role: role || 'PATIENT',
+                role: userRole as any,
                 preferredLanguage: preferredLanguage || 'en',
             },
         });
@@ -43,7 +65,16 @@ export const login = async (req: Request, res: Response) => {
     try {
         const { email, password } = req.body;
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        // Allow login via email or username
+        const user = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email: email },
+                    { username: email }
+                ]
+            }
+        });
+
         if (!user) {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
