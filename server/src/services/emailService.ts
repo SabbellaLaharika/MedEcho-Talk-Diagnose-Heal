@@ -1,20 +1,18 @@
 import nodemailer from 'nodemailer';
 
 // Create a transporter using standard SMTP
-// Create a transporter using Mailtrap (Reliable for Render)
-// Gmail Port 465/587 is frequently blocked by Render.
-// Mailtrap uses Port 2525 which is much more reliable in cloud environments.
+// Create a transporter using Brevo (Sendinblue) - Most reliable for Render
 const transporter = nodemailer.createTransport({
-    host: 'live.smtp.mailtrap.io', // Live SMTP host for Mailtrap
-    port: 587, // Mailtrap works well on 587 or 2525
-    secure: false, 
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false, // TLS
     auth: {
-        user: process.env.SMTP_USER, // The API User from Mailtrap
-        pass: process.env.SMTP_PASS, // The API Password from Mailtrap
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
     },
-    connectionTimeout: 20000, 
-    greetingTimeout: 20000,
-    socketTimeout: 20000,
+    connectionTimeout: 30000, 
+    greetingTimeout: 30000,
+    socketTimeout: 30000,
 });
 
 interface EmailOptions {

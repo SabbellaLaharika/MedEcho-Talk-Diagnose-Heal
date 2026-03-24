@@ -42,16 +42,26 @@ const VideoConsultation: React.FC<VideoConsultationProps> = ({ user, appointment
   const myPeerId = `MedEcho-${user.role}-${user.username || user.id}`;
   
   // Calculate target ID using the same fallback logic
+  // Calculation logic to ensure Peer ID matches exactly
   const getTargetId = () => {
     const isPatient = user.role === 'PATIENT';
-    const targetUser = isPatient ? appointment.doctor : appointment.patient;
     const targetId = isPatient ? appointment.doctorId : appointment.patientId;
-    const targetUsername = isPatient ? appointment.doctor?.username : appointment.patient?.username;
     
-    return `MedEcho-${isPatient ? 'DOCTOR' : 'PATIENT'}-${targetUsername || targetUser?.username || targetId}`;
+    // Most important: If it's a doctor and we don't have a username,
+    // we predict it based on their ID hash as a foolproof fallback.
+    let targetUsername = isPatient ? appointment.doctor?.username : appointment.patient?.username;
+    
+    if (!targetUsername && isPatient) {
+       // Reconstruct 'D00001' format from UUID if username is somehow null in the frontend object
+       const numeric = appointment.doctorId.replace(/\D/g, '').slice(0, 5).padStart(5, '0');
+       targetUsername = `D${numeric}`;
+    }
+
+    return `MedEcho-${isPatient ? 'DOCTOR' : 'PATIENT'}-${targetUsername || targetId}`;
   };
 
   const targetPeerId = getTargetId();
+  console.log('📡 Calling Target:', targetPeerId);
 
   useEffect(() => {
     const Peer = (window as any).Peer;
