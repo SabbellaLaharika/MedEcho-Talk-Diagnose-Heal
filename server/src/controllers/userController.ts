@@ -25,6 +25,7 @@ export const getDoctors = async (req: Request, res: Response) => {
                 id: true,
                 name: true,
                 email: true,
+                username: true,
                 role: true,
                 avatar: true,
                 specialization: true,

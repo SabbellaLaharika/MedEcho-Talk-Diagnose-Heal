@@ -72,6 +72,7 @@ const VideoConsultation: React.FC<VideoConsultationProps> = ({ user, appointment
     });
 
     peerRef.current.on('open', (id: string) => {
+      console.log('PeerJS Tunnel Opened:', id);
       if (isInitiator) {
          startTheCall();
       }
@@ -79,9 +80,22 @@ const VideoConsultation: React.FC<VideoConsultationProps> = ({ user, appointment
 
     // Handle Incoming Calls
     peerRef.current.on('call', async (incomingCall: any) => {
+      console.log('Incoming Call Detected...');
       callRef.current = incomingCall;
-      if (hasStarted) {
-         await handleAnswer();
+      
+      // Auto-answer if we're expectantly waiting for a call
+      // This prevents the 'Tunnel' stuck state on the recipient side
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: !isVoiceOnly });
+        localStreamRef.current = stream;
+        if (localVideoRef.current && !isVoiceOnly) localVideoRef.current.srcObject = stream;
+        
+        incomingCall.answer(stream);
+        setupCall(incomingCall);
+        setStatus('IN_CALL');
+      } catch (err) {
+        console.error('Failed to answer call:', err);
+        setStatus('FAILED');
       }
     });
 
@@ -91,11 +105,19 @@ const VideoConsultation: React.FC<VideoConsultationProps> = ({ user, appointment
       conn.on('data', (data: string) => {
         setTranscript(prev => prev + '\n' + data);
       });
+      conn.on('open', () => {
+        console.log('Data Tunnel Opened');
+      });
     });
 
     peerRef.current.on('error', (err: any) => {
       console.error('PeerJS error:', err);
-      if (err.type !== 'peer-unavailable') setStatus('FAILED');
+      // If peer is unavailable, it might just be a cold start - don't crash immediately
+      if (err.type === 'peer-unavailable') {
+          console.warn('Target peer not yet online. Retrying...');
+      } else {
+          setStatus('FAILED');
+      }
     });
 
     // Speech Recognition Setup
@@ -142,6 +164,15 @@ const VideoConsultation: React.FC<VideoConsultationProps> = ({ user, appointment
       
       const call = peerRef.current.call(targetPeerId, stream);
       if (call) setupCall(call);
+
+      // Add a small retry if it fails to connect immediately
+      setTimeout(() => {
+        if (status === 'INITIALIZING') {
+           console.log('Retrying call connection...');
+           const retryCall = peerRef.current.call(targetPeerId, stream);
+           if (retryCall) setupCall(retryCall);
+        }
+      }, 3000);
 
       const conn = peerRef.current.connect(targetPeerId);
       dataConnRef.current = conn;

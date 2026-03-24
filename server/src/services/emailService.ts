@@ -1,27 +1,21 @@
 import nodemailer from 'nodemailer';
 
 // Create a transporter using standard SMTP
-// Create a transporter using SSL (Port 465)
-// CRITICAL: Render's DNS/IPv6 is failing for Gmail. 
-// We are hard-coding the known Gmail SMTP IPv4 address (74.125.200.108) 
-// to bypass DNS and IPv6 resolution entirely.
+// Create a transporter using Mailtrap (Reliable for Render)
+// Gmail Port 465/587 is frequently blocked by Render.
+// Mailtrap uses Port 2525 which is much more reliable in cloud environments.
 const transporter = nodemailer.createTransport({
-    host: '74.125.200.108', // Hardcoded smtp.gmail.com IPv4
-    port: 465,
-    secure: true, 
+    host: 'live.smtp.mailtrap.io', // Live SMTP host for Mailtrap
+    port: 587, // Mailtrap works well on 587 or 2525
+    secure: false, 
     auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: process.env.SMTP_USER, // The API User from Mailtrap
+        pass: process.env.SMTP_PASS, // The API Password from Mailtrap
     },
-    tls: {
-        // Since we are using an IP address, we must tell it to expect smtp.gmail.com for the certificate
-        servername: 'smtp.gmail.com',
-        rejectUnauthorized: false
-    },
-    connectionTimeout: 30000, // 30 seconds
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
-} as any);
+    connectionTimeout: 20000, 
+    greetingTimeout: 20000,
+    socketTimeout: 20000,
+});
 
 interface EmailOptions {
     to: string;

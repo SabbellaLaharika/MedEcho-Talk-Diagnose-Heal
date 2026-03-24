@@ -180,8 +180,8 @@ export const getAppointments = async (req: Request, res: Response) => {
         const appointments = await prisma.appointment.findMany({
             where: whereClause,
             include: {
-                doctor: { select: { name: true, specialization: true, contact: true } },
-                patient: { select: { name: true } }
+                doctor: { select: { id: true, name: true, username: true, specialization: true, contact: true } },
+                patient: { select: { id: true, name: true, username: true } }
             },
             orderBy: { date: 'desc' }
         });

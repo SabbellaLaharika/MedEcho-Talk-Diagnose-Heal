@@ -109,8 +109,8 @@ const App: React.FC = () => {
     // ─── Keep-Alive Ping: Prevents Render free-tier cold starts ─────────
     const pingMLService = () => {
       import('./services/api').then(({ default: api }) => {
-        api.get('api/ml/ping').catch(() => {});
-        api.get('api/health').catch(() => {});
+        api.get('ml/ping').catch(() => {});
+        api.get('health').catch(() => {});
       });
     };
     pingMLService();
