@@ -42,6 +42,7 @@ import mlRoutes from './routes/mlRoutes';
 import scheduleRoutes from './routes/scheduleRoutes';
 import translationRoutes from './routes/translationRoutes';
 import notificationRoutes from './routes/notificationRoutes';
+import didRoutes from './routes/didRoutes';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -51,6 +52,7 @@ app.use('/api/ml', mlRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/translations', translationRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/did', didRoutes);
 
 // Socket.io Connection
 io.on('connection', (socket) => {

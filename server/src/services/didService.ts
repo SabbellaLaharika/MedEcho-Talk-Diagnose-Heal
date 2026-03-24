@@ -33,6 +33,7 @@ const MALE_VOICE_MAPPING: Record<string, string> = {
 export class DIDService {
   private static getHeaders() {
     const auth = Buffer.from(API_KEY || '').toString('base64');
+    console.log('D-ID Auth Header (Partial):', `Basic ${auth.substring(0, 10)}...`);
     return {
       'Authorization': `Basic ${auth}`,
       'Content-Type': 'application/json',
@@ -93,7 +94,8 @@ export class DIDService {
       });
       return response.data; // Includes id (stream_id), session_id, offer (sdp), ice_servers
     } catch (error: any) {
-      console.error('D-ID Create Stream Error:', error.response?.data || error.message);
+      const errorDetail = error.response?.data || error.message;
+      console.error('D-ID Create Stream Error:', JSON.stringify(errorDetail, null, 2));
       throw error;
     }
   }
