@@ -91,6 +91,9 @@ model Report {
   medications     Json?    // Array of medication objects or strings for reminders
   history         Json?    // Patient Q&A
   vitals          Json?    // {bp, weight, temperature}
+  reportType      String   @default("AI")  // "AI" | "CONSULTATION" | "UPLOADED"
+  fileUrl         String?  // URL for uploaded report files
+  fileName        String?  // Original filename for uploaded reports
   createdAt       DateTime @default(now())
 
   // Relations

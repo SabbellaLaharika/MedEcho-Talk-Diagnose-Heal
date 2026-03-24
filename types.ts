@@ -83,6 +83,9 @@ export interface MedicalReport {
   inputLanguage?: string;
   symptoms?: string[];
   history?: Record<string, string>;
+  reportType?: 'AI' | 'CONSULTATION' | 'UPLOADED';
+  fileUrl?: string;
+  fileName?: string;
   vitals?: {
     bp?: string;
     weight?: string;

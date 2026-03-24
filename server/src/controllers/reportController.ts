@@ -203,3 +203,52 @@ export const getDoctorReports = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Server error fetching doctor reports' });
     }
 };
+// Upload an external report (PDF/Image)
+export const uploadReport = async (req: Request, res: Response) => {
+    try {
+        const file = (req as any).file;
+        const { patientId, diagnosis, notes } = req.body;
+
+        if (!patientId) {
+            return res.status(400).json({ message: 'patientId is required' });
+        }
+
+        // If no file, just create text-based record
+        let fileUrl: string | undefined;
+        let fileName: string | undefined;
+
+        if (file) {
+            // Store file as base64 data URL to keep it self-contained (no S3 needed)
+            const base64 = file.buffer.toString('base64');
+            fileUrl = `data:${file.mimetype};base64,${base64}`;
+            fileName = file.originalname;
+        }
+
+        const report = await (prisma.report as any).create({
+            data: {
+                patientId,
+                diagnosis: diagnosis || (fileName ? `Uploaded: ${fileName}` : 'External Report'),
+                confidenceScore: 0,
+                precautions: [],
+                chatTranscript: {},
+                summary: notes || 'Manually uploaded report',
+                symptoms: [],
+                medications: [],
+                history: {},
+                vitals: {},
+                reportType: 'UPLOADED',
+                fileUrl: fileUrl || null,
+                fileName: fileName || null,
+            },
+            include: {
+                patient: { select: { name: true } },
+                doctor: { select: { name: true } }
+            }
+        });
+
+        res.status(201).json(report);
+    } catch (error: any) {
+        console.error('Upload Report Error:', error);
+        res.status(500).json({ message: 'Server error uploading report', error: error.message });
+    }
+};
