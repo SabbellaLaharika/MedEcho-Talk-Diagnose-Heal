@@ -106,6 +106,18 @@ const App: React.FC = () => {
     dbService.init();
     const currentUser = dbService.auth.getCurrentUser();
 
+    // ─── Keep-Alive Ping: Prevents Render free-tier cold starts ─────────
+    // Fires immediately, then every 10 minutes to keep BOTH services warm
+    const pingMLService = () => {
+      import('./services/api').then(({ default: api }) => {
+        // Ping ML service AND Node backend simultaneously
+        api.get('ml/ping').catch(() => {});
+        api.get('health').catch(() => {});  // Backend health check
+      });
+    };
+    pingMLService(); // Immediate warm-up on app load
+    const pingInterval = setInterval(pingMLService, 10 * 60 * 1000); // Every 10 min
+
     // 1. One-time Emergency Purge for Cross-Language Hallucinations
     if (localStorage.getItem('medecho_purge_v10_global') !== 'true') {
       const keys = Object.keys(localStorage);
@@ -135,7 +147,10 @@ const App: React.FC = () => {
 
     // Subscribe to translation updates to re-render UI
     const unsubscribe = subscribeToTranslations(() => setTick(t => t + 1));
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      clearInterval(pingInterval);
+    };
   }, []);
 
   // Translations are now handled by TranslatedText component in JSX

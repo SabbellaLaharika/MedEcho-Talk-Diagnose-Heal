@@ -60,6 +60,8 @@ model User {
   notifications       Notification[]
   doctorSchedules     DoctorSchedule[] @relation("DoctorSchedules")
   blockedSlots        BlockedSlot[]    @relation("BlockedSlots")
+
+  @@index([role])
 }
 
 model Appointment {
@@ -77,6 +79,10 @@ model Appointment {
   // Relations
   doctor  User @relation("DoctorAppointments", fields: [doctorId], references: [id])
   patient User @relation("PatientAppointments", fields: [patientId], references: [id])
+
+  @@index([doctorId])
+  @@index([patientId])
+  @@index([date])
 }
 
 model Report {
@@ -98,6 +104,8 @@ model Report {
 
   // Relations
   patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
   doctor  User? @relation("DoctorReports", fields: [doctorId], references: [id]) 
   doctorId String?
 }

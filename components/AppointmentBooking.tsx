@@ -27,6 +27,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
   }, [user.preferredLanguage]);
 
   // 1. STATES
+  const [loading, setLoading] = useState(true);
   const [doctors, setDoctors] = useState<User[]>([]);
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<User | null>(null);
@@ -93,6 +94,8 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
         setAllAppointments(apts || []);
       } catch (err) {
         console.error("Failed to load booking data:", err);
+      } finally {
+        setLoading(false);
       }
     };
     loadData();
@@ -244,43 +247,64 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
         <div className={`lg:col-span-5 space-y-4 ${selectedDoc ? 'hidden lg:block' : 'block'}`}>
           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t.specialists}</label>
           <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
-            {filteredDoctors.map((doc) => (
-              <button
-                key={doc.id}
-                onClick={() => { setSelectedDoc(doc); setSelectedTime(null); }}
-                className={`w-full p-6 rounded-[2rem] border-2 flex items-center justify-between transition-all ${selectedDoc?.id === doc.id ? 'border-indigo-600 bg-white shadow-xl' : 'border-slate-50 bg-white/50 hover:border-indigo-100'
-                  }`}
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="relative flex-shrink-0">
-                    <img src={doc.avatar} alt={doc.name} className="w-16 h-16 rounded-2xl object-cover border border-slate-50 shadow-sm" />
-                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${doc.isAvailable ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+            {loading ? (
+              // Skeleton Loaders
+              [...Array(4)].map((_, i) => (
+                <div key={i} className="w-full p-6 rounded-[2rem] border-2 border-slate-50 bg-white/50 animate-pulse flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-200"></div>
+                    <div className="space-y-2">
+                      <div className="h-5 bg-slate-200 rounded-md w-32"></div>
+                      <div className="h-3 bg-slate-200 rounded-md w-24"></div>
+                    </div>
                   </div>
-                  <div className="text-left min-w-0">
-                    <p className="font-black text-slate-800 text-lg leading-tight truncate">
-                      <TranslatedText text={doc.name} lang={user.preferredLanguage} />
-                    </p>
-                    <p className="text-[10px] font-black text-indigo-500 uppercase mt-1 truncate">
-                      {translateClinical(doc.specialization || '', user.preferredLanguage)}
-                    </p>
+                  <div className="w-8 h-8 rounded-full bg-slate-200"></div>
+                </div>
+              ))
+            ) : filteredDoctors.length === 0 ? (
+              <div className="text-center py-10 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                <NoSymbolIcon className="w-10 h-10 mx-auto text-slate-300 mb-3" />
+                <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">{t.noDoctorsFound}</p>
+              </div>
+            ) : (
+              filteredDoctors.map((doc) => (
+                <button
+                  key={doc.id}
+                  onClick={() => { setSelectedDoc(doc); setSelectedTime(null); }}
+                  className={`w-full p-6 rounded-[2rem] border-2 flex items-center justify-between transition-all ${selectedDoc?.id === doc.id ? 'border-indigo-600 bg-white shadow-xl' : 'border-slate-50 bg-white/50 hover:border-indigo-100'
+                    }`}
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="relative flex-shrink-0">
+                      <img src={doc.avatar} alt={doc.name} className="w-16 h-16 rounded-2xl object-cover border border-slate-50 shadow-sm" />
+                      <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${doc.isAvailable ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+                    </div>
+                    <div className="text-left min-w-0">
+                      <p className="font-black text-slate-800 text-lg leading-tight truncate">
+                        <TranslatedText text={doc.name} lang={user.preferredLanguage} />
+                      </p>
+                      <p className="text-[10px] font-black text-indigo-500 uppercase mt-1 truncate">
+                        {translateClinical(doc.specialization || '', user.preferredLanguage)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const phone = doc.contact || doc?.contact || '6300292724';
-                      const clean = phone.replace(/[^\d+]/g, '');
-                      if (clean.length > 0) window.location.href = `tel:${clean}`;
-                    }}
-                    className="text-[10px] font-black uppercase text-white bg-emerald-500 px-2 py-1 rounded-full"
-                  >
-                    {t.call}
-                  </button>
-                  <ChevronRightIcon className={`w-4 h-4 ${selectedDoc?.id === doc.id ? 'text-indigo-600' : 'text-slate-200'}`} />
-                </div>
-              </button>
-            ))}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const phone = doc.contact || '6300292724';
+                        const clean = phone.replace(/[^\d+]/g, '');
+                        if (clean.length > 0) window.location.href = `tel:${clean}`;
+                      }}
+                      className="text-[10px] font-black uppercase text-white bg-emerald-500 px-2 py-1 rounded-full"
+                    >
+                      {t.call}
+                    </button>
+                    <ChevronRightIcon className={`w-4 h-4 ${selectedDoc?.id === doc.id ? 'text-indigo-600' : 'text-slate-200'}`} />
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         </div>
 

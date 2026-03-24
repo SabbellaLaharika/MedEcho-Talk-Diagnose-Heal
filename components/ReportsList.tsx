@@ -213,7 +213,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
             className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-[10px] uppercase tracking-widest transition-all ${getTabStyle(tab.key)}`}
           >
             {tab.icon}
-            <span>{tab.label}</span>
+            <span><TranslatedText text={tab.label} lang={user.preferredLanguage} /></span>
             <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-black ${activeTab === tab.key ? 'bg-white/60' : 'bg-slate-200 text-slate-500'}`}>
               {badgeCount(tab.key)}
             </span>

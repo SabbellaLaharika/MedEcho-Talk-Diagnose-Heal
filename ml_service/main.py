@@ -6,9 +6,47 @@ import os
 from chat_engine import ChatEngine
 from deep_translator import GoogleTranslator
 from langdetect import detect
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+
+# ── In-Memory Translation Cache ──────────────────────────────────────
+# Format: { 'en->hi': { 'hello': 'नमस्ते' } }
+_translation_cache: dict = {}
+_cache_lock = threading.Lock()
+_MAX_CACHE_SIZE = 2000  # per language pair
+
+def _cache_key(source: str, target: str) -> str:
+    return f"{source}->{target}"
+
+def _get_cached(text: str, source: str, target: str) -> str | None:
+    key = _cache_key(source, target)
+    return _translation_cache.get(key, {}).get(text)
+
+def _set_cached(text: str, translated: str, source: str, target: str):
+    key = _cache_key(source, target)
+    with _cache_lock:
+        if key not in _translation_cache:
+            _translation_cache[key] = {}
+        bucket = _translation_cache[key]
+        # Simple eviction: clear oldest half when too large
+        if len(bucket) >= _MAX_CACHE_SIZE:
+            count = 0
+            limit = _MAX_CACHE_SIZE // 2
+            evict_keys = []
+            for k in bucket:
+                if count >= limit:
+                    break
+                evict_keys.append(k)
+                count += 1
+            for k in evict_keys:
+                del bucket[k]
+        bucket[text] = translated
+
+# Reusable thread pool for parallel translation
+_executor = ThreadPoolExecutor(max_workers=8)
 
 # Define paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -36,6 +74,11 @@ except FileNotFoundError:
 @app.route('/', methods=['GET'])
 def home():
     return "MedEcho ML Service is Running (Multilingual Mode)"
+
+@app.route('/ping', methods=['GET'])
+def ping():
+    """Keep-alive endpoint to prevent cold starts from Render's free tier sleep."""
+    return jsonify({'status': 'ok', 'cache_size': sum(len(v) for v in _translation_cache.values())})
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -68,11 +111,16 @@ def chat():
     english_text = user_text
     if detected_lang != 'en':
         try:
-            english_text = GoogleTranslator(source=detected_lang, target='en').translate(user_text)
+            cached = _get_cached(user_text, detected_lang, 'en')
+            if cached:
+                english_text = cached
+            else:
+                english_text = GoogleTranslator(source=detected_lang, target='en').translate(user_text)
+                _set_cached(user_text, english_text, detected_lang, 'en')
             print(f"Translated to English: {english_text}")
         except Exception as e:
             print(f"Translation Error (Input): {e}")
-            english_text = user_text # Fallback
+            english_text = user_text  # Fallback
 
     # 3. Process with Chat Engine (English)
     response_text_en, updated_context = chat_engine.process_message(english_text, context)
@@ -80,10 +128,15 @@ def chat():
     # 4. Translate Response back to Target Language
     final_response_text = response_text_en
     if detected_lang != 'en':
-         try:
-            final_response_text = GoogleTranslator(source='en', target=detected_lang).translate(response_text_en)
+        try:
+            cached = _get_cached(response_text_en, 'en', detected_lang)
+            if cached:
+                final_response_text = cached
+            else:
+                final_response_text = GoogleTranslator(source='en', target=detected_lang).translate(response_text_en)
+                _set_cached(response_text_en, final_response_text, 'en', detected_lang)
             print(f"Translated to {detected_lang}: {final_response_text}")
-         except Exception as e:
+        except Exception as e:
             print(f"Translation Error (Output): {e}")
     
     return jsonify({
@@ -232,20 +285,45 @@ def translate_batch():
         return jsonify({'translations': []})
 
     try:
-        translator = GoogleTranslator(source=source_lang, target=target_lang)
-        # GoogleTranslator.translate can handle lists in some versions, 
-        # but to be safe and consistent we loop here.
-        translations = []
-        for t in texts:
-            if not t:
-                translations.append('')
+        translations = [''] * len(texts)
+        to_translate: list[tuple[int, str]] = []  # (index, text)
+
+        # 1. Fill from cache first
+        for i, t in enumerate(texts):
+            if not t or not t.strip():
+                translations[i] = t
                 continue
-            translations.append(translator.translate(t))
-            
+            if target_lang == 'en' and not any(ord(c) > 127 for c in t):
+                translations[i] = t  # Already English ASCII, skip
+                continue
+            cached = _get_cached(t, source_lang, target_lang)
+            if cached:
+                translations[i] = cached
+            else:
+                to_translate.append((i, t))
+
+        if not to_translate:
+            return jsonify({'translations': translations})
+
+        # 2. Translate uncached texts IN PARALLEL
+        def _translate_one(idx: int, text: str) -> tuple:
+            try:
+                result = GoogleTranslator(source=source_lang, target=target_lang).translate(text)
+                return idx, text, result or text
+            except Exception as e:
+                print(f"Single translate error: {e}")
+                return idx, text, text  # Fallback to original
+
+        futures = [_executor.submit(_translate_one, i, t) for i, t in to_translate]  # type: ignore[arg-type]
+        for future in as_completed(futures):
+            idx, original, translated = future.result()
+            translations[idx] = translated
+            _set_cached(original, translated, source_lang, target_lang)
+
         return jsonify({'translations': translations})
     except Exception as e:
         print(f"Batch Translation Error: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'translations': texts})
 
 if __name__ == '__main__':
     # Use 'PORT' provided by environment (Render), default to 8000
