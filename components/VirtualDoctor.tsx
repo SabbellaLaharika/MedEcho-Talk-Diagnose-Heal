@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { MedicalReport, User } from '../types';
 import api from '../services/api';
-import { getTranslation, translateString, loadTranslations } from '../services/translations';
+import { getTranslation } from '../services/translations';
 import TranslatedText from './TranslatedText';
 import {
   StopIcon,
@@ -26,16 +26,22 @@ const INDIAN_LANGUAGES = [
 const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessionComplete }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const t = getTranslation(user.preferredLanguage);
-
-  useEffect(() => {
-    loadTranslations(user.preferredLanguage, 'virtual_clinic');
-  }, [user.preferredLanguage]);
   const [isActive, setIsActive] = useState(false);
   const [chatOverlay, setChatOverlay] = useState<{ sender: string, text: string }[]>([]);
   const [visualizerData, setVisualizerData] = useState<number[]>(Array(20).fill(10));
   const [persona, setPersona] = useState<Persona>('Sarah');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const lastDocResponseRef = useRef<string>("");
+  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
+  const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Translations are now handled by TranslatedText component in JSX
+  // D-ID WebRTC State
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const didSessionIdRef = useRef<string | null>(null);
+  const didStreamIdRef = useRef<string | null>(null);
+  const didVideoRef = useRef<HTMLVideoElement>(null);
+  const [streamConnected, setStreamConnected] = useState(false);
 
   // Map language codes to Virtual Doctor's display names
   const langMap: Record<string, string> = {
@@ -58,10 +64,10 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
   const transcriptionRef = useRef<string>("");
 
   const personas = {
-    Sarah: { img: "https://images.unsplash.com/photo-1550831107-1553da8c8464?auto=format&fit=crop&q=80&w=1200", voice: "Puck", desc: "Empathetic" },
-    James: { img: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=1200&auto=format&fit=crop", voice: "Kore", desc: "Professional" },
-    Elena: { img: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?q=80&w=1200&auto=format&fit=crop", voice: "Zephyr", desc: "Pediatric" },
-    Marcus: { img: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?q=80&w=1200&auto=format&fit=crop", voice: "Charon", desc: "Expert Surgeon" }
+    Sarah: { img: "https://clips-presenters.d-id.com/amy/image.png", voice: "Puck", desc: "Empathetic", gender: "female" },
+    James: { img: "https://clips-presenters.d-id.com/matt/image.png", voice: "Kore", desc: "Professional", gender: "male" },
+    Elena: { img: "https://clips-presenters.d-id.com/sophia/image.png", voice: "Zephyr", desc: "Pediatric", gender: "female" },
+    Marcus: { img: "https://clips-presenters.d-id.com/william/image.png", voice: "Charon", desc: "Expert Surgeon", gender: "male" }
   };
 
   const decode = (base64: string) => {
@@ -99,6 +105,9 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
+      // Start D-ID WebRTC Stream instantly
+      await startDIDStream();
+
       let nextStartTime = 0;
       const sources = new Set<AudioBufferSourceNode>();
 
@@ -112,8 +121,19 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
               const inputData = e.inputBuffer.getChannelData(0);
               const avg = inputData.reduce((acc, val) => acc + Math.abs(val), 0) / inputData.length;
               setVisualizerData(prev => [...prev.slice(1), 5 + avg * 400]);
+
+              // Only show 'Listening' badge if user is speaking loudly enough
+              if (avg > 0.015) {
+                setIsUserSpeaking(true);
+                if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
+                speakingTimeoutRef.current = setTimeout(() => {
+                  setIsUserSpeaking(false);
+                }, 800); // 800ms hang time to stay visible between words
+              }
+
               const int16 = new Int16Array(inputData.length);
               for (let i = 0; i < inputData.length; i++) int16[i] = inputData[i] * 32768;
+
               const pcmBlob = { data: encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' };
               sessionPromise.then(s => s.sendRealtimeInput({ media: pcmBlob }));
             };
@@ -125,12 +145,41 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
           onmessage: async (msg: LiveServerMessage) => {
             if (msg.serverContent?.outputTranscription) {
               const text = msg.serverContent.outputTranscription.text;
-              transcriptionRef.current += text + " ";
-              setChatOverlay(prev => [...prev.slice(-1), { sender: 'Doc', text }]);
+              transcriptionRef.current += "Doc: " + text + "\n";
+              lastDocResponseRef.current += text;
+              // Defer UI update to turnComplete to synchronize with avatar
             }
             if (msg.serverContent?.inputTranscription) {
-              setChatOverlay(prev => [...prev.slice(-1), { sender: 'You', text: msg.serverContent!.inputTranscription!.text }]);
+              const text = msg.serverContent.inputTranscription.text;
+              transcriptionRef.current += "Patient: " + text + "\n";
+              setChatOverlay(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.sender === 'You') {
+                  return [...prev.slice(0, -1), { sender: 'You', text: text }];
+                }
+                return [...prev, { sender: 'You', text }];
+              });
             }
+
+            // Check for turn completion to trigger D-ID
+            const turnComplete = (msg as any).serverContent?.turnComplete ||
+              (msg.serverContent?.modelTurn?.parts?.some(p => p.text === ""));
+
+            if (turnComplete) {
+              if (lastDocResponseRef.current.trim().length > 0) {
+                const finalText = lastDocResponseRef.current;
+                if (finalText.trim().length > 5) {
+                  sendToDIDStream(finalText);
+                }
+                setTimeout(() => {
+                  setChatOverlay(prev => [...prev, { sender: 'Doc', text: finalText }]);
+                }, 1500); // 1s sync delay to match D-ID latency
+                lastDocResponseRef.current = ""; // Reset after dispatch
+              }
+            }
+
+            // Inline audio playback disabled in favor of D-ID video
+            /*
             const audioBase64 = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
             if (audioBase64) {
               nextStartTime = Math.max(nextStartTime, outputCtx.currentTime);
@@ -143,6 +192,7 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
               sources.add(source);
               source.onended = () => sources.delete(source);
             }
+            */
           },
           onerror: () => { setIsActive(false); setIsConnecting(false); },
           onclose: () => setIsActive(false),
@@ -151,21 +201,143 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
           // Fixed typo: responseModalities
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: personas[persona].voice as any } } },
-          systemInstruction: `You are Dr. Echo. Greeting in ${language}. Ask step-by-step. extracted clinical data later. User preferred language is ${user.preferredLanguage}. Keep response in ${language}. Personas: Sarah, James, Elena, Marcus.`,
+          systemInstruction: `You are Dr. ${persona}, an AI ${personas[persona].desc} specialist. Greet the patient introducing yourself as Dr. ${persona}. Ask step-by-step questions to diagnose. CRITICAL INSTRUCTION: You MUST speak, think, and respond EXCLUSIVELY in ${language}. Your text output and subtitles MUST be natively written in ${language}. Do not use English unless the selected language is English!`,
           outputAudioTranscription: {},
           inputAudioTranscription: {},
+
         }
       });
       sessionPromiseRef.current = sessionPromise;
-    } catch (err) {
+    } catch (err: any) {
+      console.error("Start Session Error:", err);
       setIsConnecting(false);
+      alert("Microphone or Connection Error: " + err?.message);
     }
   };
 
+  const startDIDStream = async () => {
+    try {
+      setIsGenerating(true);
+      // 1. Create stream
+      const createRes = await api.post('/did/stream/create', {
+        source_url: personas[persona].img
+      });
+      const { id: streamId, session_id: sessionId, offer, ice_servers } = createRes.data;
+      didStreamIdRef.current = streamId;
+      didSessionIdRef.current = sessionId;
+
+      // 2. Setup RTCPeerConnection
+      const pc = new RTCPeerConnection({ iceServers: ice_servers });
+      peerConnectionRef.current = pc;
+
+      // 3. Handle incoming video track
+      pc.ontrack = (event) => {
+        if (didVideoRef.current && event.track.kind === 'video') {
+          didVideoRef.current.srcObject = event.streams[0];
+          didVideoRef.current.play().then(() => {
+            setStreamConnected(true);
+            setIsGenerating(false);
+          }).catch(e => {
+            console.error("Video play error:", e);
+            // Fallback unlock if autoplay fails but track exists
+            setStreamConnected(true);
+            setIsGenerating(false);
+          });
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          setStreamConnected(true);
+          setIsGenerating(false);
+        }
+      };
+
+      // 4. Handle ICE candidates (Buffering)
+      let sdpSent = false;
+      const iceCandidatesBuffer: any[] = [];
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          const iceData = {
+            streamId,
+            sessionId,
+            candidate: event.candidate.candidate,
+            sdpMid: event.candidate.sdpMid,
+            sdpMLineIndex: event.candidate.sdpMLineIndex
+          };
+          if (sdpSent) {
+            api.post('/did/stream/ice', iceData).catch(err => console.error("ICE error", err));
+          } else {
+            iceCandidatesBuffer.push(iceData);
+          }
+        }
+      };
+
+      // 5. Set Remote Description (Offer) and Create Local Answer
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      // 6. Send Answer back to D-ID
+      await api.post('/did/stream/sdp', {
+        streamId,
+        sessionId,
+        answer: pc.localDescription
+      });
+      sdpSent = true;
+
+      // 7. Flush ICE candidates
+      for (const candidate of iceCandidatesBuffer) {
+        api.post('/did/stream/ice', candidate).catch(err => console.error("Buffered ICE error", err));
+      }
+
+    } catch (err: any) {
+      console.error("D-ID Stream Initialization Error:", err);
+      setIsGenerating(false);
+      alert("Avatar Generation Error: " + (err?.response?.data?.message || err?.message || 'Unknown error. Check console.'));
+    }
+  };
+
+  const sendToDIDStream = async (text: string) => {
+    if (!didStreamIdRef.current || !didSessionIdRef.current) return;
+    try {
+      await api.post('/did/stream/send', {
+        streamId: didStreamIdRef.current,
+        sessionId: didSessionIdRef.current,
+        text: text,
+        language: language,
+        gender: personas[persona].gender
+      });
+    } catch (err) {
+      console.error("D-ID Stream Send Error:", err);
+    }
+  };
+
+  const closeDIDStream = async () => {
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    if (didStreamIdRef.current && didSessionIdRef.current) {
+      try {
+        await api.delete('/did/stream', {
+          data: { streamId: didStreamIdRef.current, sessionId: didSessionIdRef.current }
+        });
+      } catch (err) {
+        console.error("D-ID cleanup error", err);
+      }
+    }
+    setStreamConnected(false);
+    if (didVideoRef.current) didVideoRef.current.srcObject = null;
+  };
+
   const endSession = async () => {
+    setIsAnalyzing(true);
     if (sessionPromiseRef.current) (await sessionPromiseRef.current).close();
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     setIsActive(false);
+    await closeDIDStream();
 
     // Call custom ML service analysis instead of Gemini
     let analysis = null;
@@ -189,6 +361,7 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
       prescription: analysis?.advice ? [analysis.advice] : ['Follow-up as advised'],
       vitals: { temperature: '98.6F' }
     };
+    setIsAnalyzing(false);
     onSessionComplete(newReport);
   };
 
@@ -205,7 +378,7 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
               <h3 className="text-sm font-black text-slate-700 flex items-center space-x-2 mb-4">
                 <GlobeAltIcon className="w-4 h-4 text-blue-600" />
-                <span>1. <TranslatedText text="Language" lang={user.preferredLanguage} /></span>
+                <span>1. <TranslatedText text={t.language} lang={user.preferredLanguage} /></span>
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {INDIAN_LANGUAGES.map(lang => (
@@ -223,13 +396,13 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
               <h3 className="text-sm font-black text-slate-700 flex items-center space-x-2 mb-4">
                 <UserCircleIcon className="w-4 h-4 text-indigo-600" />
-                <span>2. <TranslatedText text="Select Specialist" lang={user.preferredLanguage} /></span>
+                <span>2. {t.selectSpecialist}</span>
               </h3>
               <div className="grid grid-cols-2 gap-3">
                 {(Object.keys(personas) as Persona[]).map((name) => (
                   <button
                     key={name}
-                    onClick={() => setPersona(name as Persona)}
+                    onClick={() => setPersona(name)}
                     className={`relative rounded-2xl overflow-hidden border-2 transition-all ${persona === name ? 'border-indigo-600 ring-4 ring-indigo-100' : 'border-slate-50'}`}
                   >
                     <img src={personas[name].img} alt={name} className="w-full h-20 object-cover" />
@@ -246,27 +419,63 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
         </div>
       )}
 
-      <div className="relative w-full max-w-5xl aspect-square sm:aspect-video bg-slate-900 rounded-[2.5rem] sm:rounded-[4rem] shadow-2xl overflow-hidden border-[6px] sm:border-[12px] border-white group">
+      <div className="relative w-full max-w-5xl aspect-[4/2] sm:aspect-[16/9] bg-[#ebeced] rounded-[2.5rem] sm:rounded-[3rem] shadow-2xl overflow-hidden border-[6px] sm:border-[8px] border-white group mx-auto">
+        <video
+          ref={didVideoRef}
+          autoPlay
+          playsInline
+          className={`w-full h-full object-contain transition-all duration-1000 ${streamConnected ? 'opacity-100' : 'opacity-0'} absolute inset-0 z-10`}
+        />
+
         <img
           src={personas[persona].img}
           alt="Doc"
-          className={`w-full h-full object-cover transition-all duration-1000 ${isActive ? 'scale-105' : 'brightness-50'}`}
+          className={`w-full h-full object-contain transition-all duration-1000 ${isActive ? 'scale-100' : 'brightness-90'} ${streamConnected ? 'opacity-0' : 'opacity-100'} absolute inset-0 z-0`}
         />
 
         {/* HUD UI - Responsive stacking */}
-        <div className="absolute inset-x-6 sm:inset-x-12 top-6 sm:top-12 flex flex-col space-y-3 items-start pointer-events-none">
+        <div className="absolute inset-x-6 sm:inset-x-12 top-6 sm:top-12 flex flex-col space-y-3 items-start pointer-events-none z-10">
           <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-white text-[9px] font-black uppercase tracking-widest">
-            <TranslatedText text={language} lang={user.preferredLanguage} /> <TranslatedText text="Mode" lang={user.preferredLanguage} />
+            {language} Mode
           </div>
-          {chatOverlay.map((msg, i) => (
+        </div>
+
+        {/* Top Right HUD - Listening Indicator */}
+        {isActive && isUserSpeaking && (
+          <div className="absolute top-6 sm:top-12 right-6 sm:right-12 flex items-center space-x-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 z-20 pointer-events-none">
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
+            <span className="text-white text-[9px] font-black uppercase tracking-widest">Listening</span>
+          </div>
+        )}
+
+        {/* Live Subtitles (Bottom Center) */}
+        <div className="absolute bottom-4 sm:bottom-6 inset-x-0 flex justify-center pointer-events-none z-30 px-4 sm:px-8 transition-all duration-500">
+          {chatOverlay.length > 0 && (
             <div
-              key={i}
-              className={`max-w-[85%] sm:max-w-[60%] p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.5rem] backdrop-blur-xl border border-white/10 ${msg.sender.includes('Doc') ? 'bg-blue-600/20 text-white' : 'bg-white/10 text-slate-100'
+              className={`max-w-2xl w-full px-5 py-3 sm:px-6 sm:py-4 rounded-[2rem] backdrop-blur-md border border-white/10 shadow-2xl flex items-center space-x-4 ${chatOverlay[chatOverlay.length - 1].sender.includes('Doc')
+                ? 'bg-blue-900/60 text-blue-50'
+                : 'bg-black/60 text-slate-200'
                 }`}
             >
-              <p className="text-[10px] sm:text-lg font-medium leading-relaxed">"{msg.text}"</p>
+              <div className="flex-shrink-0">
+                {chatOverlay[chatOverlay.length - 1].sender.includes('Doc') ? (
+                  <img src={personas[persona].img} className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-blue-400/50 shadow-lg" alt="Doc" />
+                ) : (
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-700/80 flex items-center justify-center border-2 border-slate-500/50 shadow-lg">
+                    <UserCircleIcon className="w-6 h-6 text-slate-300" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 text-left">
+                <span className="opacity-60 text-[9px] uppercase tracking-widest block mb-0.5 font-black">
+                  {chatOverlay[chatOverlay.length - 1].sender}
+                </span>
+                <p className="text-[12px] sm:text-[14px] font-semibold leading-relaxed tracking-wide">
+                  "{chatOverlay[chatOverlay.length - 1].text}"
+                </p>
+              </div>
             </div>
-          ))}
+          )}
         </div>
 
         {isActive && (
@@ -282,15 +491,13 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
         )}
 
         {!isActive && !isConnecting && (
-          <div className="absolute inset-0 flex items-center justify-center p-6">
+          <div className="absolute inset-0 flex items-center justify-center p-6 mt-60 z-30">
             <button
               onClick={startSession}
               className="bg-white/95 p-6 sm:p-10 rounded-[2rem] sm:rounded-[4rem] shadow-2xl text-center active:scale-95 transition-all w-full sm:w-auto"
             >
               <VideoCameraIcon className="w-10 h-10 sm:w-12 sm:h-12 text-blue-600 mx-auto mb-4" />
-              <h3 className="text-xl sm:text-3xl font-black text-slate-800">
-                <TranslatedText text="Start Checkup" lang={user.preferredLanguage} />
-              </h3>
+              <h3 className="text-xl sm:text-3xl font-black text-slate-800">{t.startCheckup}</h3>
               <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2">
                 <TranslatedText text="MedEcho AI Ready" lang={user.preferredLanguage} />
               </p>
@@ -299,9 +506,31 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
         )}
 
         {isConnecting && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md text-white p-6 text-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md text-white p-6 text-center z-50">
             <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
-            <p className="text-xs font-black uppercase mt-6 tracking-widest"><TranslatedText text="Connecting Session..." lang={user.preferredLanguage} /></p>
+            <p className="text-xs font-black uppercase mt-6 tracking-widest">Connecting Session...</p>
+          </div>
+        )}
+
+        {isGenerating && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-lg text-white p-6 text-center z-50">
+            <div className="w-16 h-16 border-[6px] border-blue-400/20 border-t-blue-400 rounded-full animate-spin mb-6"></div>
+            <h4 className="text-xl font-black uppercase tracking-widest animate-pulse">
+              Connecting Dr. {persona}...
+            </h4>
+            <p className="text-[10px] text-blue-200 mt-2 font-bold uppercase">Establishing Real-Time WebRTC Link</p>
+          </div>
+        )}
+
+        {isAnalyzing && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-xl text-white p-8 text-center z-[60]">
+            <div className="w-20 h-20 border-8 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-8 shadow-[0_0_15px_rgba(99,102,241,0.5)]"></div>
+            <h4 className="text-2xl font-black uppercase tracking-widest text-indigo-100 animate-pulse">
+              Generating Final Report
+            </h4>
+            <p className="text-xs text-indigo-300 mt-3 font-bold uppercase tracking-widest">
+              AI is analyzing your spoken symptoms...
+            </p>
           </div>
         )}
       </div>
