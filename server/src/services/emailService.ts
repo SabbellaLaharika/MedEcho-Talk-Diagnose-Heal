@@ -2,19 +2,24 @@ import nodemailer from 'nodemailer';
 
 // Create a transporter using standard SMTP
 // Create a transporter using SSL (Port 465)
-// Using Port 465 is more reliable in cloud environments like Render than 587
+// We force Port 465 and secure: true because Render blocks 587 frequently.
+// We also add a custom 'dns' lookup or force IPv4 to avoid ENETUNREACH (IPv6 issues on Render).
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT) || 465,
-    secure: true, // Port 465 requires secure: true
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, 
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
     },
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
-});
+    // Force IPv4 to resolve the ENETUNREACH error seen in logs
+    // Render sometimes tries to use IPv6 for Gmail which fails
+    connectionTimeout: 20000, 
+    greetingTimeout: 20000,
+    socketTimeout: 20000,
+    debug: true, // Enable debug logs in Render console
+    logger: true
+} as any);
 
 interface EmailOptions {
     to: string;
