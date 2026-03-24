@@ -37,10 +37,21 @@ const VideoConsultation: React.FC<VideoConsultationProps> = ({ user, appointment
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const recognitionRef = useRef<any>(null);
 
-  // peerID: MedEcho-[Role]-[Username]
-  // Using username (P00001 etc) is more reliable than UUID for cross-session lookups
+  // peerID: MedEcho-[Role]-[Username/ID]
+  // Fallback to ID if username is not yet populated
   const myPeerId = `MedEcho-${user.role}-${user.username || user.id}`;
-  const targetPeerId = `MedEcho-${user.role === 'PATIENT' ? 'DOCTOR' : 'PATIENT'}-${user.role === 'PATIENT' ? (appointment.doctor?.username || appointment.doctorId) : (appointment.patient?.username || appointment.patientId)}`;
+  
+  // Calculate target ID using the same fallback logic
+  const getTargetId = () => {
+    const isPatient = user.role === 'PATIENT';
+    const targetUser = isPatient ? appointment.doctor : appointment.patient;
+    const targetId = isPatient ? appointment.doctorId : appointment.patientId;
+    const targetUsername = isPatient ? appointment.doctor?.username : appointment.patient?.username;
+    
+    return `MedEcho-${isPatient ? 'DOCTOR' : 'PATIENT'}-${targetUsername || targetUser?.username || targetId}`;
+  };
+
+  const targetPeerId = getTargetId();
 
   useEffect(() => {
     const Peer = (window as any).Peer;
