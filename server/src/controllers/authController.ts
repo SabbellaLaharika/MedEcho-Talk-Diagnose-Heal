@@ -141,18 +141,17 @@ export const forgotPassword = async (req: Request, res: Response) => {
             data: { otp, otpExpiry }
         });
 
+        const { getPasswordResetTemplate } = require('../services/emailTemplates');
+
         await sendEmail({
             to: email,
             subject: 'MedEcho - Password Reset OTP',
             text: `Your OTP for password reset is ${otp}. It expires in 15 minutes.`,
-            html: `
-            <div style="font-family: Arial, sans-serif; padding: 20px; text-align: center;">
-                <h2>Password Reset</h2>
-                <p>You requested a password reset. Use the OTP below to set a new password:</p>
-                <h1 style="letter-spacing: 5px; color: #2563eb; background: #e0e7ff; padding: 10px; border-radius: 8px; display: inline-block;">${otp}</h1>
-                <p>This code will expire in 15 minutes.</p>
-            </div>
-            `
+            html: getPasswordResetTemplate({
+                name: user.name,
+                email: email,
+                otp: otp
+            })
         });
 
         res.json({ message: 'OTP sent to email' });

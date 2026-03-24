@@ -103,21 +103,7 @@ export const createAppointment = async (req: Request, res: Response) => {
             translationService.translate('View Schedule', doctorLang)
         ]);
 
-        // Create In-App Notifications
-        await prisma.notification.createMany({
-            data: [
-                {
-                    userId: patientId,
-                    title: pTitle,
-                    message: pMsg
-                },
-                {
-                    userId: doctorId,
-                    title: dTitle,
-                    message: dMsg
-                }
-            ]
-        });
+        const { getPatientAppointmentTemplate, getDoctorAppointmentTemplate } = require('../services/emailTemplates');
 
         // Send Email Notifications
         if (appointment.patient.email) {
@@ -137,7 +123,8 @@ export const createAppointment = async (req: Request, res: Response) => {
                     dateLabel: pDateLbl,
                     timeLabel: pTimeLbl,
                     footer: pFooter,
-                    btn: pBtn
+                    btn: pBtn,
+                    appointmentId: appointment.id
                 })
             });
         }
@@ -158,7 +145,8 @@ export const createAppointment = async (req: Request, res: Response) => {
                     patLabel: dPatLbl,
                     dateLabel: dDateLbl,
                     timeLabel: dTimeLbl,
-                    btn: dBtn
+                    btn: dBtn,
+                    appointmentId: appointment.id
                 })
             });
         }
@@ -286,20 +274,17 @@ export const startCall = async (req: Request, res: Response) => {
 
         // Send Email Alert
         if (targetEmail) {
+            const { getCallInviteTemplate } = require('../services/emailTemplates');
             sendEmail({
                 to: targetEmail,
                 subject: 'MedEcho: Call Invitation',
                 text: `${initiatorName} is waiting for you in the consultation room. Please login to MedEcho to join the call.`,
-                html: `
-                    <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                        <h2 style="color: #4f46e5;">Incoming Consultation</h2>
-                        <p><strong>${initiatorName}</strong> is starting the voice call for your appointment.</p>
-                        <div style="margin: 30px 0;">
-                            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}?joinCall=${appointment.id}" style="background: #4f46e5; color: white; padding: 12px 25px; border-radius: 8px; text-decoration: none; font-weight: bold;">Join Call on MedEcho</a>
-                        </div>
-                        <p style="color: #666; font-size: 12px;">Secure P2P Line • Automated Reminder</p>
-                    </div>
-                `
+                html: getCallInviteTemplate({
+                    recipientName: isPatient ? appointment.doctor.name : appointment.patient.name,
+                    callerName: initiatorName,
+                    appointmentId: appointment.id,
+                    btn: 'Join Call on MedEcho'
+                })
             });
         }
 

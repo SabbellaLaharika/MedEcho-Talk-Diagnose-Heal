@@ -107,16 +107,14 @@ const App: React.FC = () => {
     const currentUser = dbService.auth.getCurrentUser();
 
     // ─── Keep-Alive Ping: Prevents Render free-tier cold starts ─────────
-    // Fires immediately, then every 10 minutes to keep BOTH services warm
     const pingMLService = () => {
       import('./services/api').then(({ default: api }) => {
-        // Ping ML service AND Node backend simultaneously
         api.get('ml/ping').catch(() => {});
-        api.get('health').catch(() => {});  // Backend health check
+        api.get('health').catch(() => {});
       });
     };
-    pingMLService(); // Immediate warm-up on app load
-    const pingInterval = setInterval(pingMLService, 10 * 60 * 1000); // Every 10 min
+    pingMLService();
+    const pingInterval = setInterval(pingMLService, 10 * 60 * 1000);
 
     // 1. One-time Emergency Purge for Cross-Language Hallucinations
     if (localStorage.getItem('medecho_purge_v11_final') !== 'true') {
@@ -127,6 +125,36 @@ const App: React.FC = () => {
       localStorage.setItem('medecho_purge_v11_final', 'true');
       window.location.reload();
       return;
+    }
+
+    // ─── Deep-Link Handler: Email button routing ───────────────────────
+    const params = new URLSearchParams(window.location.search);
+    const goto = params.get('goto');
+    const joinCall = params.get('joinCall');
+    const resetEmail = params.get('resetEmail');
+    const authModeParam = params.get('authMode');
+
+    if (resetEmail || authModeParam === 'RESET_PASSWORD') {
+      // Password reset deep link — show reset form pre-filled with email
+      setAuthMode('RESET_PASSWORD');
+      if (resetEmail) setFormData(prev => ({ ...prev, email: decodeURIComponent(resetEmail) }));
+    } else if (currentUser) {
+      // User is already logged in
+      if (goto === 'reports' || goto === 'appointments') {
+        setActiveTab(goto);
+      } else if (joinCall) {
+        // Store the joinCall ID and navigate to dashboard where the call component will pick it up
+        sessionStorage.setItem('medecho_pendingCall', joinCall);
+        setActiveTab('dashboard');
+      }
+    } else if (goto || joinCall) {
+      // User not logged in but has a deep link — store it and redirect after login
+      sessionStorage.setItem('medecho_deeplink', JSON.stringify({ goto, joinCall }));
+    }
+
+    // Clean up URL params without page reload
+    if (params.toString()) {
+      window.history.replaceState({}, '', window.location.pathname);
     }
 
     if (currentUser) {
@@ -145,13 +173,13 @@ const App: React.FC = () => {
     }
     setLoading(false);
 
-    // Subscribe to translation updates to re-render UI
     const unsubscribe = subscribeToTranslations(() => setTick(t => t + 1));
     return () => {
       unsubscribe();
       clearInterval(pingInterval);
     };
   }, []);
+
 
   // Translations are now handled by TranslatedText component in JSX
 

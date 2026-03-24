@@ -202,7 +202,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
           </div>
           <div>
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{(t.patient || 'Patient') + " ID"}</p>
-            <span className="font-black text-slate-700 text-xs">P{user.id.replace(/\D/g, '').slice(0, 5).padStart(5, '0')}</span>
+            <span className="font-black text-slate-700 text-xs">{user.username || `P${user.id.replace(/\D/g, '').slice(0, 5).padStart(5, '0')}`}</span>
           </div>
         </div>
       </header>
