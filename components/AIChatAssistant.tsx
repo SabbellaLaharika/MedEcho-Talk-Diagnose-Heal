@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Message, MedicalReport } from '../types';
 import api from '../services/api';
-import { dbService } from '../services/dbService';
+import { dbService, mapBackendReportToFrontend } from '../services/dbService';
 import {
   PaperAirplaneIcon,
   ExclamationTriangleIcon,
@@ -10,7 +10,8 @@ import {
   MicrophoneIcon,
   SpeakerWaveIcon,
   CheckCircleIcon,
-  GlobeAltIcon
+  GlobeAltIcon,
+  PaperClipIcon
 } from '@heroicons/react/24/solid';
 import { getTranslation, translateString, loadTranslations } from '../services/translations';
 import TranslatedText from './TranslatedText';
@@ -150,7 +151,9 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
   const [selectedLang, setSelectedLang] = useState('auto');
   const [conversationContext, setConversationContext] = useState<any>({ state: 'GREETING' });
   const [lastInputMethod, setLastInputMethod] = useState<'text' | 'voice'>('text');
+  const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -257,6 +260,47 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       alert(t.sttError);
     } finally {
       setIsTyping(false);
+    }
+  };
+  
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    
+    setIsUploading(true);
+    setIsTyping(true);
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('patientId', user.id);
+    
+    try {
+      const { data: rawReport } = await api.post('/reports/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      const report = mapBackendReportToFrontend(rawReport);
+      
+      const successMsg: Message = {
+        id: Date.now().toString(),
+        sender: 'ai',
+        text: `✓ **Report Uploaded**: ${report.fileName}\n\n${report.diagnosis}\n\nI've analyzed the report and added it to your medical files. You can see it in your dashboard.`,
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, successMsg]);
+      
+      if (onReportGenerated) {
+        onReportGenerated(report);
+      }
+      
+    } catch (error) {
+      console.error("Upload Error:", error);
+      alert("Failed to upload report. Please try again.");
+    } finally {
+      setIsUploading(false);
+      setIsTyping(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -604,6 +648,24 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
           className={`p-3 sm:p-4 rounded-2xl transition-all ${reportSaved ? 'opacity-20 bg-slate-100' : isListening ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
         >
           <MicrophoneIcon className="w-5 h-5" />
+        </button>
+
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          className="hidden"
+          accept="image/*,.pdf"
+        />
+
+        <button
+          type="button"
+          disabled={reportSaved || isUploading}
+          onClick={() => fileInputRef.current?.click()}
+          className={`p-3 sm:p-4 rounded-2xl transition-all ${reportSaved || isUploading ? 'opacity-20 bg-slate-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+          title="Upload Report"
+        >
+          <PaperClipIcon className="w-5 h-5" />
         </button>
         <div className="relative flex-1">
           <input

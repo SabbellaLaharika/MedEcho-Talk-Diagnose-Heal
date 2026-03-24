@@ -6,7 +6,7 @@ const KEYS = {
 };
 
 // Helper function to safely map report data
-const mapBackendReportToFrontend = (report: any): MedicalReport => {
+export const mapBackendReportToFrontend = (report: any): MedicalReport => {
   try {
     // Ensure diagnosis is a valid string
     const diagnosis = String(report.diagnosis || 'Pending diagnosis').trim();

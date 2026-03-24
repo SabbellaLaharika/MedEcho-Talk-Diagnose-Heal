@@ -12,7 +12,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^5.22.0",
+    "@types/pdf-parse": "^1.1.5",
     "axios": "^1.6.7",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -23,6 +25,7 @@
     "multer": "^2.0.2",
     "node-cache": "^5.1.2",
     "nodemailer": "^8.0.3",
+    "pdf-parse": "^2.4.5",
     "socket.io": "^4.8.3",
     "tesseract.js": "^7.0.0"
   },

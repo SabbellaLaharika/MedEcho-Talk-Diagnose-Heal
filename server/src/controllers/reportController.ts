@@ -1,4 +1,3 @@
-
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { translationService } from '../services/translationService';
@@ -6,6 +5,7 @@ import { sendEmail } from '../services/emailService';
 import { getMedicalReportTemplate } from '../services/emailTemplates';
 import axios from 'axios';
 import Tesseract from 'tesseract.js';
+const pdf = require('pdf-parse');
 
 const prisma = new PrismaClient();
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
@@ -237,21 +237,44 @@ export const uploadReport = async (req: Request, res: Response) => {
                 } catch (ocrErr) {
                     console.error("OCR Extraction failed to parse image:", ocrErr);
                 }
+            } else if (file.mimetype === 'application/pdf') {
+                try {
+                    console.log(`Starting PDF text extraction for: ${fileName}...`);
+                    const data = await pdf(file.buffer);
+                    if (data && data.text) {
+                        extractedText = data.text.trim();
+                        console.log(`Successfully extracted ${extractedText.length} characters from PDF.`);
+                    }
+                } catch (pdfErr) {
+                    console.error("PDF extraction failed:", pdfErr);
+                }
+            }
+        }
+
+        // --- NEW: AI Analysis for Uploaded Reports ---
+        let aiAnalysis: any = {};
+        if (extractedText) {
+            try {
+                console.log("Analyzing extracted report text via ML Service...");
+                const { data } = await axios.post(`${ML_SERVICE_URL}/analyze`, { text: extractedText });
+                aiAnalysis = data;
+            } catch (analyzeErr) {
+                console.warn("AI Report Analysis failed, falling back to basic metadata:", analyzeErr);
             }
         }
 
         const report = await (prisma.report as any).create({
             data: {
                 patientId,
-                diagnosis: diagnosis || (fileName ? `Uploaded: ${fileName}` : 'External Report'),
-                confidenceScore: 0,
-                precautions: [],
+                diagnosis: aiAnalysis.condition || diagnosis || (fileName ? `Uploaded: ${fileName}` : 'External Report'),
+                confidenceScore: parseFloat(aiAnalysis.confidence) || 0,
+                precautions: aiAnalysis.suggestions || [],
                 chatTranscript: {},
-                summary: extractedText 
+                summary: aiAnalysis.summary || (extractedText 
                     ? `${notes ? notes + '\n\n' : ''}--- OCR EXTRACTED TEXT ---\n${extractedText}` 
-                    : (notes || 'Manually uploaded report'),
-                symptoms: [],
-                medications: [],
+                    : (notes || 'Manually uploaded report')),
+                symptoms: aiAnalysis.symptoms_extracted || [],
+                medications: aiAnalysis.medications || [],
                 history: {},
                 vitals: {},
                 reportType: 'UPLOADED',
