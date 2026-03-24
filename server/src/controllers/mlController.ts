@@ -9,6 +9,7 @@ const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 export const chatWithAI = async (req: Request, res: Response) => {
     try {
         const { text, context, lang } = req.body;
+        console.log(`ML Proxy: Chat calling AI service at ${ML_SERVICE_URL}...`);
 
         // Forward to Python Service
         const response = await axios.post(`${ML_SERVICE_URL}/chat`, {
@@ -18,8 +19,11 @@ export const chatWithAI = async (req: Request, res: Response) => {
         });
 
         res.json(response.data);
-    } catch (error) {
-        console.error('Error connecting to ML Service:', error);
+    } catch (error: any) {
+        console.error('Chat AI Proxy Error:', error.message);
+        if (error.code === 'ECONNREFUSED') {
+            console.error('CRITICAL: Backend cannot reach ML Service. Check ML_SERVICE_URL env var.');
+        }
         // If Python service is down, return a fallback or error
         res.status(503).json({
             message: 'AI Service is currently unavailable',
@@ -98,6 +102,7 @@ export const translateText = async (req: Request, res: Response) => {
 export const translateBatch = async (req: Request, res: Response) => {
     const { texts, target_lang, source_lang } = req.body;
     try {
+        console.log(`ML Proxy: Batch Translation to ${target_lang} calling ${ML_SERVICE_URL}...`);
         const response = await axios.post(`${ML_SERVICE_URL}/translate_batch`, {
             texts: texts || [],
             target_lang: target_lang || 'en',
@@ -105,8 +110,11 @@ export const translateBatch = async (req: Request, res: Response) => {
         });
         
         res.json(response.data);
-    } catch (error) {
-        console.error('Translate Batch Proxy Error:', error);
+    } catch (error: any) {
+        console.error('Translate Batch Proxy Error:', error.message);
+        if (error.code === 'ECONNREFUSED') {
+            console.error('CRITICAL: Backend cannot reach ML Service. Check ML_SERVICE_URL env var.');
+        }
         res.status(503).json({ 
             message: 'Translation Service Unavailable',
             translations: texts // Fallback to originals

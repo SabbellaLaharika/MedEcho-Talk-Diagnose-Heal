@@ -100,54 +100,71 @@ def analyze():
     data = request.json
     transcript = data.get('text', '')
     
-    if not transcript:
-        return jsonify({'error': 'No transcript provided'}), 400
-        
-    # Split transcript into speakers
-    patient_text = ""
-    doctor_text = ""
+    # Use list accumulation for better type safety in some linters
+    patient_data: list[str] = []
+    doctor_data: list[str] = []
     
-    lines = transcript.strip().split('\n')
+    # Safely handle input
+    raw_text = str(transcript)
+    lines = raw_text.strip().split('\n')
+    
     for line in lines:
-        if line.startswith('Patient:'):
-            patient_text += line.replace('Patient:', '').strip() + " "
-        elif line.startswith('Doctor:'):
-            doctor_text += line.replace('Doctor:', '').strip() + " "
+        clean_line = line.strip()
+        if not clean_line: continue
+        
+        if clean_line.startswith('Patient:'):
+            patient_data.append(clean_line.replace('Patient:', '').strip())
+        elif clean_line.startswith('Doctor:'):
+            doctor_data.append(clean_line.replace('Doctor:', '').strip())
         else:
-            # Ambiguous line, assign to context
-            patient_text += line + " "
+            patient_data.append(clean_line)
+
+    # Convert to strings
+    patient_combined = " ".join(patient_data)
+    doctor_combined = " ".join(doctor_data)
 
     # 1. Extract Problems (Patient Side)
-    symptoms, _ = chat_engine._extract_symptoms(patient_text.lower())
+    symptoms, _ = chat_engine._extract_symptoms(patient_combined.lower())
     disease = "Undetermined"
     confidence = 0
     if symptoms:
         disease, conf_val = chat_engine._predict_disease(symptoms)
-        confidence = float(conf_val.replace('%', ''))
+        # Handle cases where confidence might be formatted differently
+        try:
+            confidence = float(str(conf_val).replace('%', ''))
+        except:
+            confidence = 0
 
     # 2. Extract Suggestions & Medications (Doctor Side)
-    # Common medical keywords for suggestions
     suggestion_keywords = ["take", "avoid", "rest", "drink", "apply", "use", "stop", "monitor", "come back", "visit"]
-    suggestions = []
+    suggestions: list[str] = []
     
-    # Simple sentence splitter
-    sentences = doctor_text.split('.')
-    for s in sentences:
-        s = s.strip()
-        if any(key in s.lower() for key in suggestion_keywords):
-            suggestions.append(s)
+    # Process doctor sentences
+    doc_split = doctor_combined.split('.')
+    for s in doc_split:
+        clean_s = s.strip()
+        if clean_s and any(key in clean_s.lower() for key in suggestion_keywords):
+            suggestions.append(clean_s)
 
     # 3. Extract Medications
     common_meds = ["paracetamol", "crocin", "dolo", "antibiotic", "amoxicillin", "cough syrup", "cetirizine", "aspirin", "insulin", "metformin", "omeprazole", "pantoprazole", "allegra", "zyrtec", "vicodin", "ibuprofen", "advil", "motrin", "tylenol"]
     meds_found = []
     for m in common_meds:
-        if m in doctor_text.lower():
-            # Try to catch dosage if nearby (simple regex)
+        if m in doctor_combined.lower():
             meds_found.append(m.capitalize())
 
-    # Fallback if no specific doctor suggestions found
-    if not suggestions and doctor_text:
-        suggestions = [doctor_text.strip()]
+    # Fallback for suggestions
+    if not suggestions and doctor_combined.strip():
+        suggestions = [doctor_combined.strip()]
+    
+    # Prepare summary - use loop instead of slice to satisfy Pyre2 type checker
+    symptom_summary = ", ".join(symptoms).replace('_', ' ')
+    top_suggestions_parts: list[str] = []
+    for idx, sug in enumerate(suggestions):
+        if idx >= 2: break
+        top_suggestions_parts.append(sug)
+    top_suggestions_str = ". ".join(top_suggestions_parts)
+    final_summary = f"Patient reported: {symptom_summary}. Doctor suggested: {top_suggestions_str}."
         
     return jsonify({
         'condition': disease,
@@ -156,7 +173,7 @@ def analyze():
         'problems': symptoms,
         'suggestions': suggestions, 
         'medications': list(set(meds_found)),
-        'summary': f"Patient reported: {', '.join(symptoms).replace('_', ' ')}. Doctor suggested: {'. '.join(suggestions[:2])}."
+        'summary': final_summary
     })
 
 @app.route('/translate', methods=['POST'])
@@ -231,4 +248,7 @@ def translate_batch():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(port=8000, debug=True)
+    # Use 'PORT' provided by environment (Render), default to 8000
+    port = int(os.environ.get("PORT", 8000))
+    # Listen on 0.0.0.0 to accept external traffic on Render
+    app.run(host='0.0.0.0', port=port, debug=False)
