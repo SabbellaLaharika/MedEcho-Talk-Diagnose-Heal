@@ -461,11 +461,11 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                         </div>
                       )}
                       {activeReport.vitals.glucose && (
-                        <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 flex flex-col items-center text-center">
+                        <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex flex-col items-center text-center">
                           <span className="text-lg mb-1">🔥</span>
-                          <p className="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-0.5">
+                          <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-0.5">
                             <TranslatedText text="Glucose" lang={user.preferredLanguage} /></p>
-                          <p className="text-sm font-black text-purple-700">{activeReport.vitals.glucose}</p>
+                          <p className="text-sm font-black text-amber-700">{activeReport.vitals.glucose}</p>
                         </div>
                       )}
                       {activeReport.vitals.temperature && (
