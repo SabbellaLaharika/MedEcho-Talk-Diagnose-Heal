@@ -2,21 +2,23 @@ import nodemailer from 'nodemailer';
 
 // Create a transporter using standard SMTP
 // Create a transporter using Brevo (Sendinblue) - Most reliable for Render
+const smtpUser = process.env.SMTP_USER || '';
+const isGmail = smtpUser.toLowerCase().includes('gmail.com');
+
 const transporter = nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com',
-    port: 465,
-    secure: true, // true for 465, false for 587
+    host: process.env.SMTP_HOST || (isGmail ? 'smtp.gmail.com' : 'smtp-relay.brevo.com'),
+    port: parseInt(process.env.SMTP_PORT || (isGmail ? '465' : '2525')),
+    secure: isGmail, // Port 465 uses SSL/TLS (secure=true), 2525 uses STARTTLS (secure=false)
     auth: {
-        user: process.env.SMTP_USER,
+        user: smtpUser,
         pass: process.env.SMTP_PASS,
     },
     tls: {
-        // This helps with connection issues in some cloud environments
         rejectUnauthorized: false
     },
-    connectionTimeout: 15000, // Detect failure faster
-    greetingTimeout: 15000,
-    socketTimeout: 15000,
+    connectionTimeout: 10000, 
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
 });
 
 interface EmailOptions {
@@ -30,9 +32,9 @@ export const sendEmail = async ({ to, subject, text, html }: EmailOptions) => {
     try {
         // Log SMTP details (except password) to verify config in Render
         console.log(`📧 Attempting email to ${to}...`);
-        const currentHost = 'smtp-relay.brevo.com'; // Hardcoded as per nodemailer.createTransport
-        const currentPort = 465;
-        console.log(`📡 SMTP Config: Host=${currentHost}, Port=${currentPort}, SSL=true, User=${process.env.SMTP_USER || 'NOT SET'}`);
+        const currentHost = process.env.SMTP_HOST || (isGmail ? 'smtp.gmail.com' : 'smtp-relay.brevo.com');
+        const currentPort = parseInt(process.env.SMTP_PORT || (isGmail ? '465' : '2525'));
+        console.log(`📡 SMTP Config: Host=${currentHost}, Port=${currentPort}, SSL=${isGmail}, User=${smtpUser || 'NOT SET'}`);
 
         // If SMTP credentials aren't set, just log it instead of crashing
         if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
