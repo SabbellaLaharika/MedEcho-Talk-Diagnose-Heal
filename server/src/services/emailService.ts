@@ -51,7 +51,7 @@ export const sendEmail = async ({ to, subject, text, html }: EmailOptions) => {
             return;
         }
 
-        const fromAddress = process.env.SMTP_FROM || 'sabbellalaharika05@gmail.com'; 
+        const fromAddress = process.env.SMTP_FROM || 'slaharisvrsslsmr712@gmail.com'; 
         const info = await transporter.sendMail({
             from: `"MedEcho Notifications" <${fromAddress}>`,
             to,
@@ -60,7 +60,8 @@ export const sendEmail = async ({ to, subject, text, html }: EmailOptions) => {
             html,
         });
 
-        console.log(`✅ Email sent successfully to ${to}: ${info.messageId}`);
+        console.log(`✅ SMTP Handoff Successful to: ${to}`);
+        console.log(`ℹ️ Check your Brevo Dashboard (Transactional -> Logs) for delivery status.`);
     } catch (error: any) {
         console.error('❌ FATAL Email Delivery Error:', error.message);
         if (error.code === 'EAUTH') {
