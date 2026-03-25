@@ -80,14 +80,16 @@ const VideoConsultation: React.FC<VideoConsultationProps> = ({ user, appointment
           { 
             'urls': 'turn:openrelay.metered.ca:80', 
             'username': 'openrelayproject', 
-            'password': 'openrelayproject' 
+            'credential': 'openrelayproject' 
           },
           { 
             'urls': 'turn:openrelay.metered.ca:443', 
             'username': 'openrelayproject', 
-            'password': 'openrelayproject' 
+            'credential': 'openrelayproject' 
           }
-        ]
+        ],
+        sdpSemantics: 'unified-plan',
+        iceTransportPolicy: 'all'
       }
     });
 
@@ -189,7 +191,7 @@ const VideoConsultation: React.FC<VideoConsultationProps> = ({ user, appointment
 
       // Add a small retry if it fails to connect immediately
       setTimeout(() => {
-        if (status === 'INITIALIZING') {
+        if (status === 'CONNECTING') {
            console.log('Retrying call connection...');
            const retryCall = peerRef.current.call(targetPeerId, stream);
            if (retryCall) setupCall(retryCall);
@@ -352,7 +354,7 @@ const VideoConsultation: React.FC<VideoConsultationProps> = ({ user, appointment
                )}
 
                <button
-                  onClick={onClose as any}
+                  onClick={() => onClose(transcript)}
                   className="w-20 h-20 bg-rose-500 text-white rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-rose-900/40 hover:bg-rose-600 transition-all border-4 border-slate-800"
                >
                   <XMarkIcon className="w-8 h-8" />
@@ -372,7 +374,7 @@ const VideoConsultation: React.FC<VideoConsultationProps> = ({ user, appointment
                    
                    <div className="grid grid-cols-2 gap-4">
                       <button 
-                        onClick={onClose as any}
+                        onClick={() => onClose()}
                         className="py-5 bg-slate-50 text-slate-500 rounded-3xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-100 transition-all"
                       >
                         Decline

@@ -124,7 +124,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
       }
 
       const payload = { id: user.id, [fieldMap[key]]: normalized ?? '' };
-      const { data } = await api.put('/auth/update', payload);
+      const { data } = await api.put('auth/update', payload);
 
       // Sync updated user back to localStorage so vitals survive page reloads
       const session = JSON.parse(localStorage.getItem('medecho_session') || '{}');
@@ -164,7 +164,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
     setSendingReportsId(apt.id);
     setSendReportsMessage('');
     try {
-      const { data } = await api.post(`/reports/patient/${user.id}/send/${apt.id}`);
+      const { data } = await api.post(`reports/patient/${user.id}/send/${apt.id}`);
       setSendReportsMessage(`Sent ${data.reports.length} report(s) to doctor.`);
       // Per user request: Only one doctor can have the reports.
       setLocalSentDoctorId(apt.doctorId);

@@ -255,7 +255,7 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
 export const startCall = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { initiatorId } = req.body;
+        const { initiatorId, callType } = req.body;
 
         const appointment = await prisma.appointment.findUnique({
             where: { id },
@@ -276,8 +276,8 @@ export const startCall = async (req: Request, res: Response) => {
         await prisma.notification.create({
             data: {
                 userId: targetUserId,
-                title: 'Incoming Voice Call',
-                message: `${initiatorName} is starting the voice consultation for your appointment.`
+                title: callType === 'VIDEO' ? 'Incoming Video Call' : 'Incoming Voice Call',
+                message: `${initiatorName} is starting the ${callType === 'VIDEO' ? 'video' : 'voice'} consultation for your appointment.`
             }
         });
 

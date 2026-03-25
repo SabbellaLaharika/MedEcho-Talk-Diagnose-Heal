@@ -85,7 +85,16 @@ export const createReport = async (req: Request, res: Response) => {
             }
         }
 
-        console.log("Report created successfully:", report.id);
+        // Create UI Notification
+        await prisma.notification.create({
+            data: {
+                userId: patientId,
+                title: 'New Medical Report',
+                message: `Dr. ${report.doctor?.name || 'AI Assistant'} has generated a new report for your consultation on ${report.diagnosis}.`
+            }
+        });
+
+        console.log("Report and Notification created successfully:", report.id);
         res.status(201).json(report);
     } catch (error: any) {
         console.error("Error creating report:", error);

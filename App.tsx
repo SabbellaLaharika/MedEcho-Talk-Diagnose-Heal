@@ -174,6 +174,12 @@ const App: React.FC = () => {
     setLoading(false);
 
     const unsubscribe = subscribeToTranslations(() => setTick(t => t + 1));
+
+    // Request Notification permission
+    if (currentUser && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
     return () => {
       unsubscribe();
       clearInterval(pingInterval);
@@ -200,6 +206,18 @@ const App: React.FC = () => {
             const combined = [...notifs, ...prev];
             // Ensure uniqueness and sort by time
             const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+            
+            // Trigger native notification for new unread messages if not already in store
+            const existingIds = new Set(prev.map(n => n.id));
+            notifs.forEach(n => {
+              if (!n.isRead && !existingIds.has(n.id) && 'Notification' in window && Notification.permission === 'granted') {
+                 new Notification(n.title, { 
+                   body: n.message,
+                   icon: '/favicon.ico' // Or specific icon based on type
+                 });
+              }
+            });
+
             return unique.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
           });
 
