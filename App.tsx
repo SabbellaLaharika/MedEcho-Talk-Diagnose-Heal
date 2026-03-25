@@ -581,7 +581,7 @@ const App: React.FC = () => {
             }}
           />}
           {activeTab === 'schedule' && <DoctorScheduleManager doctor={user} />}
-          {activeTab === 'reports' && <ReportsList reports={reports} user={user} />}
+          {activeTab === 'reports' && <ReportsList reports={reports} user={user} appointments={appointments} />}
           {activeTab === 'chat' && <AIChatAssistant
             onReportGenerated={(report) => setReports(prev => [report, ...prev])}
             onConsultDoctor={(doctorId) => {

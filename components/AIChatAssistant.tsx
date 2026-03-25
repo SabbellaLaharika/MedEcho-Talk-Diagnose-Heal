@@ -104,7 +104,7 @@ const SymptomSelector = ({ suggestions, onSend, isTyping, preferredLanguage, cha
           </button>
         ))}
       </div>
-      <div className="flex space-x-2 pt-1 border-t border-slate-100 mt-2 pt-3">
+      <div className="flex space-x-2 pt-3 border-t border-slate-100 mt-2">
         <button
           disabled={isTyping || selected.length === 0}
           onClick={handleSend}

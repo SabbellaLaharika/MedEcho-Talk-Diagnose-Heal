@@ -53,6 +53,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
   }, [doctor.preferredLanguage]);
   const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [selectedPatientIdForRecords, setSelectedPatientIdForRecords] = useState<string | null>(null);
 
   // Translations are now handled by TranslatedText component in JSX
 
@@ -60,6 +61,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 
   const doctorAppointments = appointments.filter(a => a.doctorId === doctor.id);
   const pendingApts = doctorAppointments.filter(a => a.status === 'PENDING');
+  const uniquePatientsForRecords = Array.from(new Map<string, { id: string, name: string }>(
+    doctorAppointments.map(a => [a.patientId, { id: a.patientId, name: a.patientName || a.patient?.name || t.unknownPatient || 'Unknown Patient' }])
+  ).values());
   const [callState, setCallState] = useState<'idle' | 'incoming' | 'in_call'>('idle');
   const [activeCall, setActiveCall] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -314,33 +318,67 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
             {t.patientRecords}
           </h3>
           <div className="space-y-3 overflow-y-auto custom-scrollbar pr-1">
-            {reports.map(report => (
-              <button
-                key={report.id}
-                onClick={() => setSelectedReport(report)}
-                className="w-full p-4 rounded-2xl border border-slate-100 bg-white hover:border-indigo-200 hover:bg-indigo-50/30 transition-all text-left group"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-1">
-                      {t.diagnosisReportFor} <TranslatedText text={report.patientName || t.unknownPatient} lang={doctor.preferredLanguage} />
-                    </p>
-                    <p className="font-black text-slate-800 text-sm truncate group-hover:text-indigo-600 transition-colors">
-                      <TranslatedText text={report.diagnosis} lang={doctor.preferredLanguage} isClinical={true} />
-                    </p>
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      {t.patientFor}: <span className="font-extrabold text-slate-700">
-                        <TranslatedText text={report.patientName || t.unknownPatient} lang={doctor.preferredLanguage} />
-                      </span>
-                    </p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{report.date}</p>
-                  </div>
-                  <ChevronRightIcon className="w-3 h-3 text-slate-300 group-hover:text-indigo-400 transition-colors" />
-                </div>
-              </button>
-            ))}
-            {reports.length === 0 && (
-              <div className="text-center py-10 text-slate-200 uppercase text-[9px] font-black">{t.noReports}</div>
+            {!selectedPatientIdForRecords ? (
+               <>
+                 {uniquePatientsForRecords.length > 0 ? uniquePatientsForRecords.map(p => (
+                   <button
+                     key={p.id}
+                     onClick={() => setSelectedPatientIdForRecords(p.id)}
+                     className="w-full p-4 rounded-2xl border border-slate-100 bg-white hover:border-indigo-200 hover:bg-indigo-50/30 transition-all text-left flex items-center gap-4 group"
+                   >
+                     <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 font-bold flex flex-shrink-0 items-center justify-center uppercase">
+                        {p.name[0]}
+                     </div>
+                     <div className="flex-1 min-w-0">
+                        <p className="font-black text-slate-800 text-sm truncate group-hover:text-indigo-600 transition-colors">
+                           <TranslatedText text={p.name} lang={doctor.preferredLanguage} />
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                           View Medical History
+                        </p>
+                     </div>
+                     <ChevronRightIcon className="w-4 h-4 text-slate-300 group-hover:text-indigo-400 transition-colors" />
+                   </button>
+                 )) : (
+                   <div className="text-center py-10 text-slate-400 uppercase text-[10px] font-black">No patients found</div>
+                 )}
+               </>
+            ) : (
+               <>
+                 <button 
+                   onClick={() => setSelectedPatientIdForRecords(null)}
+                   className="mb-4 text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-600 flex items-center"
+                 >
+                   &larr; Back to Patients List
+                 </button>
+                 {reports.filter(r => r.patientId === selectedPatientIdForRecords).length > 0 ? reports.filter(r => r.patientId === selectedPatientIdForRecords).map(report => (
+                   <button
+                     key={report.id}
+                     onClick={() => setSelectedReport(report)}
+                     className="w-full p-4 rounded-2xl border border-slate-100 bg-white hover:border-indigo-200 hover:bg-indigo-50/30 transition-all text-left group"
+                   >
+                     <div className="flex justify-between items-start">
+                       <div className="min-w-0">
+                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-1">
+                           {t.diagnosisReportFor} <TranslatedText text={report.patientName || t.unknownPatient} lang={doctor.preferredLanguage} />
+                         </p>
+                         <p className="font-black text-slate-800 text-sm truncate group-hover:text-indigo-600 transition-colors">
+                           <TranslatedText text={report.diagnosis} lang={doctor.preferredLanguage} isClinical={true} />
+                         </p>
+                         <p className="text-[10px] text-slate-500 mt-1">
+                           {t.patientFor}: <span className="font-extrabold text-slate-700">
+                             <TranslatedText text={report.patientName || t.unknownPatient} lang={doctor.preferredLanguage} />
+                           </span>
+                         </p>
+                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{report.date}</p>
+                       </div>
+                       <ChevronRightIcon className="w-3 h-3 text-slate-300 group-hover:text-indigo-400 transition-colors" />
+                     </div>
+                   </button>
+                 )) : (
+                   <div className="text-center py-10 text-slate-200 uppercase text-[9px] font-black">{t.noReports}</div>
+                 )}
+               </>
             )}
           </div>
         </div>

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { MedicalReport, User } from '../types';
+import { MedicalReport, User, Appointment } from '../types';
 import {
   DocumentTextIcon,
   ArrowDownTrayIcon,
@@ -24,6 +24,7 @@ interface ReportsListProps {
   reports: MedicalReport[];
   user: User;
   onReportUploaded?: (report: MedicalReport) => void;
+  appointments?: Appointment[];
 }
 
 type TabType = 'AI' | 'CONSULTATION' | 'UPLOADED';
@@ -55,7 +56,7 @@ const TAB_CONFIG: { key: TabType; label: string; icon: React.ReactNode; color: s
   },
 ];
 
-const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUploaded }) => {
+const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUploaded, appointments }) => {
   const t = getTranslation(user.preferredLanguage);
 
   React.useEffect(() => {
@@ -64,6 +65,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
 
   const [activeTab, setActiveTab] = useState<TabType>('AI');
   const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -92,12 +94,23 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
     UPLOADED: reports.filter(r => r.reportType === 'UPLOADED'),
   };
 
-  const filteredReports = categorized[activeTab].filter(r =>
+  let filteredReports = categorized[activeTab].filter(r =>
     r.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (r.doctorName || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const activeReport = selectedReport || filteredReports[0];
+  if (user.role === 'DOCTOR' && selectedPatientId) {
+    filteredReports = filteredReports.filter(r => r.patientId === selectedPatientId);
+  }
+
+  const activeReport = selectedReport || (user.role === 'DOCTOR' && !selectedPatientId ? null : filteredReports[0]);
+
+  const uniquePatients = Array.from(new Map<string, { id: string, name: string }>(
+    (appointments || []).filter(a => a.doctorId === user.id).map(a => [
+      a.patientId, 
+      { id: a.patientId, name: a.patientName || a.patient?.name || t.unknownPatient || 'Unknown Patient' }
+    ])
+  ).values());
 
   // Tab badge count
   const badgeCount = (tab: TabType) => categorized[tab].length;
@@ -115,7 +128,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
     setIsUploading(true);
     try {
       const formData = new FormData();
-      formData.append('patientId', user.id);
+      formData.append('patientId', user.role === 'DOCTOR' ? (selectedPatientId || user.id) : user.id);
       if (uploadFile) formData.append('file', uploadFile);
       formData.append('diagnosis', uploadDiagnosis || uploadFile?.name || 'External Report');
       formData.append('notes', uploadNotes);
@@ -202,8 +215,10 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
           </p>
         </div>
         <button
+          disabled={user.role === 'DOCTOR' && !selectedPatientId}
           onClick={() => setIsUploadOpen(true)}
-          className="flex items-center space-x-2 px-5 py-3 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-700 transition-all shadow-lg"
+          className={`flex items-center space-x-2 px-5 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-lg ${user.role === 'DOCTOR' && !selectedPatientId ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-slate-900 text-white hover:bg-slate-700'}`}
+          title={user.role === 'DOCTOR' && !selectedPatientId ? 'Select a patient first to upload a report' : ''}
         >
           <CloudArrowUpIcon className="w-4 h-4" />
           <span><TranslatedText text="Upload Report" lang={user.preferredLanguage} /></span>
@@ -243,61 +258,97 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-            {filteredReports.map(report => (
-              <button
-                key={report.id}
-                onClick={() => setSelectedReport(report)}
-                className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${activeReport?.id === report.id ? 'border-slate-800 bg-white shadow-md' : 'border-transparent bg-slate-50 hover:bg-white hover:border-slate-200'}`}
-              >
-                <div className="flex justify-between items-start mb-1.5">
-                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight leading-tight flex-1 pr-1">
-                    <TranslatedText text={report.diagnosis} lang={user.preferredLanguage} isClinical={true} />
-                  </h3>
-                  <TypeBadge type={report.reportType} />
-                </div>
-                <div className="flex items-center justify-between">
-                  {report.fileName ? (
-                    <div className="flex items-center text-[9px] text-amber-500 font-bold uppercase tracking-wider">
-                      <PaperClipIcon className="w-3 h-3 mr-1" />
-                      {report.fileName.slice(0, 16)}
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-[9px] text-slate-400 font-bold uppercase tracking-wider">
-                      <DocumentTextIcon className="w-3 h-3 mr-1" />
-                      {report.date}
-                    </div>
-                  )}
-                  {report.aiConfidence != null && report.aiConfidence > 0 && (
-                    <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[9px] font-black border border-emerald-100">
-                      {report.aiConfidence}%
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))}
-
-            {filteredReports.length === 0 && (
-              <div className="text-center py-16 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center space-y-3">
-                {activeTab === 'UPLOADED' ? (
-                  <>
-                    <CloudArrowUpIcon className="w-10 h-10 text-slate-300" />
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                      <TranslatedText text="No uploaded reports" lang={user.preferredLanguage} />
-                    </p>
-                    <button
-                      onClick={() => setIsUploadOpen(true)}
-                      className="px-4 py-2 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-600 transition-all"
-                    >
-                      <TranslatedText text="Upload Now" lang={user.preferredLanguage} />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <DocumentTextIcon className="w-10 h-10 text-slate-300" />
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t.noReportsFound}</p>
-                  </>
+            {user.role === 'DOCTOR' && !selectedPatientId ? (
+              // Doctor Patient Selection View
+              uniquePatients.length > 0 ? uniquePatients.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => { setSelectedPatientId(p.id); setSelectedReport(null); }}
+                  className="w-full p-4 rounded-2xl border-2 border-transparent bg-slate-50 hover:bg-white hover:border-slate-200 text-left transition-all flex items-center space-x-4"
+                >
+                  <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 font-bold flex flex-shrink-0 items-center justify-center uppercase">
+                     {p.name[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                     <p className="font-black text-slate-800 text-sm truncate">
+                        <TranslatedText text={p.name} lang={user.preferredLanguage} />
+                     </p>
+                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                        Patient Records
+                     </p>
+                  </div>
+                </button>
+              )) : (
+                <div className="text-center py-10 text-slate-400 uppercase text-[10px] font-black">No patients found</div>
+              )
+            ) : (
+              // Reports List View for selected patient or normal user
+              <>
+                {user.role === 'DOCTOR' && selectedPatientId && (
+                   <button 
+                     onClick={() => { setSelectedPatientId(null); setSelectedReport(null); }}
+                     className="mb-3 w-full text-left text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-600 flex items-center bg-indigo-50/50 p-2 rounded-xl"
+                   >
+                     &larr; Back to Patients List
+                   </button>
                 )}
-              </div>
+                {filteredReports.map(report => (
+                  <button
+                    key={report.id}
+                    onClick={() => setSelectedReport(report)}
+                    className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${activeReport?.id === report.id ? 'border-slate-800 bg-white shadow-md' : 'border-transparent bg-slate-50 hover:bg-white hover:border-slate-200'}`}
+                  >
+                    <div className="flex justify-between items-start mb-1.5">
+                      <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight leading-tight flex-1 pr-1">
+                        <TranslatedText text={report.diagnosis} lang={user.preferredLanguage} isClinical={true} />
+                      </h3>
+                      <TypeBadge type={report.reportType} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      {report.fileName ? (
+                        <div className="flex items-center text-[9px] text-amber-500 font-bold uppercase tracking-wider">
+                          <PaperClipIcon className="w-3 h-3 mr-1" />
+                          {report.fileName.slice(0, 16)}
+                        </div>
+                      ) : (
+                        <div className="flex items-center text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                          <DocumentTextIcon className="w-3 h-3 mr-1" />
+                          {report.date}
+                        </div>
+                      )}
+                      {report.aiConfidence != null && report.aiConfidence > 0 && (
+                        <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[9px] font-black border border-emerald-100">
+                          {report.aiConfidence}%
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+
+                {filteredReports.length === 0 && (
+                  <div className="text-center py-16 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center space-y-3">
+                    {activeTab === 'UPLOADED' ? (
+                      <>
+                        <CloudArrowUpIcon className="w-10 h-10 text-slate-300" />
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                          <TranslatedText text="No uploaded reports" lang={user.preferredLanguage} />
+                        </p>
+                        <button
+                          onClick={() => setIsUploadOpen(true)}
+                          className="px-4 py-2 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-600 transition-all"
+                        >
+                          <TranslatedText text="Upload Now" lang={user.preferredLanguage} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <DocumentTextIcon className="w-10 h-10 text-slate-300" />
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t.noReportsFound}</p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
