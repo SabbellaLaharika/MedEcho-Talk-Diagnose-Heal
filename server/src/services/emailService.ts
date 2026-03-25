@@ -20,14 +20,18 @@ const transporter = nodemailer.createTransport({
     greetingTimeout: 10000,
     socketTimeout: 10000,
 });
-// Verify the connection on startup
-transporter.verify((error, success) => {
-    if (error) {
-        console.error('❌ SMTP Connection Verification Failed:', error.message);
-    } else {
-        console.log('✅ SMTP Server is ready to take messages');
-    }
-});
+// Verify the connection on startup if credentials exist
+if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    transporter.verify((error, success) => {
+        if (error) {
+            console.error('❌ SMTP Connection Verification Failed:', error.message);
+        } else {
+            console.log('✅ SMTP Server is ready to take messages');
+        }
+    });
+} else {
+    console.warn('⚠️ SMTP credentials missing. Skipping SMTP verification and running in mock mode.');
+}
 
 interface EmailOptions {
     to: string;

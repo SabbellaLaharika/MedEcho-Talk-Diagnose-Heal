@@ -336,7 +336,7 @@ export const getTranslationPack = async (req: Request, res: Response) => {
 
     // 1. Return from memory cache if exists
     if (translationCache[cacheKey]) {
-      console.log(`[Memory Cache Hit] Serving ${cacheKey} UI Pack`);
+      // console.log(`[Memory Cache Hit] Serving ${cacheKey} UI Pack`);
       return res.json(translationCache[cacheKey]);
     }
 
@@ -346,7 +346,7 @@ export const getTranslationPack = async (req: Request, res: Response) => {
       try {
         const diskData = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
         translationCache[cacheKey] = diskData;
-        console.log(`[Disk Cache Hit] Serving ${cacheKey} UI Pack`);
+        // console.log(`[Disk Cache Hit] Serving ${cacheKey} UI Pack`);
         return res.json(diskData);
       } catch (e) {
         console.error(`Disk cache read failed for ${cacheKey}:`, e);
