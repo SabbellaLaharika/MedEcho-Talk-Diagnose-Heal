@@ -107,6 +107,7 @@ export const createAppointment = async (req: Request, res: Response) => {
 
         // Send Email Notifications
         if (appointment.patient.email) {
+            console.log(`📧 Resolved patient recipient: ${appointment.patient.email} (Lang: ${patientLang})`);
             await sendEmail({
                 to: appointment.patient.email,
                 subject: pSubj,
@@ -130,6 +131,7 @@ export const createAppointment = async (req: Request, res: Response) => {
         }
 
         if (appointment.doctor.email) {
+            console.log(`📧 Resolved doctor recipient: ${appointment.doctor.email} (Lang: ${doctorLang})`);
             await sendEmail({
                 to: appointment.doctor.email,
                 subject: dSubj,
@@ -281,6 +283,7 @@ export const startCall = async (req: Request, res: Response) => {
 
         // Send Email Alert
         if (targetEmail) {
+            console.log(`📧 Resolved call recipient: ${targetEmail}`);
             const { getCallInviteTemplate } = require('../services/emailTemplates');
             await sendEmail({
                 to: targetEmail,

@@ -132,27 +132,37 @@ export const updateProfile = async (req: Request, res: Response) => {
 
 export const forgotPassword = async (req: Request, res: Response) => {
     try {
-        const { email } = req.body;
-        const user = await prisma.user.findUnique({ where: { email } });
+        const { email: identifier } = req.body; // Can be email or username
+        const user = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email: identifier },
+                    { username: identifier }
+                ]
+            }
+        });
+
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
 
+        const targetEmail = user.email;
+
         await (prisma.user as any).update({
-            where: { email },
+            where: { id: user.id },
             data: { otp, otpExpiry }
         });
 
         const { getPasswordResetTemplate } = require('../services/emailTemplates');
 
         await sendEmail({
-            to: email,
+            to: targetEmail,
             subject: 'MedEcho - Password Reset OTP',
             text: `Your OTP for password reset is ${otp}. It expires in 15 minutes.`,
             html: getPasswordResetTemplate({
                 name: user.name,
-                email: email,
+                email: targetEmail,
                 otp: otp
             })
         });

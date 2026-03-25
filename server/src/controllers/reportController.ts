@@ -58,6 +58,7 @@ export const createReport = async (req: Request, res: Response) => {
         // Email report asynchronously
         if (report.patient?.email) {
             const lang = report.patient.preferredLanguage || 'en';
+            console.log(`📧 Resolved report recipient: ${report.patient.email} (Lang: ${lang})`);
             try {
                 const [rSubject, rHeader, rBtn] = await Promise.all([
                     translationService.translate('Your Medical Report - MedEcho', lang),
