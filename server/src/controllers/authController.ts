@@ -23,7 +23,7 @@ export const register = async (req: Request, res: Response) => {
         if (!finalUsername) {
             const prefix = userRole === 'DOCTOR' ? 'D' : 'P';
             const lastUser = await prisma.user.findFirst({
-                where: { 
+                where: {
                     role: userRole as any,
                     username: { startsWith: prefix }
                 },
@@ -37,7 +37,7 @@ export const register = async (req: Request, res: Response) => {
                     nextNum = parseInt(lastNumStr, 10) + 1;
                 }
             }
-            finalUsername = `${prefix}${String(nextNum).padStart(4, '0')}`;
+            finalUsername = userRole === 'DOCTOR' ? `${prefix}${String(nextNum).padStart(3, '0')}` : `${prefix}${String(nextNum).padStart(5, '0')}`;
         }
 
         const user = await prisma.user.create({

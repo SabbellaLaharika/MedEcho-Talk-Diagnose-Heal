@@ -4,15 +4,19 @@ import nodemailer from 'nodemailer';
 // Create a transporter using Brevo (Sendinblue) - Most reliable for Render
 const transporter = nodemailer.createTransport({
     host: 'smtp-relay.brevo.com',
-    port: 587,
-    secure: false, // TLS
+    port: 465,
+    secure: true, // true for 465, false for 587
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
     },
-    connectionTimeout: 30000, 
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
+    tls: {
+        // This helps with connection issues in some cloud environments
+        rejectUnauthorized: false
+    },
+    connectionTimeout: 15000, // Detect failure faster
+    greetingTimeout: 15000,
+    socketTimeout: 15000,
 });
 
 interface EmailOptions {
@@ -27,7 +31,8 @@ export const sendEmail = async ({ to, subject, text, html }: EmailOptions) => {
         // Log SMTP details (except password) to verify config in Render
         console.log(`📧 Attempting email to ${to}...`);
         const currentHost = 'smtp-relay.brevo.com'; // Hardcoded as per nodemailer.createTransport
-        console.log(`📡 SMTP Config: Host=${currentHost}, User=${process.env.SMTP_USER || 'NOT SET'}`);
+        const currentPort = 465;
+        console.log(`📡 SMTP Config: Host=${currentHost}, Port=${currentPort}, SSL=true, User=${process.env.SMTP_USER || 'NOT SET'}`);
 
         // If SMTP credentials aren't set, just log it instead of crashing
         if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
