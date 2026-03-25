@@ -8,10 +8,17 @@ const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 // Proxy Chat/Predict Request
 export const pingML = async (req: Request, res: Response) => {
     try {
-        await axios.get(`${ML_SERVICE_URL}/ping`);
-        res.status(200).send('ML Service Pong');
-    } catch (error) {
-        res.status(503).send('ML Service Unavailable');
+        await axios.get(`${ML_SERVICE_URL}/ping`, { timeout: 5000 });
+        res.status(200).json({ status: 'ok', message: 'ML Service Active' });
+    } catch (error: any) {
+        // Return 200 even if down to "clear" the browser console error as requested
+        // But log the real issue on the server side for the developer
+        console.warn(`⚠️ ML Service Ping Failed at ${ML_SERVICE_URL}: ${error.message}`);
+        res.status(200).json({ 
+            status: 'sleeping', 
+            message: 'ML Service is currently unreachable or sleeping',
+            url: ML_SERVICE_URL
+        });
     }
 };
 
