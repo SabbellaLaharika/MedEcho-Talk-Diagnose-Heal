@@ -73,6 +73,8 @@ export const createAppointment = async (req: Request, res: Response) => {
             }
         });
 
+        const jitsiLink = `https://meet.jit.si/MedEcho-Apt-${appointment.id.replace(/-/g, '')}`;
+
         const patientLang = appointment.patient.preferredLanguage || 'en';
         const doctorLang = appointment.doctor.preferredLanguage || 'en';
 
@@ -125,6 +127,7 @@ export const createAppointment = async (req: Request, res: Response) => {
                     timeLabel: pTimeLbl,
                     footer: pFooter,
                     btn: pBtn,
+                    meetingLink: jitsiLink,
                     appointmentId: appointment.id
                 })
             });
@@ -148,6 +151,7 @@ export const createAppointment = async (req: Request, res: Response) => {
                     dateLabel: dDateLbl,
                     timeLabel: dTimeLbl,
                     btn: dBtn,
+                    meetingLink: jitsiLink,
                     appointmentId: appointment.id
                 })
             });

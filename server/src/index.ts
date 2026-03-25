@@ -43,6 +43,7 @@ import scheduleRoutes from './routes/scheduleRoutes';
 import translationRoutes from './routes/translationRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import didRoutes from './routes/didRoutes';
+import { startReminderService } from './services/reminderService';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -98,4 +99,5 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    startReminderService();
 });
