@@ -25,6 +25,9 @@ export const mapBackendReportToFrontend = (report: any): MedicalReport => {
       medications: Array.isArray(report.medications) ? report.medications : [],
       prescription: Array.isArray(report.precautions) ? report.precautions : (Array.isArray(report.prescription) ? report.prescription : []),
       aiConfidence: Number(report.confidenceScore) || 0,
+      reportType: report.reportType || 'AI',
+      fileUrl: report.fileUrl || undefined,
+      fileName: report.fileName || undefined,
       vitals: report.vitals || {},
       symptoms: (() => {
         const baseSymptoms = Array.isArray(report.symptoms) ? report.symptoms : [];

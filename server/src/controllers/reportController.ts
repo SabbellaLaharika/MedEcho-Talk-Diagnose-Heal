@@ -47,7 +47,8 @@ export const createReport = async (req: Request, res: Response) => {
                 symptoms: symptoms || [],
                 medications: medications || [],
                 history: history || {},
-                vitals: vitals || {}
+                vitals: vitals || {},
+                reportType: 'AI'
             },
             include: {
                 patient: { select: { name: true, email: true, preferredLanguage: true } },
@@ -208,7 +209,7 @@ export const getDoctorReports = async (req: Request, res: Response) => {
 export const uploadReport = async (req: Request, res: Response) => {
     try {
         const file = (req as any).file;
-        const { patientId, diagnosis, notes } = req.body;
+        const { patientId, diagnosis, notes, reportType, doctorId } = req.body;
 
         if (!patientId) {
             return res.status(400).json({ message: 'patientId is required' });
@@ -277,7 +278,8 @@ export const uploadReport = async (req: Request, res: Response) => {
                 medications: aiAnalysis.medications || [],
                 history: {},
                 vitals: {},
-                reportType: 'UPLOADED',
+                reportType: reportType || 'UPLOADED',
+                doctorId: doctorId || null,
                 fileUrl: fileUrl || null,
                 fileName: fileName || null,
             },

@@ -119,6 +119,12 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
       if (uploadFile) formData.append('file', uploadFile);
       formData.append('diagnosis', uploadDiagnosis || uploadFile?.name || 'External Report');
       formData.append('notes', uploadNotes);
+      
+      const isDoctor = user.role === 'DOCTOR';
+      const uploadType = isDoctor ? 'CONSULTATION' : 'UPLOADED';
+      
+      formData.append('reportType', uploadType);
+      if (isDoctor) formData.append('doctorId', user.id);
 
       const { data } = await api.post('reports/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -135,7 +141,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
           diagnosis: data.diagnosis,
           summary: data.summary,
           prescription: data.precautions || [],
-          reportType: 'UPLOADED',
+          reportType: uploadType,
           fileUrl: data.fileUrl,
           fileName: data.fileName,
         });
@@ -146,7 +152,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
         setUploadDiagnosis('');
         setUploadNotes('');
         setUploadSuccess(false);
-        setActiveTab('UPLOADED');
+        setActiveTab(uploadType);
       }, 1500);
     } catch (err) {
       console.error('Upload failed:', err);

@@ -362,6 +362,11 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
     formData.append('file', file);
     formData.append('patientId', user.id);
     
+    if (user.role === 'DOCTOR') {
+      formData.append('reportType', 'CONSULTATION');
+      formData.append('doctorId', user.id);
+    }
+    
     try {
       const { data: rawReport } = await api.post('/reports/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
