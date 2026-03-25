@@ -31,6 +31,7 @@ export const getDoctors = async (req: Request, res: Response) => {
                 contact: true,
                 isAvailable: true,
                 preferredLanguage: true,
+                username: true,
             }
         });
 

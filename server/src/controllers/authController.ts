@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 
 export const register = async (req: Request, res: Response) => {
     try {
-        const { email, password, name, role, preferredLanguage } = req.body;
+        const { email, password, name, role, username, preferredLanguage } = req.body;
 
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
@@ -24,6 +24,7 @@ export const register = async (req: Request, res: Response) => {
                 email,
                 passwordHash: hashedPassword,
                 name,
+                username,
                 role: userRole as any,
                 preferredLanguage: preferredLanguage || 'en',
             },
@@ -75,12 +76,13 @@ export const login = async (req: Request, res: Response) => {
 
 export const updateProfile = async (req: Request, res: Response) => {
     try {
-        const { id, name, contact, avatar, gender, dob, bloodGroup, address, preferredLanguage, vitalBp, vitalWeight, vitalGlucose, vitalTemperature } = req.body;
+        const { id, name, username, contact, avatar, gender, dob, bloodGroup, address, preferredLanguage, vitalBp, vitalWeight, vitalGlucose, vitalTemperature } = req.body;
 
         const user = await (prisma.user as any).update({
             where: { id },
             data: {
                 name,
+                username,
                 contact,
                 avatar,
                 gender,

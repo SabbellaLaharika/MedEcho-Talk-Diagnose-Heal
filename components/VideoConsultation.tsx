@@ -70,13 +70,23 @@ const VideoConsultation: React.FC<VideoConsultationProps> = ({ user, appointment
       return;
     }
 
-    // Initialize Peer
+    // Initialize Peer with global TURN servers for reliable cloud connectivity
     peerRef.current = new Peer(myPeerId, {
+      debug: 2,
       config: {
         'iceServers': [
           { 'urls': 'stun:stun.l.google.com:19302' },
-          { 'urls': 'stun:stun1.l.google.com:19302' },
-          { 'urls': 'stun:stun2.l.google.com:19302' },
+          { 'urls': 'stun:openrelay.metered.ca:80' },
+          { 
+            'urls': 'turn:openrelay.metered.ca:80', 
+            'username': 'openrelayproject', 
+            'password': 'openrelayproject' 
+          },
+          { 
+            'urls': 'turn:openrelay.metered.ca:443', 
+            'username': 'openrelayproject', 
+            'password': 'openrelayproject' 
+          }
         ]
       }
     });
@@ -84,6 +94,7 @@ const VideoConsultation: React.FC<VideoConsultationProps> = ({ user, appointment
     peerRef.current.on('open', (id: string) => {
       console.log('PeerJS Tunnel Opened:', id);
       if (isInitiator) {
+         setStatus('CONNECTING'); // Reset to connecting before call start
          startTheCall();
       }
     });
@@ -167,6 +178,7 @@ const VideoConsultation: React.FC<VideoConsultationProps> = ({ user, appointment
   }, [status]);
 
   const startTheCall = async () => {
+    setStatus('CONNECTING');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: !isVoiceOnly });
       localStreamRef.current = stream;

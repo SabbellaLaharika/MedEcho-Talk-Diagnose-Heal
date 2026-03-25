@@ -68,8 +68,8 @@ export const createAppointment = async (req: Request, res: Response) => {
                 status: 'PENDING'
             },
             include: {
-                doctor: { select: { name: true, specialization: true, contact: true, email: true, preferredLanguage: true } },
-                patient: { select: { name: true, email: true, preferredLanguage: true } }
+                doctor: { select: { name: true, username: true, specialization: true, contact: true, email: true, preferredLanguage: true } },
+                patient: { select: { name: true, username: true, email: true, preferredLanguage: true } }
             }
         });
 
@@ -180,16 +180,23 @@ export const getAppointments = async (req: Request, res: Response) => {
         const appointments = await prisma.appointment.findMany({
             where: whereClause,
             include: {
-                doctor: { select: { id: true, name: true, specialization: true, contact: true } },
-                patient: { select: { id: true, name: true } }
+                doctor: { select: { id: true, name: true, username: true, specialization: true, contact: true } },
+                patient: { select: { id: true, name: true, username: true } }
             },
             orderBy: { date: 'desc' }
         });
 
+        // Ensure doctorName and patientName are ALWAYS available at top level for frontend
+        const enhancedAppointments = appointments.map((apt: any) => ({
+            ...apt,
+            doctorName: apt.doctorName || apt.doctor?.name || 'Doctor',
+            patientName: apt.patientName || apt.patient?.name || 'Patient'
+        }));
+
         // Localize based on requester's language
         const lang = requestingUser?.preferredLanguage;
         if (lang && lang !== 'en') {
-            const translatedAppointments = await Promise.all(appointments.map(async (apt: any) => {
+            const translatedAppointments = await Promise.all(enhancedAppointments.map(async (apt: any) => {
                 const updatedApt = { ...apt };
 
                 // If I am a patient, I want to see doctor details translated
@@ -218,7 +225,7 @@ export const getAppointments = async (req: Request, res: Response) => {
             return res.json(translatedAppointments);
         }
 
-        res.json(appointments);
+        res.json(enhancedAppointments);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error fetching appointments' });
