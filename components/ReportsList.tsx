@@ -107,7 +107,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
 
   const uniquePatients = Array.from(new Map<string, { id: string, name: string }>(
     (appointments || []).filter(a => a.doctorId === user.id).map(a => [
-      a.patientId, 
+      a.patientId,
       { id: a.patientId, name: a.patientName || a.patient?.name || t.unknownPatient || 'Unknown Patient' }
     ])
   ).values());
@@ -132,10 +132,10 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
       if (uploadFile) formData.append('file', uploadFile);
       formData.append('diagnosis', uploadDiagnosis || uploadFile?.name || 'External Report');
       formData.append('notes', uploadNotes);
-      
+
       const isDoctor = user.role === 'DOCTOR';
       const uploadType = isDoctor ? 'CONSULTATION' : 'UPLOADED';
-      
+
       formData.append('reportType', uploadType);
       if (isDoctor) formData.append('doctorId', user.id);
 
@@ -267,15 +267,15 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                   className="w-full p-4 rounded-2xl border-2 border-transparent bg-slate-50 hover:bg-white hover:border-slate-200 text-left transition-all flex items-center space-x-4"
                 >
                   <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 font-bold flex flex-shrink-0 items-center justify-center uppercase">
-                     {p.name[0]}
+                    {p.name[0]}
                   </div>
                   <div className="flex-1 min-w-0">
-                     <p className="font-black text-slate-800 text-sm truncate">
-                        <TranslatedText text={p.name} lang={user.preferredLanguage} />
-                     </p>
-                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-                        Patient Records
-                     </p>
+                    <p className="font-black text-slate-800 text-sm truncate">
+                      <TranslatedText text={p.name} lang={user.preferredLanguage} />
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                      Patient Records
+                    </p>
                   </div>
                 </button>
               )) : (
@@ -285,12 +285,12 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
               // Reports List View for selected patient or normal user
               <>
                 {user.role === 'DOCTOR' && selectedPatientId && (
-                   <button 
-                     onClick={() => { setSelectedPatientId(null); setSelectedReport(null); }}
-                     className="mb-3 w-full text-left text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-600 flex items-center bg-indigo-50/50 p-2 rounded-xl"
-                   >
-                     &larr; Back to Patients List
-                   </button>
+                  <button
+                    onClick={() => { setSelectedPatientId(null); setSelectedReport(null); }}
+                    className="mb-3 w-full text-left text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-600 flex items-center bg-indigo-50/50 p-2 rounded-xl"
+                  >
+                    &larr; Back to Patients List
+                  </button>
                 )}
                 {filteredReports.map(report => (
                   <button
@@ -458,6 +458,14 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                           <span className="text-lg mb-1">⚖️</span>
                           <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-0.5"><TranslatedText text="Weight" lang={user.preferredLanguage} /></p>
                           <p className="text-sm font-black text-blue-700">{activeReport.vitals.weight}</p>
+                        </div>
+                      )}
+                      {activeReport.vitals.glucose && (
+                        <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 flex flex-col items-center text-center">
+                          <span className="text-lg mb-1">🔥</span>
+                          <p className="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-0.5">
+                            <TranslatedText text="Temp" lang={user.preferredLanguage} /></p>
+                          <p className="text-sm font-black text-purple-700">{activeReport.vitals.glucose}</p>
                         </div>
                       )}
                       {activeReport.vitals.temperature && (
