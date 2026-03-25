@@ -26,7 +26,8 @@ export const sendEmail = async ({ to, subject, text, html }: EmailOptions) => {
     try {
         // Log SMTP details (except password) to verify config in Render
         console.log(`📧 Attempting email to ${to}...`);
-        console.log(`📡 SMTP Config: Host=${process.env.SMTP_HOST || 'smtp.gmail.com'}, User=${process.env.SMTP_USER || 'NOT SET'}`);
+        const currentHost = 'smtp-relay.brevo.com'; // Hardcoded as per nodemailer.createTransport
+        console.log(`📡 SMTP Config: Host=${currentHost}, User=${process.env.SMTP_USER || 'NOT SET'}`);
 
         // If SMTP credentials aren't set, just log it instead of crashing
         if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
@@ -35,8 +36,9 @@ export const sendEmail = async ({ to, subject, text, html }: EmailOptions) => {
             return;
         }
 
+        const fromAddress = process.env.SMTP_FROM || 'sabbellalaharika05@gmail.com'; 
         const info = await transporter.sendMail({
-            from: `"MedEcho Notifications" <${process.env.SMTP_USER}>`,
+            from: `"MedEcho Notifications" <${fromAddress}>`,
             to,
             subject,
             text,

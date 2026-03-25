@@ -50,8 +50,8 @@ export const createReport = async (req: Request, res: Response) => {
                 vitals: vitals || {}
             },
             include: {
-                patient: { select: { name: true, email: true, preferredLanguage: true } },
-                doctor: { select: { name: true } }
+                patient: { select: { name: true, username: true, email: true, preferredLanguage: true } },
+                doctor: { select: { name: true, username: true } }
             }
         });
 
@@ -65,7 +65,7 @@ export const createReport = async (req: Request, res: Response) => {
                     translationService.translate('View Full Report', lang)
                 ]);
 
-                sendEmail({
+                await sendEmail({
                     to: report.patient.email,
                     subject: rSubject,
                     text: `Your medical report has been generated. Diagnosis: ${report.diagnosis}`,
@@ -124,8 +124,8 @@ export const getPatientReports = async (req: Request, res: Response) => {
         const reports = await prisma.report.findMany({
             where: { patientId },
             include: {
-                patient: { select: { name: true } },
-                doctor: { select: { name: true } }
+                patient: { select: { name: true, username: true } },
+                doctor: { select: { name: true, username: true } }
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -145,8 +145,8 @@ export const getReportById = async (req: Request, res: Response) => {
         const report = await prisma.report.findUnique({
             where: { id },
             include: {
-                patient: { select: { name: true, email: true, preferredLanguage: true } },
-                doctor: { select: { name: true } }
+                patient: { select: { name: true, username: true, email: true, preferredLanguage: true } },
+                doctor: { select: { name: true, username: true } }
             }
         });
 
@@ -193,8 +193,8 @@ export const getDoctorReports = async (req: Request, res: Response) => {
         const reports = await prisma.report.findMany({
             where: { doctorId },
             include: {
-                patient: { select: { name: true } },
-                doctor: { select: { name: true } }
+                patient: { select: { name: true, username: true } },
+                doctor: { select: { name: true, username: true } }
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -282,8 +282,8 @@ export const uploadReport = async (req: Request, res: Response) => {
                 fileName: fileName || null,
             },
             include: {
-                patient: { select: { name: true } },
-                doctor: { select: { name: true } }
+                patient: { select: { name: true, username: true } },
+                doctor: { select: { name: true, username: true } }
             }
         });
 

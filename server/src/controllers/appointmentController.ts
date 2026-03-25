@@ -107,7 +107,7 @@ export const createAppointment = async (req: Request, res: Response) => {
 
         // Send Email Notifications
         if (appointment.patient.email) {
-            sendEmail({
+            await sendEmail({
                 to: appointment.patient.email,
                 subject: pSubj,
                 text: pMsg,
@@ -130,7 +130,7 @@ export const createAppointment = async (req: Request, res: Response) => {
         }
 
         if (appointment.doctor.email) {
-            sendEmail({
+            await sendEmail({
                 to: appointment.doctor.email,
                 subject: dSubj,
                 text: dMsg,
@@ -282,7 +282,7 @@ export const startCall = async (req: Request, res: Response) => {
         // Send Email Alert
         if (targetEmail) {
             const { getCallInviteTemplate } = require('../services/emailTemplates');
-            sendEmail({
+            await sendEmail({
                 to: targetEmail,
                 subject: 'MedEcho: Call Invitation',
                 text: `${initiatorName} is waiting for you in the consultation room. Please login to MedEcho to join the call.`,

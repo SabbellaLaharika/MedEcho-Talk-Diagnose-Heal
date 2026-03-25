@@ -16,15 +16,36 @@ export const register = async (req: Request, res: Response) => {
         }
 
         const userRole = role || 'PATIENT';
-
         const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Auto-generate sequential username if not provided
+        let finalUsername = username;
+        if (!finalUsername) {
+            const prefix = userRole === 'DOCTOR' ? 'D' : 'P';
+            const lastUser = await prisma.user.findFirst({
+                where: { 
+                    role: userRole as any,
+                    username: { startsWith: prefix }
+                },
+                orderBy: { username: 'desc' }
+            });
+
+            let nextNum = 1;
+            if (lastUser && lastUser.username) {
+                const lastNumStr = lastUser.username.substring(1).replace(/\D/g, '');
+                if (lastNumStr) {
+                    nextNum = parseInt(lastNumStr, 10) + 1;
+                }
+            }
+            finalUsername = `${prefix}${String(nextNum).padStart(4, '0')}`;
+        }
 
         const user = await prisma.user.create({
             data: {
                 email,
                 passwordHash: hashedPassword,
                 name,
-                username,
+                username: finalUsername,
                 role: userRole as any,
                 preferredLanguage: preferredLanguage || 'en',
             },
@@ -46,10 +67,13 @@ export const login = async (req: Request, res: Response) => {
     try {
         const { email, password } = req.body;
 
-        // Allow login via email
+        // Allow login via email OR username
         const user = await prisma.user.findFirst({
             where: {
-                email: email
+                OR: [
+                    { email: email },
+                    { username: email }
+                ]
             }
         });
 
