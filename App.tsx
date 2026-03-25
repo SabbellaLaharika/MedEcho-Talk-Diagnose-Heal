@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Appointment, MedicalReport, BlockedSlot, DaySchedule, TimeSlot, AppNotification } from './types';
 import { dbService } from './services/dbService';
+import { io } from 'socket.io-client';
+import { API_URL } from './services/api';
 import Sidebar from './components/Sidebar';
 import PatientDashboard from './components/PatientDashboard';
 import DoctorDashboard from './components/DoctorDashboard';
@@ -241,6 +243,36 @@ const App: React.FC = () => {
       return () => clearInterval(interval);
     }
   }, [user, generateReminders]);
+
+  // ─── Real-time Socket for Push Notifications ──────────────────────────────
+  useEffect(() => {
+    if (!user) return;
+
+    const socketUrl = API_URL.replace('/api', '');
+    const socket = io(socketUrl, { transports: ['websocket', 'polling'] });
+
+    socket.on('connect', () => {
+      // Join user's private room for targeted notifications
+      socket.emit('join', { userId: user.id, role: user.role });
+    });
+
+    socket.on('notification', (notif: AppNotification) => {
+      setNotifications(prev => {
+        // Avoid duplicates if already fetched via polling
+        if (prev.some(n => n.id === notif.id)) return prev;
+        // Browser push notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(notif.title as string, {
+            body: notif.message as string,
+            icon: '/favicon.ico'
+          });
+        }
+        return [{ ...notif, isRead: false }, ...prev];
+      });
+    });
+
+    return () => { socket.disconnect(); };
+  }, [user]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -574,9 +606,10 @@ const App: React.FC = () => {
                 setAppointments(prev => [saved, ...prev]);
                 setActiveTab('dashboard');
                 setPreselectedDoctorId(null);
-              } catch (e) {
+              } catch (e: any) {
                 console.error("Booking failed:", e);
-                alert("Wait, there was an issue booking this appointment.");
+                const msg = e?.response?.data?.message || "There was an issue booking this appointment.";
+                alert(msg);
               }
             }}
           />}

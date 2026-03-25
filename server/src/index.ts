@@ -9,7 +9,7 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
+export const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
@@ -68,17 +68,17 @@ io.on('connection', (socket) => {
     });
 
     socket.on('start_call', (payload: { callId: string, from: string, to: string, fromName: string, toRole: 'DOCTOR'|'PATIENT' }) => {
-        const room = `DOCTOR:${payload.to}`;
+        const room = `${payload.toRole}:${payload.to}`;
         io.to(room).emit('incoming_call', payload);
     });
 
-    socket.on('offer', (payload: { callId: string, from: string, to: string, sdp: any }) => {
-        const room = `DOCTOR:${payload.to}`;
+    socket.on('offer', (payload: { callId: string, from: string, to: string, sdp: any, toRole: 'DOCTOR'|'PATIENT' }) => {
+        const room = `${payload.toRole || 'DOCTOR'}:${payload.to}`;
         io.to(room).emit('offer', payload);
     });
 
-    socket.on('answer', (payload: { callId: string, from: string, to: string, sdp: any }) => {
-        const room = `PATIENT:${payload.to}`;
+    socket.on('answer', (payload: { callId: string, from: string, to: string, sdp: any, toRole: 'DOCTOR'|'PATIENT' }) => {
+        const room = `${payload.toRole || 'PATIENT'}:${payload.to}`;
         io.to(room).emit('answer', payload);
     });
 

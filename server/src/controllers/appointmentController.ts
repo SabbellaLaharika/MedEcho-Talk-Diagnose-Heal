@@ -3,7 +3,8 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { translationService } from '../services/translationService';
 import { sendEmail } from '../services/emailService';
-import { getPatientAppointmentTemplate, getDoctorAppointmentTemplate } from '../services/emailTemplates';
+import { getPatientAppointmentTemplate, getDoctorAppointmentTemplate, getCallInviteTemplate } from '../services/emailTemplates';
+import { notificationService } from '../services/notificationService';
 
 const prisma = new PrismaClient();
 
@@ -56,6 +57,18 @@ export const createAppointment = async (req: Request, res: Response) => {
             if (existing) {
                 return res.status(409).json({ message: 'This time slot is already booked' });
             }
+        }
+
+        // --- 3. ONE-APPOINTMENT-PER-DOCTOR RULE ---
+        const existingWithDoctor = await prisma.appointment.findFirst({
+            where: {
+                patientId,
+                doctorId,
+                status: { in: ['PENDING', 'CONFIRMED'] }
+            }
+        });
+        if (existingWithDoctor) {
+            return res.status(409).json({ message: 'You already have an active appointment with this doctor. Please cancel it before booking a new one.' });
         }
 
         const appointment = await prisma.appointment.create({
@@ -263,46 +276,66 @@ export const startCall = async (req: Request, res: Response) => {
 
         const appointment = await prisma.appointment.findUnique({
             where: { id },
-            include: { 
-                patient: { select: { id: true, name: true, email: true } }, 
-                doctor: { select: { id: true, name: true, email: true } } 
+            include: {
+                patient: { select: { id: true, name: true, email: true, role: true } },
+                doctor: { select: { id: true, name: true, email: true, role: true } }
             }
         });
 
         if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
 
-        const isPatient = initiatorId === appointment.patientId;
-        const targetUserId = isPatient ? appointment.doctorId : appointment.patientId;
-        const targetEmail = isPatient ? appointment.doctor.email : appointment.patient.email;
-        const initiatorName = isPatient ? appointment.patient.name : appointment.doctor.name;
-
-        // Create notification for the receiver
-        await prisma.notification.create({
-            data: {
-                userId: targetUserId,
-                title: callType === 'VIDEO' ? 'Incoming Video Call' : 'Incoming Voice Call',
-                message: `${initiatorName} is starting the ${callType === 'VIDEO' ? 'video' : 'voice'} consultation for your appointment.`
+        // --- TIME GUARD: Allow only 5 min before appointment ---
+        if (appointment.date && appointment.time) {
+            const [h, m] = appointment.time.split(':').map(Number);
+            const scheduledAt = new Date(appointment.date);
+            scheduledAt.setHours(h, m, 0, 0);
+            const now = new Date();
+            const diffMs = scheduledAt.getTime() - now.getTime();
+            // Block if more than 5 minutes before scheduled time
+            if (diffMs > 5 * 60 * 1000) {
+                const minutesLeft = Math.ceil(diffMs / 60000);
+                return res.status(403).json({
+                    message: `Call cannot be started yet. Your appointment begins in ${minutesLeft} minute(s). You can join 5 minutes before.`
+                });
             }
+        }
+
+        const isPatient = initiatorId === appointment.patientId;
+        const target = isPatient ? appointment.doctor : appointment.patient;
+        const initiatorName = isPatient ? appointment.patient.name : appointment.doctor.name;
+        const targetRole = isPatient ? 'DOCTOR' : 'PATIENT';
+
+        // Generate Jitsi meeting link
+        const jitsiLink = `https://meet.jit.si/MedEcho-Apt-${appointment.id.replace(/-/g, '')}`;
+
+        // Real-time push notification
+        await notificationService.sendNotification({
+            userId: target.id,
+            title: callType === 'VIDEO' ? '📹 Incoming Video Call' : '📞 Incoming Voice Call',
+            message: `${initiatorName} is starting the ${callType === 'VIDEO' ? 'video' : 'voice'} consultation. Click to join.`,
+            type: 'CALL',
+            role: targetRole,
+            metadata: { appointmentId: appointment.id, jitsiLink }
         });
 
-        // Send Email Alert
-        if (targetEmail) {
-            console.log(`📧 Resolved call recipient: ${targetEmail}`);
-            const { getCallInviteTemplate } = require('../services/emailTemplates');
+        // Send Email Alert with Jitsi link
+        if (target.email) {
+            console.log(`📧 Sending call invite to: ${target.email}`);
             await sendEmail({
-                to: targetEmail,
+                to: target.email,
                 subject: 'MedEcho: Call Invitation',
-                text: `${initiatorName} is waiting for you in the consultation room. Please login to MedEcho to join the call.`,
+                text: `${initiatorName} is waiting for you. Join: ${jitsiLink}`,
                 html: getCallInviteTemplate({
-                    recipientName: isPatient ? appointment.doctor.name : appointment.patient.name,
+                    recipientName: target.name,
                     callerName: initiatorName,
                     appointmentId: appointment.id,
-                    btn: 'Join Call on MedEcho'
+                    meetingLink: jitsiLink,
+                    btn: 'Join Meeting Now'
                 })
             });
         }
 
-        res.json({ message: 'Call started' });
+        res.json({ message: 'Call started', jitsiLink });
     } catch (error) {
         console.error('Error starting call:', error);
         res.status(500).json({ message: 'Server error starting call' });
@@ -323,6 +356,37 @@ export const getDoctorAppointmentsByStatus = async (req: Request, res: Response)
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error updating appointment' });
+    }
+};
+
+// Get all booked time slots for a doctor (accessible by all patients, no auth)
+export const getDoctorBookedSlots = async (req: Request, res: Response) => {
+    try {
+        const { doctorId } = req.params;
+        const { date } = req.query;
+
+        const where: any = {
+            doctorId,
+            status: { not: 'CANCELLED' }
+        };
+
+        if (date) {
+            const start = new Date(date as string);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(date as string);
+            end.setHours(23, 59, 59, 999);
+            where.date = { gte: start, lte: end };
+        }
+
+        const appointments = await prisma.appointment.findMany({
+            where,
+            select: { time: true, date: true, status: true }
+        });
+
+        res.json(appointments);
+    } catch (error) {
+        console.error('Error fetching booked slots:', error);
+        res.status(500).json({ message: 'Server error fetching booked slots' });
     }
 };
 

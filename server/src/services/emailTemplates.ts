@@ -141,8 +141,10 @@ export const getCallInviteTemplate = (params: {
     callerName: string;
     appointmentId: string;
     btn: string;
+    meetingLink?: string;
 }) => {
-    const link = `${BASE_URL}?joinCall=${params.appointmentId}`;
+    const dashboardLink = `${BASE_URL}?joinCall=${params.appointmentId}`;
+    const jitsiLink = params.meetingLink || dashboardLink;
     return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.05);">
         <div style="background-color: #4f46e5; padding: 20px; text-align: center; color: white;">
@@ -152,9 +154,14 @@ export const getCallInviteTemplate = (params: {
         <div style="padding: 30px; background-color: #ffffff; color: #333333;">
             <h2 style="color: #1f2937; margin-top: 0;">Hello ${params.recipientName},</h2>
             <p style="font-size: 16px; line-height: 1.5;">
-                <strong>${params.callerName}</strong> is calling you on MedEcho. Click below to join the call directly.
+                <strong>${params.callerName}</strong> is calling you on MedEcho. You can join directly via Jitsi Meet (no login needed) or through the MedEcho dashboard.
             </p>
-            <a href="${link}" style="display: inline-block; background-color: #4f46e5; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; font-size: 16px;">📞 ${params.btn}</a>
+            <div style="margin: 24px 0; text-align: center;">
+                <a href="${jitsiLink}" style="display: inline-block; background-color: #059669; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; margin-bottom: 12px;">🎥 Join Meeting Now (Jitsi)</a>
+                <br/>
+                <a href="${dashboardLink}" style="display: inline-block; background-color: #4f46e5; color: white; padding: 10px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 13px; opacity: 0.85;">📱 ${params.btn}</a>
+            </div>
+            <p style="font-size: 12px; color: #6b7280; margin-top: 16px;">Meeting Room: <a href="${jitsiLink}" style="color: #4f46e5;">${jitsiLink}</a></p>
         </div>
     </div>
     `;

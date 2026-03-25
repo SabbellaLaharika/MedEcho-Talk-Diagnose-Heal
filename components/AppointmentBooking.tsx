@@ -17,9 +17,10 @@ import {
 interface AppointmentBookingProps {
   onBook: (appointment: Partial<Appointment>) => void;
   user: User;
+  preselectedDoctorId?: string | null;
 }
 
-const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user }) => {
+const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, preselectedDoctorId }) => {
   const t = getTranslation(user.preferredLanguage);
 
   useEffect(() => {
@@ -29,7 +30,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
   // 1. STATES
   const [loading, setLoading] = useState(true);
   const [doctors, setDoctors] = useState<User[]>([]);
-  const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
+  const [bookedSlots, setBookedSlots] = useState<{ time: string; date: string }[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<User | null>(null);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -50,8 +51,8 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
     socketRef.current = io(socketUrl);
 
     // Listen for real-time updates from other users
-    socketRef.current.on("appointment_booked", (newApt: Appointment) => {
-      setAllAppointments((prev) => [...prev, newApt]);
+    socketRef.current.on("appointment_booked", (newApt: { time: string; date: string }) => {
+      setBookedSlots((prev) => [...prev, newApt]);
     });
 
     return () => {
@@ -63,10 +64,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [doctorsList, apts] = await Promise.all([
-          dbService.users.getDoctors(),
-          dbService.appointments.getAll()
-        ]);
+        const doctorsList = await dbService.users.getDoctors();
 
         const preferredOrder = [
           'Dr. L. Chalapathi Rao',
@@ -90,8 +88,14 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
           }
         }
 
-        setDoctors(Array.from(uniqueDoctorMap.values()));
-        setAllAppointments(apts || []);
+        const allDocs = Array.from(uniqueDoctorMap.values());
+        setDoctors(allDocs);
+
+        // Auto-select pre-selected doctor
+        if (preselectedDoctorId) {
+          const found = allDocs.find(d => d.id === preselectedDoctorId);
+          if (found) setSelectedDoc(found);
+        }
       } catch (err) {
         console.error("Failed to load booking data:", err);
       } finally {
@@ -108,17 +112,20 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
     if (!selectedDoc) return;
     const fetchSchedule = async () => {
       try {
-        const [schedRes, blockedRes] = await Promise.all([
+        const [schedRes, blockedRes, bookedRes] = await Promise.all([
           api.get(`/schedules/${selectedDoc.id}`),
-          api.get(`/schedules/${selectedDoc.id}/blocked`)
-        ]).catch(() => [{ data: [] }, { data: [] }]); // Correct fallback array
+          api.get(`/schedules/${selectedDoc.id}/blocked`),
+          api.get(`/appointments/doctor/${selectedDoc.id}/booked`)
+        ]).catch(() => [{ data: [] }, { data: [] }, { data: [] }]);
 
         setDoctorSchedule(schedRes?.data || []);
         setBlockedSlots(blockedRes?.data || []);
+        setBookedSlots(bookedRes?.data || []);
       } catch (err) {
         console.warn("Schedule fetch failed, defaulting to no slots:", err);
         setDoctorSchedule([]);
         setBlockedSlots([]);
+        setBookedSlots([]);
       }
     };
     fetchSchedule();
@@ -169,16 +176,14 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user })
       return !blockedForDate.some(b => slotTime >= b.startTime && slotTime < b.endTime);
     });
 
-    // Filter Already Booked (Real-time update from Socket works here)
-    const bookedForDate = allAppointments.filter(
-      a => a.doctorId === selectedDoc.id &&
-        (a.date === date || new Date(a.date).toISOString().split('T')[0] === date) &&
-        a.status !== 'CANCELLED'
+    // Filter Already Booked (Global — from server, includes ALL patients)
+    const bookedForDate = bookedSlots.filter(
+      b => new Date(b.date).toISOString().split('T')[0] === date
     );
-    slots = slots.filter(slotTime => !bookedForDate.some(a => a.time === slotTime));
+    slots = slots.filter(slotTime => !bookedForDate.some(b => b.time === slotTime));
 
     return slots;
-  }, [selectedDoc, date, doctorSchedule, blockedSlots, allAppointments]);
+  }, [selectedDoc, date, doctorSchedule, blockedSlots, bookedSlots]);
 
   // 11. HELPER: IS PAST SLOT
   const isPastSlot = (time: string) => {
