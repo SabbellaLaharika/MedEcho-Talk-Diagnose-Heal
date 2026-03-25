@@ -2,17 +2,31 @@ import nodemailer from 'nodemailer';
 
 // Create a transporter using standard SMTP
 // Create a transporter using Brevo (Sendinblue) - Most reliable for Render
+const smtpUser = process.env.SMTP_USER || '';
+const isGmail = smtpUser.toLowerCase().includes('gmail.com');
+
 const transporter = nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com',
-    port: 587,
-    secure: false, // TLS
+    host: process.env.SMTP_HOST || (isGmail ? 'smtp.gmail.com' : 'smtp-relay.brevo.com'),
+    port: parseInt(process.env.SMTP_PORT || (isGmail ? '465' : '2525')),
+    secure: isGmail, // Port 465 uses SSL/TLS (secure=true), 2525 uses STARTTLS (secure=false)
     auth: {
-        user: process.env.SMTP_USER,
+        user: smtpUser,
         pass: process.env.SMTP_PASS,
     },
-    connectionTimeout: 30000, 
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
+    tls: {
+        rejectUnauthorized: false
+    },
+    connectionTimeout: 10000, 
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
+});
+// Verify the connection on startup
+transporter.verify((error, success) => {
+    if (error) {
+        console.error('❌ SMTP Connection Verification Failed:', error.message);
+    } else {
+        console.log('✅ SMTP Server is ready to take messages');
+    }
 });
 
 interface EmailOptions {
@@ -26,7 +40,9 @@ export const sendEmail = async ({ to, subject, text, html }: EmailOptions) => {
     try {
         // Log SMTP details (except password) to verify config in Render
         console.log(`📧 Attempting email to ${to}...`);
-        console.log(`📡 SMTP Config: Host=${process.env.SMTP_HOST || 'smtp.gmail.com'}, User=${process.env.SMTP_USER || 'NOT SET'}`);
+        const currentHost = process.env.SMTP_HOST || (isGmail ? 'smtp.gmail.com' : 'smtp-relay.brevo.com');
+        const currentPort = parseInt(process.env.SMTP_PORT || (isGmail ? '465' : '2525'));
+        console.log(`📡 SMTP Config: Host=${currentHost}, Port=${currentPort}, SSL=${isGmail}, User=${smtpUser || 'NOT SET'}`);
 
         // If SMTP credentials aren't set, just log it instead of crashing
         if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
@@ -35,15 +51,17 @@ export const sendEmail = async ({ to, subject, text, html }: EmailOptions) => {
             return;
         }
 
+        const fromAddress = process.env.SMTP_FROM || 'slaharisvrsslsmr712@gmail.com'; 
         const info = await transporter.sendMail({
-            from: `"MedEcho Notifications" <${process.env.SMTP_USER}>`,
+            from: `"MedEcho Notifications" <${fromAddress}>`,
             to,
             subject,
             text,
             html,
         });
 
-        console.log(`✅ Email sent successfully to ${to}: ${info.messageId}`);
+        console.log(`✅ SMTP Handoff Successful to: ${to}`);
+        console.log(`ℹ️ Check your Brevo Dashboard (Transactional -> Logs) for delivery status.`);
     } catch (error: any) {
         console.error('❌ FATAL Email Delivery Error:', error.message);
         if (error.code === 'EAUTH') {

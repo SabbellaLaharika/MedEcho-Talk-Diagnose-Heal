@@ -13,6 +13,7 @@ export interface PatientEmailProps {
     timeLabel: string;
     footer: string;
     btn: string;
+    meetingLink?: string;
     appointmentId?: string;
 }
 
@@ -38,6 +39,11 @@ export const getPatientAppointmentTemplate = (p: PatientEmailProps) => {
                 ${p.footer}
             </p>
             <a href="${link}" style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 20px;">${p.btn}</a>
+            ${p.meetingLink ? `
+            <div style="margin-top: 25px; padding-top: 20px; border-top: 1px dashed #e0e0e0;">
+                <p style="font-size: 14px; margin-bottom: 15px; color: #4b5563;">You can also join the video call directly via Jitsi Meet:</p>
+                <a href="${p.meetingLink}" style="display: inline-block; background-color: #f1f5f9; color: #1e40af; border: 2px solid #3b82f6; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 800; font-size: 14px;">🎥 JOIN JITSI MEETING</a>
+            </div>` : ''}
         </div>
     </div>
     `;
@@ -55,6 +61,7 @@ export interface DoctorEmailProps {
     dateLabel: string;
     timeLabel: string;
     btn: string;
+    meetingLink?: string;
     appointmentId?: string;
 }
 
@@ -77,6 +84,11 @@ export const getDoctorAppointmentTemplate = (d: DoctorEmailProps) => {
                 <p style="margin: 0;"><strong>⏰ ${d.timeLabel}</strong> ${d.time}</p>
             </div>
             <a href="${link}" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 10px;">${d.btn}</a>
+            ${d.meetingLink ? `
+            <div style="margin-top: 25px; padding-top: 20px; border-top: 1px dashed #e0e0e0;">
+                <p style="font-size: 14px; margin-bottom: 15px; color: #4b5563;">Start the clinical video session here:</p>
+                <a href="${d.meetingLink}" style="display: inline-block; background-color: #ecfdf5; color: #065f46; border: 2px solid #10b981; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 800; font-size: 14px;">📹 START CLINICAL CALL</a>
+            </div>` : ''}
         </div>
     </div>
     `;

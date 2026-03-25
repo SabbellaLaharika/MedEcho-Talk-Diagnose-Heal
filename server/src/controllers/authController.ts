@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 
 export const register = async (req: Request, res: Response) => {
     try {
-        const { email, password, name, role, preferredLanguage } = req.body;
+        const { email, password, name, role, username, preferredLanguage } = req.body;
 
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
@@ -16,14 +16,36 @@ export const register = async (req: Request, res: Response) => {
         }
 
         const userRole = role || 'PATIENT';
-
         const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Auto-generate sequential username if not provided
+        let finalUsername = username;
+        if (!finalUsername) {
+            const prefix = userRole === 'DOCTOR' ? 'D' : 'P';
+            const lastUser = await prisma.user.findFirst({
+                where: {
+                    role: userRole as any,
+                    username: { startsWith: prefix }
+                },
+                orderBy: { username: 'desc' }
+            });
+
+            let nextNum = 1;
+            if (lastUser && lastUser.username) {
+                const lastNumStr = lastUser.username.substring(1).replace(/\D/g, '');
+                if (lastNumStr) {
+                    nextNum = parseInt(lastNumStr, 10) + 1;
+                }
+            }
+            finalUsername = userRole === 'DOCTOR' ? `${prefix}${String(nextNum).padStart(3, '0')}` : `${prefix}${String(nextNum).padStart(5, '0')}`;
+        }
 
         const user = await prisma.user.create({
             data: {
                 email,
                 passwordHash: hashedPassword,
                 name,
+                username: finalUsername,
                 role: userRole as any,
                 preferredLanguage: preferredLanguage || 'en',
             },
@@ -45,10 +67,13 @@ export const login = async (req: Request, res: Response) => {
     try {
         const { email, password } = req.body;
 
-        // Allow login via email
+        // Allow login via email OR username
         const user = await prisma.user.findFirst({
             where: {
-                email: email
+                OR: [
+                    { email: email },
+                    { username: email }
+                ]
             }
         });
 
@@ -75,12 +100,13 @@ export const login = async (req: Request, res: Response) => {
 
 export const updateProfile = async (req: Request, res: Response) => {
     try {
-        const { id, name, contact, avatar, gender, dob, bloodGroup, address, preferredLanguage, vitalBp, vitalWeight, vitalGlucose, vitalTemperature } = req.body;
+        const { id, name, username, contact, avatar, gender, dob, bloodGroup, address, preferredLanguage, vitalBp, vitalWeight, vitalGlucose, vitalTemperature } = req.body;
 
         const user = await (prisma.user as any).update({
             where: { id },
             data: {
                 name,
+                username,
                 contact,
                 avatar,
                 gender,
@@ -106,27 +132,37 @@ export const updateProfile = async (req: Request, res: Response) => {
 
 export const forgotPassword = async (req: Request, res: Response) => {
     try {
-        const { email } = req.body;
-        const user = await prisma.user.findUnique({ where: { email } });
+        const { email: identifier } = req.body; // Can be email or username
+        const user = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email: identifier },
+                    { username: identifier }
+                ]
+            }
+        });
+
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
 
+        const targetEmail = user.email;
+
         await (prisma.user as any).update({
-            where: { email },
+            where: { id: user.id },
             data: { otp, otpExpiry }
         });
 
         const { getPasswordResetTemplate } = require('../services/emailTemplates');
 
         await sendEmail({
-            to: email,
+            to: targetEmail,
             subject: 'MedEcho - Password Reset OTP',
             text: `Your OTP for password reset is ${otp}. It expires in 15 minutes.`,
             html: getPasswordResetTemplate({
                 name: user.name,
-                email: email,
+                email: targetEmail,
                 otp: otp
             })
         });

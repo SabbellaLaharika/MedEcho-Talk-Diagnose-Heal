@@ -137,7 +137,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
     if (transcript && transcript.length > 20) {
       setIsAnalyzingReport(true);
       try {
-        const { data } = await api.post('analyze-transcript', { text: transcript });
+        const { data } = await api.post('reports/analyze-transcript', { text: transcript });
         setDraftReport({
           ...data,
           patientId: activeCallApt?.patientId,
