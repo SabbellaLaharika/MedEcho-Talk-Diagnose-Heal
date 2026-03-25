@@ -20,6 +20,14 @@ const transporter = nodemailer.createTransport({
     greetingTimeout: 10000,
     socketTimeout: 10000,
 });
+// Verify the connection on startup
+transporter.verify((error, success) => {
+    if (error) {
+        console.error('❌ SMTP Connection Verification Failed:', error.message);
+    } else {
+        console.log('✅ SMTP Server is ready to take messages');
+    }
+});
 
 interface EmailOptions {
     to: string;
