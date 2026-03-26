@@ -262,6 +262,8 @@ def translate():
     
     if target_lang in norm:
         target_lang = norm[target_lang]
+    elif target_lang == 'auto' or target_lang == 'au':
+        target_lang = 'en'
     else:
         target_lang = target_lang[:2]
 
@@ -293,6 +295,8 @@ def translate_batch():
     
     if target_lang in norm:
         target_lang = norm[target_lang]
+    elif target_lang == 'auto' or target_lang == 'au':
+        target_lang = 'en'
     else:
         target_lang = target_lang[:2]
 
