@@ -182,43 +182,64 @@ def analyze():
     confidence = 0
     if symptoms:
         disease, conf_val = chat_engine._predict_disease(symptoms)
-        # Handle cases where confidence might be formatted differently
         try:
             confidence = float(str(conf_val).replace('%', ''))
         except:
             confidence = 0
 
-    # 2. Extract Suggestions & Medications (Doctor Side)
+    # 2. Extract Suggestions & Medications
     suggestion_keywords = ["take", "avoid", "rest", "drink", "apply", "use", "stop", "monitor", "come back", "visit"]
     suggestions: list[str] = []
-    
-    # Process doctor sentences
     doc_split = doctor_combined.split('.')
     for s in doc_split:
         clean_s = s.strip()
         if clean_s and any(key in clean_s.lower() for key in suggestion_keywords):
             suggestions.append(clean_s)
 
-    # 3. Extract Medications
     common_meds = ["paracetamol", "crocin", "dolo", "antibiotic", "amoxicillin", "cough syrup", "cetirizine", "aspirin", "insulin", "metformin", "omeprazole", "pantoprazole", "allegra", "zyrtec", "vicodin", "ibuprofen", "advil", "motrin", "tylenol"]
     meds_found = []
     for m in common_meds:
-        if m in doctor_combined.lower():
+        if m in doctor_combined.lower() or m in patient_combined.lower():
             meds_found.append(m.capitalize())
 
-    # Fallback for suggestions
     if not suggestions and doctor_combined.strip():
         suggestions = [doctor_combined.strip()]
     
-    # Prepare summary - use loop instead of slice to satisfy Pyre2 type checker
-    symptom_summary = ", ".join(symptoms).replace('_', ' ')
-    top_suggestions_parts: list[str] = []
-    for idx, sug in enumerate(suggestions):
-        if idx >= 2: break
-        top_suggestions_parts.append(sug)
-    top_suggestions_str = ". ".join(top_suggestions_parts)
-    final_summary = f"Patient reported: {symptom_summary}. Doctor suggested: {top_suggestions_str}."
-        
+    # ── ADVANCED: Handle Uploaded Radiology/Pathology Reports ──
+    # Physical reports don't have "Patient:" or "Doctor:" tags, so they fall into patient_combined
+    # We look for IMPRESSION, CONCLUSION, DIAGNOSIS, or OPINION to give a patient-friendly summary
+    import re
+    radiology_summary = ""
+    impression_match = re.search(r'(?:IMPRESSION|CONCLUSION|DIAGNOSIS|OPINION)\s*[:-]?\s*(.*?)(?=\n[A-Z]+[a-z]*\s*[:-]|\Z)', raw_text, re.IGNORECASE | re.DOTALL)
+    
+    if impression_match:
+        extracted_impression = impression_match.group(1).strip()
+        radiology_summary = f"Radiology/Pathology Findings: {extracted_impression}"
+        # If no disease was predicted from symptoms, use the impression
+        if disease == "Undetermined" and len(extracted_impression) > 3:
+            flat_imp = extracted_impression.replace('\n', ' ')
+            trunc_imp = ""
+            for idx, char in enumerate(flat_imp):
+                if idx >= 50: break
+                trunc_imp += char
+            disease = trunc_imp + "..."
+            confidence = 85.0
+
+    # Prepare final summary
+    if radiology_summary:
+        final_summary = f"📄 **Patient-Friendly Report Summary:**\n\n{radiology_summary}\n\nThe AI successfully analyzed your uploaded medical file. If you have any concerns about these findings, please consult your doctor."
+    else:
+        symptom_summary = ", ".join(symptoms).replace('_', ' ')
+        top_suggestions_parts: list[str] = []
+        for idx, sug in enumerate(suggestions):
+            if idx >= 2: break
+            top_suggestions_parts.append(sug)
+        top_suggestions_str = ". ".join(top_suggestions_parts)
+        if symptom_summary or top_suggestions_str:
+             final_summary = f"Patient reported: {symptom_summary}. Doctor suggested: {top_suggestions_str}."
+        else:
+             final_summary = ""
+
     return jsonify({
         'condition': disease,
         'confidence': confidence,
@@ -413,9 +434,10 @@ def extract_text():
     elif mime_type.startswith('image/'):
         try:
             import pytesseract
-            from PIL import Image
+            from PIL import Image, ImageOps
             import io
             import platform
+            import re
             
             # Windows needs explicit path to tesseract.exe usually
             if platform.system() == 'Windows':
@@ -423,6 +445,25 @@ def extract_text():
                 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
                 
             image = Image.open(io.BytesIO(file_bytes))
+            
+            # 1. Correct any smartphone EXIF rotation tags
+            try:
+                image = ImageOps.exif_transpose(image)
+            except Exception:
+                pass
+                
+            # 2. Try to auto-detect purely visual sideways rotation via Tesseract OSD
+            try:
+                osd = pytesseract.image_to_osd(image)
+                rot_match = re.search(r'Rotate:\s+(\d+)', osd)
+                if rot_match:
+                    rot = int(rot_match.group(1))
+                    if rot != 0:
+                        image = image.rotate(-rot, expand=True)
+                        print(f"[extract-text] Auto-rotated image by {-rot} degrees via OSD.")
+            except Exception as osd_err:
+                print(f"[extract-text] OSD auto-rotate skipped: {osd_err}")
+
             # Use multiple languages: English + common Indian script support
             extracted_text = pytesseract.image_to_string(image, lang='eng')
             method_used = 'ocr'

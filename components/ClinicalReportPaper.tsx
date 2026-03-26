@@ -129,87 +129,99 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
         </div>
       )}
 
-      <div className="mb-12">
-        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
+      <div className="mb-10">
+        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">
           <TranslatedText text={t.diagnosisReport} lang={targetLang} />
         </h5>
-        <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 flex items-center justify-between">
+        <div className="bg-slate-50 p-6 sm:p-8 rounded-3xl border border-slate-100 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1">
               <TranslatedText text={t.predictedCondition} lang={targetLang} />
             </p>
-            <h2 className="text-3xl font-black text-slate-900">
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">
               <TranslatedText text={report.diagnosis} lang={targetLang} isClinical={true} />
             </h2>
           </div>
-          <div className="text-right">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-              <TranslatedText text={t.confidence} lang={targetLang} />
-            </p>
-            <p className="text-2xl font-black text-emerald-600">{report.aiConfidence}%</p>
-          </div>
+          {report.aiConfidence != null && report.aiConfidence > 0 && (
+            <div className="text-right pl-4">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                <TranslatedText text={t.confidence} lang={targetLang} />
+              </p>
+              <p className="text-xl sm:text-2xl font-black text-emerald-600">{report.aiConfidence}%</p>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-10 mb-12 items-start">
-        <section>
-          <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
-            <TranslatedText text={t.reportedSymptoms} lang={targetLang} />
+      {report.summary && (
+        <div className="mb-10">
+          <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">
+            <TranslatedText text="Clinical Summary / Extract" lang={targetLang} />
           </h5>
-          <div className="flex flex-wrap gap-2">
-            {(report.symptoms || []).map((s: string, i: number) => (
-              <span key={i} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 capitalize">
-                <TranslatedText text={s.replace(/_/g, ' ')} lang={targetLang} isClinical={true} />
-              </span>
-            ))}
-            {(!report.symptoms || report.symptoms.length === 0) && (
-              <p className="text-xs text-slate-400 italic">
-                <TranslatedText text={t.noMarkers} lang={targetLang} />
-              </p>
-            )}
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed font-sans whitespace-pre-wrap shadow-sm">
+            <TranslatedText text={report.summary} lang={targetLang} isClinical={true} />
           </div>
-        </section>
-        <section>
-          <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
-            <TranslatedText text={t.patientHistory} lang={targetLang} />
-          </h5>
-          <table className="w-full text-left text-xs">
-            <tbody>
-              {report.history && Object.entries(report.history).map(([k, v]) => (
-                <tr key={k} className="border-b border-slate-50">
-                  <td className="py-2 font-bold uppercase text-[9px] text-slate-500 w-1/2">
-                    <TranslatedText text={t[k.toLowerCase()] || k} lang={targetLang} />
-                  </td>
-                  <td className="py-2 text-slate-700 capitalize text-[11px]">
-                    {typeof v === 'string' ? (
-                      <TranslatedText text={v} lang={targetLang} isClinical={true} />
-                    ) : v}
-                  </td>
-                </tr>
-              ))}
-              {(!report.history || Object.keys(report.history).length === 0) && (
-                <tr>
-                  <td colSpan={2} className="py-2 text-xs text-slate-400 italic">{t.noHistory}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </section>
-      </div>
+        </div>
+      )}
 
-      <div className="mb-12">
-        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
-          <TranslatedText text={t.advicePrecautions} lang={targetLang} />
-        </h5>
-        <ul className="space-y-4">
-          {(report.prescription || []).map((p: string, i: number) => (
-            <li key={i} className="text-xs flex items-start space-x-3 text-slate-700 leading-relaxed">
-              <span className="font-bold text-blue-500">{i + 1}.</span>
-              <TranslatedText text={p} lang={targetLang} isClinical={true} />
-            </li>
-          ))}
-        </ul>
-      </div>
+      {(report.symptoms?.length > 0 || (report.history && Object.keys(report.history).length > 0)) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-10 items-start">
+          {report.symptoms?.length > 0 && (
+            <section>
+              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">
+                <TranslatedText text={t.reportedSymptoms} lang={targetLang} />
+              </h5>
+              <div className="flex flex-wrap gap-2">
+                {report.symptoms.map((s: string, i: number) => (
+                  <span key={i} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 capitalize">
+                    <TranslatedText text={s.replace(/_/g, ' ')} lang={targetLang} isClinical={true} />
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {report.history && Object.keys(report.history).length > 0 && (
+            <section>
+              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">
+                <TranslatedText text={t.patientHistory} lang={targetLang} />
+              </h5>
+              <table className="w-full text-left text-xs">
+                <tbody>
+                  {Object.entries(report.history).map(([k, v]) => (
+                    <tr key={k} className="border-b border-slate-50">
+                      <td className="py-2 font-bold uppercase text-[9px] text-slate-500 w-1/2">
+                        <TranslatedText text={t[k.toLowerCase()] || k} lang={targetLang} />
+                      </td>
+                      <td className="py-2 text-slate-700 capitalize text-[11px]">
+                        {typeof v === 'string' ? (
+                          <TranslatedText text={v} lang={targetLang} isClinical={true} />
+                        ) : v}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+        </div>
+      )}
+
+      {report.prescription?.length > 0 && (
+        <div className="mb-10">
+          <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">
+            <TranslatedText text={t.advicePrecautions} lang={targetLang} />
+          </h5>
+          <ul className="space-y-3">
+            {report.prescription.map((p: string, i: number) => (
+              <li key={i} className="text-xs flex items-start space-x-3 text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span className="font-black text-blue-500 mt-0.5">{i + 1}.</span>
+                <p><TranslatedText text={p} lang={targetLang} isClinical={true} /></p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mt-20 pt-10 border-t-2 border-slate-100 flex justify-between items-end">
         <div>
