@@ -325,6 +325,130 @@ def translate_batch():
         print(f"Batch Translation Error: {e}")
         return jsonify({'translations': texts})
 
+@app.route('/extract-text', methods=['POST'])
+def extract_text():
+    """
+    Accepts a base64-encoded file (PDF or image) and extracts readable text.
+    Used by MedEcho to populate report templates with extracted content
+    that can then be translated into the user's preferred language.
+
+    Request JSON:
+        { "file_base64": "<base64 string>", "mime_type": "application/pdf" | "image/png" | ... }
+
+    Response JSON:
+        { "text": "<extracted text>", "method": "pdf" | "ocr" | "none", "char_count": 1234 }
+    """
+    data = request.json or {}
+    file_b64 = data.get('file_base64', '')
+    mime_type = data.get('mime_type', '')
+
+    if not file_b64:
+        return jsonify({'error': 'No file_base64 provided'}), 400
+
+    # Decode the base64 file content
+    try:
+        import base64
+        file_bytes = base64.b64decode(file_b64)
+    except Exception as e:
+        return jsonify({'error': f'Invalid base64 data: {str(e)}'}), 400
+
+    extracted_text = ''
+    method_used = 'none'
+
+    # ── PDF Text Extraction using pdfplumber + PyMuPDF OCR Fallback ──
+    if 'pdf' in mime_type.lower():
+        try:
+            import pdfplumber
+            import io
+            with pdfplumber.open(io.BytesIO(file_bytes)) as pdf_doc:
+                pages_text = []
+                for page in pdf_doc.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        pages_text.append(page_text.strip())
+                extracted_text = '\n\n'.join(pages_text)
+                method_used = 'pdf'
+                print(f"[extract-text] PDF extracted {len(extracted_text)} chars from {len(pdf_doc.pages)} pages.")
+        except Exception as e:
+            print(f"[extract-text] pdfplumber error: {e}")
+
+        # If PDF extraction yields very little text, it might be a SCANNED PDF.
+        # Let's render the pages using PyMuPDF and OCR them!
+        if len(extracted_text.strip()) < 50:
+            print("[extract-text] Scanned PDF detected (low text count). Trying OCR with PyMuPDF + Tesseract...")
+            try:
+                import fitz  # PyMuPDF
+                import pytesseract
+                from PIL import Image
+                import platform
+                
+                if platform.system() == 'Windows':
+                    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+                pdf_document = fitz.open(stream=file_bytes, filetype="pdf")
+                ocr_pages = []
+                for page_num in range(len(pdf_document)):
+                    page = pdf_document.load_page(page_num)
+                    # Render page to an image (scaling up for better OCR)
+                    pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
+                    import io
+                    img_bytes = pix.tobytes("png")
+                    image = Image.open(io.BytesIO(img_bytes))
+                    
+                    page_ocr = pytesseract.image_to_string(image, lang='eng')
+                    if page_ocr:
+                        ocr_pages.append(page_ocr.strip())
+                        
+                if ocr_pages:
+                    extracted_text = '\n\n'.join(ocr_pages)
+                    method_used = 'pdf_ocr'
+                    print(f"[extract-text] PDF OCR extracted {len(extracted_text)} chars from {len(pdf_document)} pages.")
+            except ImportError:
+                print("[extract-text] fitz (PyMuPDF) or pytesseract missing. Cannot OCR scanned PDF.")
+            except Exception as e:
+                print(f"[extract-text] PDF OCR fallback failed: {e}")
+
+
+    # ── Image Text Extraction using pytesseract (OCR) ────────────────
+    elif mime_type.startswith('image/'):
+        try:
+            import pytesseract
+            from PIL import Image
+            import io
+            import platform
+            
+            # Windows needs explicit path to tesseract.exe usually
+            if platform.system() == 'Windows':
+                # Common install location. If different, user should add to PATH manually
+                pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+                
+            image = Image.open(io.BytesIO(file_bytes))
+            # Use multiple languages: English + common Indian script support
+            extracted_text = pytesseract.image_to_string(image, lang='eng')
+            method_used = 'ocr'
+            print(f"[extract-text] OCR extracted {len(extracted_text)} chars.")
+        except ImportError:
+            print("[extract-text] pytesseract/Pillow not installed, OCR skipped.")
+        except Exception as e:
+            print(f"[extract-text] OCR error: {e}")
+
+    # ── Clean the extracted text ─────────────────────────────────────
+    if extracted_text:
+        import re
+        # Remove excessive whitespace while preserving paragraph breaks
+        extracted_text = re.sub(r'[ \t]+', ' ', extracted_text)       # collapse spaces
+        extracted_text = re.sub(r'\n{3,}', '\n\n', extracted_text)    # max 2 blank lines
+        extracted_text = re.sub(r'[^\S\n]+\n', '\n', extracted_text)  # trailing spaces
+        extracted_text = extracted_text.strip()
+
+    return jsonify({
+        'text': extracted_text,
+        'method': method_used,
+        'char_count': len(extracted_text),
+        'success': len(extracted_text) > 0
+    })
+
+
 if __name__ == '__main__':
     # Use 'PORT' provided by environment (Render), default to 8000
     port = int(os.environ.get("PORT", 8000))

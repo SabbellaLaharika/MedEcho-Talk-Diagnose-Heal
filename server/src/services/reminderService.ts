@@ -17,10 +17,10 @@ export const startReminderService = () => {
         try {
             const now = new Date();
             
-            // Find all pending appointments
+            // Find all pending and confirmed appointments
             const appointments = await prisma.appointment.findMany({
                 where: {
-                    status: 'PENDING'
+                    status: { in: ['PENDING', 'CONFIRMED'] }
                 },
                 include: {
                     doctor: true,

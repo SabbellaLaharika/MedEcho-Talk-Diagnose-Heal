@@ -205,7 +205,7 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
               <span className="bg-indigo-50 text-indigo-600 text-[8px] sm:text-[9px] font-black px-2 py-0.5 rounded-full uppercase truncate max-w-[120px]">
                 <TranslatedText text={doctor.specialization} lang={doctor.preferredLanguage} isClinical={true} />
               </span>
-              <span className="text-slate-400 text-[10px] font-bold">ID: D{doctor.id.replace(/\D/g, '').slice(0, 3).padStart(3, '0')}</span>
+              <span className="text-slate-400 text-[10px] font-bold">@{doctor.username || 'doctor'}</span>
             </div>
           </div>
         </div>

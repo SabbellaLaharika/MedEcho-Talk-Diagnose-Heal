@@ -225,54 +225,85 @@ export const uploadReport = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'patientId is required' });
         }
 
-        // If no file, just create text-based record
         let fileUrl: string | undefined;
         let fileName: string | undefined;
         let extractedText = '';
+        let extractionMethod = 'none';
 
         if (file) {
-            // Store file as base64 data URL to keep it self-contained (no S3 needed)
+            // Store file as base64 data URL (self-contained, no S3 needed)
             const base64 = file.buffer.toString('base64');
             fileUrl = `data:${file.mimetype};base64,${base64}`;
             fileName = file.originalname;
 
-            // OCR Extraction for uploaded images
-            if (file.mimetype.startsWith('image/')) {
-                try {
-                    console.log(`Starting OCR text extraction for: ${fileName}...`);
-                    const result = await Tesseract.recognize(file.buffer, 'eng');
-                    if (result && result.data && result.data.text) {
-                        extractedText = result.data.text.trim();
-                        console.log(`Successfully extracted ${extractedText.length} characters using OCR.`);
-                    }
-                } catch (ocrErr) {
-                    console.error("OCR Extraction failed to parse image:", ocrErr);
+            // ── STEP 1: Try Python ML Service extraction (higher quality) ──
+            try {
+                console.log(`[Upload] Trying Python /extract-text for: ${fileName}...`);
+                const { data: pyResult } = await axios.post(
+                    `${ML_SERVICE_URL}/extract-text`,
+                    { file_base64: base64, mime_type: file.mimetype },
+                    { timeout: 30000 }
+                );
+                if (pyResult?.success && pyResult?.text) {
+                    extractedText = pyResult.text;
+                    extractionMethod = `python-${pyResult.method}`;
+                    console.log(`[Upload] Python extracted ${pyResult.char_count} chars via ${pyResult.method}.`);
                 }
-            } else if (file.mimetype === 'application/pdf') {
-                try {
-                    console.log(`Starting PDF text extraction for: ${fileName}...`);
-                    const data = await pdf(file.buffer);
-                    if (data && data.text) {
-                        extractedText = data.text.trim();
-                        console.log(`Successfully extracted ${extractedText.length} characters from PDF.`);
+            } catch (pyErr: any) {
+                console.warn('[Upload] Python extraction unavailable, falling back to Node.js:', pyErr.message);
+            }
+
+            // ── STEP 2: Fallback — Node.js extraction (Tesseract.js / pdf-parse) ──
+            if (!extractedText) {
+                if (file.mimetype.startsWith('image/')) {
+                    try {
+                        console.log(`[Upload] Node OCR fallback for: ${fileName}...`);
+                        const result = await Tesseract.recognize(file.buffer, 'eng');
+                        if (result?.data?.text) {
+                            extractedText = result.data.text.trim();
+                            extractionMethod = 'node-ocr';
+                            console.log(`[Upload] Node OCR extracted ${extractedText.length} chars.`);
+                        }
+                    } catch (ocrErr) {
+                        console.error('[Upload] Node OCR failed:', ocrErr);
                     }
-                } catch (pdfErr) {
-                    console.error("PDF extraction failed:", pdfErr);
+                } else if (file.mimetype === 'application/pdf') {
+                    try {
+                        console.log(`[Upload] Node PDF fallback for: ${fileName}...`);
+                        const data = await pdf(file.buffer);
+                        if (data?.text) {
+                            extractedText = data.text.trim();
+                            extractionMethod = 'node-pdf';
+                            console.log(`[Upload] Node PDF extracted ${extractedText.length} chars.`);
+                        }
+                    } catch (pdfErr) {
+                        console.error('[Upload] Node PDF extraction failed:', pdfErr);
+                    }
                 }
             }
         }
 
-        // --- NEW: AI Analysis for Uploaded Reports ---
+        // ── STEP 3: AI Analysis on extracted text (if any) ──────────────
         let aiAnalysis: any = {};
         if (extractedText) {
             try {
-                console.log("Analyzing extracted report text via ML Service...");
+                console.log('[Upload] Sending extracted text to ML /analyze...');
                 const { data } = await axios.post(`${ML_SERVICE_URL}/analyze`, { text: extractedText });
                 aiAnalysis = data;
             } catch (analyzeErr) {
-                console.warn("AI Report Analysis failed, falling back to basic metadata:", analyzeErr);
+                console.warn('[Upload] AI analysis failed, using raw extracted text:', analyzeErr);
             }
         }
+
+        // Build the summary: AI summary preferred, then clean extracted text, then notes
+        const summaryParts: string[] = [];
+        if (notes) summaryParts.push(notes);
+        if (aiAnalysis.summary) {
+            summaryParts.push(aiAnalysis.summary);
+        } else if (extractedText) {
+            summaryParts.push(`--- Extracted Report Content ---\n${extractedText}`);
+        }
+        const finalSummary = summaryParts.join('\n\n') || 'Manually uploaded report';
 
         const report = await (prisma.report as any).create({
             data: {
@@ -281,9 +312,7 @@ export const uploadReport = async (req: Request, res: Response) => {
                 confidenceScore: parseFloat(aiAnalysis.confidence) || 0,
                 precautions: aiAnalysis.suggestions || [],
                 chatTranscript: {},
-                summary: aiAnalysis.summary || (extractedText 
-                    ? `${notes ? notes + '\n\n' : ''}--- OCR EXTRACTED TEXT ---\n${extractedText}` 
-                    : (notes || 'Manually uploaded report')),
+                summary: finalSummary,
                 symptoms: aiAnalysis.symptoms_extracted || [],
                 medications: aiAnalysis.medications || [],
                 history: {},
@@ -294,11 +323,50 @@ export const uploadReport = async (req: Request, res: Response) => {
                 fileName: fileName || null,
             },
             include: {
-                patient: { select: { name: true, username: true } },
+                patient: { select: { name: true, username: true, email: true, preferredLanguage: true } },
                 doctor: { select: { name: true, username: true } }
             }
         });
 
+        // Email report asynchronously
+        if (report.patient?.email) {
+            const lang = report.patient.preferredLanguage || 'en';
+            try {
+                const [rSubject, rHeader, rBtn] = await Promise.all([
+                    translationService.translate('Your Uploaded Medical Report - MedEcho', lang),
+                    translationService.translate('Uploaded Report Added', lang),
+                    translationService.translate('View Full Report', lang)
+                ]);
+
+                await sendEmail({
+                    to: report.patient.email,
+                    subject: rSubject,
+                    text: `A new uploaded medical report has been added to your account. Diagnosis: ${report.diagnosis}`,
+                    html: getMedicalReportTemplate({
+                        patientName: report.patient.name,
+                        doctorName: report.doctor?.name || 'AI Assistant',
+                        date: new Date().toLocaleDateString(),
+                        diagnosis: report.diagnosis,
+                        precautions: report.precautions || [],
+                        headerTitle: rHeader,
+                        btn: rBtn
+                    })
+                });
+            } catch (emailErr) {
+                console.error("Non-blocking error sending upload report email:", emailErr);
+            }
+        }
+
+        // Create UI Notification
+        await prisma.notification.create({
+            data: {
+                userId: patientId,
+                title: 'New Uploaded Report',
+                message: `An external report (${report.fileName || 'document'}) has been analyzed and added to your records.`
+            }
+        });
+
+        console.log(`[Upload] Report saved. Extraction: ${extractionMethod}, Summary: ${finalSummary.length} chars.`);
         res.status(201).json(report);
     } catch (error: any) {
         console.error('Upload Report Error:', error);

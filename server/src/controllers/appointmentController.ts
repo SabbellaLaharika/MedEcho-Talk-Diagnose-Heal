@@ -170,6 +170,23 @@ export const createAppointment = async (req: Request, res: Response) => {
             });
         }
 
+        // Add In-App UI Notifications
+        await prisma.notification.create({
+            data: {
+                userId: patientId,
+                title: 'Appointment Booked',
+                message: `Your appointment with Dr. ${appointment.doctor.name} is confirmed for ${appointmentDate.toDateString()} at ${time || 'TBD'}.`
+            }
+        });
+
+        await prisma.notification.create({
+            data: {
+                userId: doctorId,
+                title: 'New Appointment',
+                message: `New appointment booked by ${appointment.patient.name} for ${appointmentDate.toDateString()} at ${time || 'TBD'}.`
+            }
+        });
+
         res.status(201).json(appointment);
     } catch (error) {
         console.error(error);

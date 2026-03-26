@@ -13,6 +13,10 @@ import {
   MagnifyingGlassIcon,
   CheckCircleIcon,
   PaperClipIcon,
+  TrashIcon,
+  ArrowsPointingOutIcon,
+  PhotoIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import { HeartIcon } from '@heroicons/react/24/solid';
 import ClinicalReportPaper from './ClinicalReportPaper';
@@ -75,11 +79,38 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getShortId = (fullId: string) => {
     if (!fullId) return 'R-00000';
     return `R-${fullId.split('-')[0].toUpperCase().slice(0, 5)}`;
+  };
+
+  const getFileIcon = (fileUrl?: string, fileName?: string) => {
+    if (!fileUrl && !fileName) return <DocumentTextIcon className="w-4 h-4" />;
+    const name = fileName || fileUrl || '';
+    if (name.includes('image') || /\.(jpg|jpeg|png|gif|webp)$/i.test(name)) return <PhotoIcon className="w-4 h-4" />;
+    if (name.includes('pdf') || /\.pdf$/i.test(name)) return <DocumentTextIcon className="w-4 h-4" />;
+    return <PaperClipIcon className="w-4 h-4" />;
+  };
+
+  const handleDeleteReport = async (reportId: string) => {
+    setIsDeleting(true);
+    try {
+      await api.delete(`reports/${reportId}`);
+      // Notify parent to remove the report — fallback: reload page
+      window.location.reload();
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert('Failed to delete report. Please try again.');
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmId(null);
+    }
   };
 
   const handlePrint = () => {
@@ -125,6 +156,12 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
 
   const handleUploadSubmit = async () => {
     if (!uploadFile && !uploadDiagnosis) return;
+    // File size guard: 10MB
+    if (uploadFile && uploadFile.size > 10 * 1024 * 1024) {
+      setUploadError('File is too large. Maximum size is 10MB.');
+      return;
+    }
+    setUploadError('');
     setIsUploading(true);
     try {
       const formData = new FormData();
@@ -282,7 +319,6 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                 <div className="text-center py-10 text-slate-400 uppercase text-[10px] font-black">No patients found</div>
               )
             ) : (
-              // Reports List View for selected patient or normal user
               <>
                 {user.role === 'DOCTOR' && selectedPatientId && (
                   <button
@@ -304,24 +340,22 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                       </h3>
                       <TypeBadge type={report.reportType} />
                     </div>
-                    <div className="flex items-center justify-between">
-                      {report.fileName ? (
-                        <div className="flex items-center text-[9px] text-amber-500 font-bold uppercase tracking-wider">
-                          <PaperClipIcon className="w-3 h-3 mr-1" />
-                          {report.fileName.slice(0, 16)}
-                        </div>
-                      ) : (
-                        <div className="flex items-center text-[9px] text-slate-400 font-bold uppercase tracking-wider">
-                          <DocumentTextIcon className="w-3 h-3 mr-1" />
-                          {report.date}
-                        </div>
-                      )}
+                    <div className="flex items-center justify-between mt-2">
+                      <div className={`flex items-center space-x-1 text-[9px] font-bold uppercase tracking-wider ${
+                        report.reportType === 'UPLOADED' ? 'text-amber-500' : 'text-slate-400'
+                      }`}>
+                        {getFileIcon(report.fileUrl, report.fileName)}
+                        <span>{report.fileName ? report.fileName.slice(0, 18) : report.date}</span>
+                      </div>
                       {report.aiConfidence != null && report.aiConfidence > 0 && (
                         <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[9px] font-black border border-emerald-100">
                           {report.aiConfidence}%
                         </span>
                       )}
                     </div>
+                    {report.reportType === 'UPLOADED' && report.date && (
+                      <p className="text-[9px] text-slate-400 font-bold mt-1">{report.date}</p>
+                    )}
                   </button>
                 ))}
 
@@ -379,26 +413,49 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                 {/* If uploaded file — show viewer */}
                 {activeReport.fileUrl && (
                   <section>
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
-                      <TranslatedText text="Attached File" lang={user.preferredLanguage} />
-                    </h4>
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                        <TranslatedText text="Attached File" lang={user.preferredLanguage} />
+                      </h4>
+                      <div className="flex items-center space-x-2">
+                        {/* Expand full screen */}
+                        <button
+                          onClick={() => setIsFullScreen(true)}
+                          className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
+                          title="View full screen"
+                        >
+                          <ArrowsPointingOutIcon className="w-4 h-4 text-slate-500" />
+                        </button>
+                        {/* Download */}
+                        <a
+                          href={activeReport.fileUrl}
+                          download={activeReport.fileName || 'report'}
+                          className="flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-indigo-700 transition-all"
+                        >
+                          <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                          <span>Download</span>
+                        </a>
+                        {/* Delete (uploaded only) */}
+                        {activeReport.reportType === 'UPLOADED' && (
+                          <button
+                            onClick={() => setDeleteConfirmId(activeReport.id)}
+                            className="flex items-center space-x-1.5 px-3 py-1.5 bg-red-50 text-red-600 text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-red-100 border border-red-200 transition-all"
+                          >
+                            <TrashIcon className="w-3.5 h-3.5" />
+                            <span>Delete</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
                     <div className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50">
-                      {activeReport.fileUrl.startsWith('data:image') ? (
-                        <img src={activeReport.fileUrl} alt="Uploaded Report" className="w-full max-h-96 object-contain p-4" />
-                      ) : activeReport.fileUrl.startsWith('data:application/pdf') ? (
-                        <iframe src={activeReport.fileUrl} title="PDF Report" className="w-full h-96 border-0" />
+                      {activeReport.fileUrl.startsWith('data:image') || /\.(jpg|jpeg|png|gif|webp)$/i.test(activeReport.fileUrl) ? (
+                        <img src={activeReport.fileUrl} alt="Uploaded Report" className="w-full max-h-80 object-contain p-4" />
+                      ) : activeReport.fileUrl.startsWith('data:application/pdf') || /\.pdf$/i.test(activeReport.fileUrl) ? (
+                        <iframe src={activeReport.fileUrl} title="PDF Report" className="w-full h-80 border-0" />
                       ) : (
                         <div className="p-8 text-center">
                           <PaperClipIcon className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                           <p className="text-xs text-slate-500 font-bold">{activeReport.fileName || 'Attached File'}</p>
-                          <a
-                            href={activeReport.fileUrl}
-                            download={activeReport.fileName}
-                            className="mt-3 inline-flex items-center space-x-2 px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-700 transition-all"
-                          >
-                            <ArrowDownTrayIcon className="w-4 h-4" />
-                            <span><TranslatedText text="Download" lang={user.preferredLanguage} /></span>
-                          </a>
                         </div>
                       )}
                     </div>
@@ -541,8 +598,20 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
               </div>
 
               {/* Action Bar */}
-              {!activeReport.fileUrl && (
-                <div className="p-6 border-t border-slate-50 flex justify-end">
+              <div className="p-6 border-t border-slate-50 flex justify-between items-center">
+                <div className="flex items-center space-x-2">
+                  {/* Delete for uploaded reports without a file preview (pure metadata) */}
+                  {activeReport.reportType === 'UPLOADED' && !activeReport.fileUrl && (
+                    <button
+                      onClick={() => setDeleteConfirmId(activeReport.id)}
+                      className="flex items-center space-x-2 px-4 py-3 bg-red-50 text-red-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-red-100 border border-red-200 transition-all"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                      <span>Delete</span>
+                    </button>
+                  )}
+                </div>
+                {!activeReport.fileUrl && (
                   <button
                     onClick={() => setIsPreviewOpen(true)}
                     className="px-8 py-3.5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-800 transition-all flex items-center space-x-3 shadow-lg shadow-slate-200"
@@ -550,8 +619,8 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                     <PrinterIcon className="w-4 h-4" />
                     <span><TranslatedText text={t.previewPrint} lang={user.preferredLanguage} /></span>
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center space-y-4 text-slate-300">
@@ -639,24 +708,35 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                     onDragLeave={() => setIsDragging(false)}
                     onDrop={handleFileDrop}
                     onClick={() => fileInputRef.current?.click()}
-                    className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${isDragging ? 'border-amber-400 bg-amber-50' : 'border-slate-200 bg-slate-50 hover:border-slate-400'}`}
+                    className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+                      isDragging ? 'border-amber-400 bg-amber-50' : uploadFile ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-slate-50 hover:border-slate-400'
+                    }`}
                   >
                     <input
                       ref={fileInputRef}
                       type="file"
                       accept=".pdf,.jpg,.jpeg,.png"
                       className="hidden"
-                      onChange={e => setUploadFile(e.target.files?.[0] || null)}
+                      onChange={e => {
+                        const f = e.target.files?.[0] || null;
+                        if (f && f.size > 10 * 1024 * 1024) {
+                          setUploadError('File is too large. Maximum size is 10MB.');
+                          setUploadFile(null);
+                        } else {
+                          setUploadError('');
+                          setUploadFile(f);
+                        }
+                      }}
                     />
                     {uploadFile ? (
                       <div className="flex items-center justify-center space-x-3">
-                        <PaperClipIcon className="w-6 h-6 text-amber-500" />
+                        {getFileIcon(undefined, uploadFile.name)}
                         <div className="text-left">
                           <p className="text-sm font-black text-slate-800">{uploadFile.name}</p>
                           <p className="text-[9px] text-slate-400 font-bold">{(uploadFile.size / 1024).toFixed(1)} KB</p>
                         </div>
                         <button
-                          onClick={e => { e.stopPropagation(); setUploadFile(null); }}
+                          onClick={e => { e.stopPropagation(); setUploadFile(null); setUploadError(''); }}
                           className="p-1 hover:bg-slate-200 rounded-full transition-all"
                         >
                           <XMarkIcon className="w-4 h-4 text-slate-400" />
@@ -668,9 +748,17 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                         <p className="text-xs font-black text-slate-500 uppercase tracking-widest">
                           <TranslatedText text="Drag & drop or click to browse" lang={user.preferredLanguage} />
                         </p>
+                        <p className="text-[9px] text-slate-400 mt-1">PDF, JPG, PNG — max 10MB</p>
                       </>
                     )}
                   </div>
+                  {/* File error */}
+                  {uploadError && (
+                    <div className="flex items-center space-x-2 text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-2">
+                      <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0" />
+                      <p className="text-[10px] font-black">{uploadError}</p>
+                    </div>
+                  )}
 
                   {/* Diagnosis / Title */}
                   <div>
@@ -722,6 +810,55 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full Screen File Viewer */}
+      {isFullScreen && activeReport?.fileUrl && (
+        <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+          <button
+            onClick={() => setIsFullScreen(false)}
+            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all"
+          >
+            <XMarkIcon className="w-6 h-6" />
+          </button>
+          <div className="w-full max-w-5xl max-h-[90vh] overflow-auto">
+            {activeReport.fileUrl.startsWith('data:image') || /\.(jpg|jpeg|png|gif|webp)$/i.test(activeReport.fileUrl) ? (
+              <img src={activeReport.fileUrl} alt="Report" className="w-full object-contain rounded-2xl" />
+            ) : (
+              <iframe src={activeReport.fileUrl} title="PDF" className="w-full h-[85vh] rounded-2xl border-0" />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm Dialog */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[2rem] shadow-2xl p-8 max-w-sm w-full text-center space-y-5">
+            <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto">
+              <ExclamationTriangleIcon className="w-8 h-8 text-red-500" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Delete Report?</h3>
+              <p className="text-xs text-slate-400 font-bold mt-2">This action cannot be undone. The file and its data will be permanently removed.</p>
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => handleDeleteReport(deleteConfirmId)}
+                disabled={isDeleting}
+                className="flex-1 py-3 bg-red-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-red-700 transition-all disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
