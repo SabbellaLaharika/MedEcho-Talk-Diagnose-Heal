@@ -511,6 +511,13 @@ def extract_text():
             except Exception:
                 pass
                 
+            def get_ocr_quality(text):
+                if not text or len(text.strip()) < 10:
+                    return 0
+                # heuristic: ratio of alphanumeric to total
+                alnum = len([c for c in text if c.isalnum() or c.isspace()])
+                return alnum / len(text)
+
             # 2. Try to auto-detect purely visual sideways rotation via Tesseract OSD
             try:
                 osd = pytesseract.image_to_osd(image)
@@ -523,10 +530,38 @@ def extract_text():
             except Exception as osd_err:
                 print(f"[extract-text] OSD auto-rotate skipped: {osd_err}")
 
-            # Use multiple languages: English + common Indian script support
-            extracted_text = pytesseract.image_to_string(image, lang='eng')
+            # 3. Initial OCR Attempt
+            best_text = pytesseract.image_to_string(image, lang='eng')
+            best_quality = get_ocr_quality(best_text)
+            
+            # 4. If poor quality, try rotations manually (Common for medical tubes/labels)
+            if best_quality < 0.6 or len(best_text.strip()) < 15:
+                print(f"[extract-text] Poor OCR quality ({best_quality:.2f}), trying rotations...")
+                for angle in [90, 180, 270]:
+                    rotated = image.rotate(angle, expand=True)
+                    text = pytesseract.image_to_string(rotated, lang='eng')
+                    quality = get_ocr_quality(text)
+                    if quality > best_quality:
+                        best_quality = quality
+                        best_text = text
+                        image = rotated # Keep best rotation for potential enhancement
+                        print(f"[extract-text] Found better orientation at {angle} deg (quality: {quality:.2f})")
+                    if quality > 0.85: # Good enough
+                        break
+            
+            # 5. Final fallback: Basic image enhancement if still poor
+            if best_quality < 0.5:
+                from PIL import ImageEnhance
+                enhancer = ImageEnhance.Contrast(image)
+                enhanced = enhancer.enhance(2.0)
+                text = pytesseract.image_to_string(enhanced, lang='eng')
+                if get_ocr_quality(text) > best_quality:
+                    best_text = text
+                    print("[extract-text] Image enhancement improved OCR results.")
+
+            extracted_text = best_text
             method_used = 'ocr'
-            print(f"[extract-text] OCR extracted {len(extracted_text)} chars.")
+            print(f"[extract-text] OCR extracted {len(extracted_text)} chars (Quality: {best_quality:.2f}).")
         except ImportError:
             print("[extract-text] pytesseract/Pillow not installed, OCR skipped.")
         except Exception as e:

@@ -373,3 +373,34 @@ export const uploadReport = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Server error uploading report', error: error.message });
     }
 };
+/**
+ * Delete a report by ID
+ */
+export const deleteReport = async (req: any, res: any) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id; // User must own the report to delete it
+
+        // Check if report exists and belongs to user
+        const report = await prisma.report.findUnique({
+            where: { id: id }
+        });
+
+        if (!report) {
+            return res.status(404).json({ message: 'Report not found' });
+        }
+
+        if (report.patientId !== userId) {
+            return res.status(403).json({ message: 'Not authorized to delete this report' });
+        }
+
+        await prisma.report.delete({
+            where: { id: id }
+        });
+
+        res.status(200).json({ message: 'Report deleted successfully' });
+    } catch (error: any) {
+        console.error('Delete Report Error:', error);
+        res.status(500).json({ message: 'Server error deleting report', error: error.message });
+    }
+};

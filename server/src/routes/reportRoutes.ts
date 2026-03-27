@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { createReport, getPatientReports, getReportById, sendPatientReportsToDoctor, getDoctorReports, updateReportDoctor, generateReportFromCall, uploadReport } from '../controllers/reportController';
+import { createReport, getPatientReports, getReportById, sendPatientReportsToDoctor, getDoctorReports, updateReportDoctor, generateReportFromCall, uploadReport, deleteReport } from '../controllers/reportController';
 import { protect } from '../middleware/authMiddleware';
 
 const router = express.Router();
@@ -14,5 +14,6 @@ router.get('/patient/:patientId', protect, getPatientReports);
 router.get('/doctor/:doctorId', protect, getDoctorReports);
 router.get('/:id', protect, getReportById);
 router.put('/:id/doctor', protect, updateReportDoctor);
+router.delete('/:id', protect, deleteReport);
 
 export default router;
