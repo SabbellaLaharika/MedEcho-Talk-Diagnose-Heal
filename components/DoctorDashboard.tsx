@@ -25,6 +25,7 @@ import VideoConsultation from './VideoConsultation';
 
 
 import api from '../services/api';
+import { alertService } from '../services/alertService';
 
 
 interface DoctorDashboardProps {
@@ -174,9 +175,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
       });
       setShowReportReview(false);
       setDraftReport(null);
-      alert("Report verified and sent to patient!");
+      alertService.success("Report verified and sent to patient!");
     } catch (err) {
-      alert("Failed to save report.");
+      alertService.error("Failed to save report.");
     }
   };
 

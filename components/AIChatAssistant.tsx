@@ -28,6 +28,7 @@ const Waveform = () => (
 import { Message, MedicalReport } from '../types';
 import api from '../services/api';
 import { dbService, mapBackendReportToFrontend } from '../services/dbService';
+import { alertService } from '../services/alertService';
 import {
   PaperAirplaneIcon,
   ExclamationTriangleIcon,
@@ -315,7 +316,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       mediaRecorder.start();
       setIsListening(true);
     } catch (err) {
-      alert(t.micDenied);
+      alertService.error(t.micDenied);
     }
   };
 
@@ -345,7 +346,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       }
     } catch (error) {
       console.error("STT Error:", error);
-      alert(t.sttError);
+      alertService.error(t.sttError);
     } finally {
       setIsTyping(false);
     }
@@ -389,7 +390,7 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
       
     } catch (error) {
       console.error("Upload Error:", error);
-      alert("Failed to upload report. Please try again.");
+      alertService.error("Failed to upload report. Please try again.");
     } finally {
       setIsUploading(false);
       setIsTyping(false);

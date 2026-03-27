@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Message, MedicalReport } from '../types';
 import { dbService } from '../services/dbService';
 import api from '../services/api';
+import { alertService } from '../services/alertService';
 import { 
   PaperAirplaneIcon, 
   ChatBubbleLeftRightIcon, 
@@ -110,7 +111,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
       recognitionRef.current.start();
       setIsListening(true);
     } else {
-      alert("Voice recognition is not supported in this browser.");
+      alertService.error("Voice recognition is not supported in this browser.");
     }
   };
 

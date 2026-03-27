@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { User } from '../types';
 import { getTranslation, translateString, loadTranslations, clearTranslationCache } from '../services/translations';
 import { dbService } from '../services/dbService';
+import { alertService } from '../services/alertService';
 import TranslatedText from './TranslatedText';
 import {
   UserCircleIcon,
@@ -14,7 +15,6 @@ import {
   CameraIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
-import { useRef } from 'react';
 
 interface ProfilePageProps {
   user: User;
@@ -62,16 +62,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
       if (formData.preferredLanguage !== user.preferredLanguage) {
         clearTranslationCache();
       }
-      await onUpdate({
+      const updatedUser = {
         ...user,
         ...formData,
         dob: formData.dob ? formData.dob : undefined
-      });
+      };
+      await onUpdate(updatedUser);
       setIsEditing(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (e) {
-      alert(t.updateProfileFail);
+      alertService.error(t.updateProfileFail);
     } finally {
       setSaving(false);
     }
@@ -303,18 +304,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
                 <span className="text-sm font-black uppercase tracking-widest"><TranslatedText text={t.systemAuthenticated} lang={user.preferredLanguage} /></span>
               </div>
               <p className="text-xs text-white/40 leading-relaxed font-medium">{t.securityDesc}</p>
-              <button 
+              <button
                 onClick={async () => {
                   if (window.confirm("We will send a secure OTP to your email to reset your password. You will be logged out to complete this security process. Proceed?")) {
                     try {
                       await dbService.auth.forgotPassword(user.email);
-                      alert("OTP sent successfully! Please check your email.");
+                      alertService.success("OTP sent successfully! Please check your email.");
                       // Set pending reset flag to redirect to OTP screen after logout/reload
                       localStorage.setItem('medecho_pending_reset', JSON.stringify({ email: user.email }));
                       dbService.auth.logout();
                       window.location.reload();
                     } catch(e) {
-                      alert("Failed to initiate password reset.");
+                      alertService.error("Failed to initiate password reset.");
                     }
                   }
                 }}

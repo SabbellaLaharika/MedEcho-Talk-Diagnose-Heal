@@ -12,15 +12,17 @@ import {
   CheckCircleIcon,
   UserIcon,
   NoSymbolIcon,
+  ExclamationCircleIcon,
 } from '@heroicons/react/24/solid';
 
 interface AppointmentBookingProps {
-  onBook: (appointment: Partial<Appointment>) => void;
+  onBook: (appointment: Partial<Appointment>) => Promise<void>;
+  onBookingComplete?: () => void;
   user: User;
   preselectedDoctorId?: string | null;
 }
 
-const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, preselectedDoctorId }) => {
+const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, onBookingComplete, user, preselectedDoctorId }) => {
   const t = getTranslation(user.preferredLanguage);
 
   useEffect(() => {
@@ -37,6 +39,8 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
   const [type, setType] = useState<'VIRTUAL' | 'IN_PERSON'>('IN_PERSON');
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+  const [isBooking, setIsBooking] = useState(false);
   const [bookedAptSummary, setBookedAptSummary] = useState<any>(null);
   const [doctorSchedule, setDoctorSchedule] = useState<any[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<any[]>([]);
@@ -199,7 +203,8 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
   };
 
   // 8. HANDLERS
-  const handleBookClick = () => {
+  const handleBookClick = async () => {
+    if (!selectedDoc) return;
     const summary = {
       doctorId: selectedDoc.id,
       doctorName: selectedDoc.name,
@@ -209,17 +214,26 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
       time: selectedTime,
       type
     };
-    setBookedAptSummary(summary);
-    setShowSuccessModal(true);
+    
+    setIsBooking(true);
+    setBookingError(null);
+    try {
+      await onBook(summary);
+      setBookedAptSummary(summary);
+      setShowSuccessModal(true);
+      socketRef.current?.emit("new_appointment", summary);
+    } catch (e: any) {
+      setBookingError(e.message || "Failed to book appointment");
+    } finally {
+      setIsBooking(false);
+    }
   };
 
   const confirmFinalBooking = () => {
-    if (bookedAptSummary) {
-      onBook(bookedAptSummary);
-      // Emit to server so others see this slot as taken
-      socketRef.current?.emit("new_appointment", bookedAptSummary);
-    }
     setShowSuccessModal(false);
+    if (onBookingComplete) {
+      onBookingComplete();
+    }
   };
 
   const filteredDoctors = doctors.filter(doc =>
@@ -273,10 +287,13 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
               </div>
             ) : (
               filteredDoctors.map((doc) => (
-                <button
+                <div
                   key={doc.id}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDoc(doc); setSelectedTime(null); } }}
                   onClick={() => { setSelectedDoc(doc); setSelectedTime(null); }}
-                  className={`w-full p-6 rounded-[2rem] border-2 flex items-center justify-between transition-all ${selectedDoc?.id === doc.id ? 'border-indigo-600 bg-white shadow-xl' : 'border-slate-50 bg-white/50 hover:border-indigo-100'
+                  className={`w-full text-left p-6 rounded-[2rem] border-2 flex items-center justify-between transition-all cursor-pointer ${selectedDoc?.id === doc.id ? 'border-indigo-600 bg-white shadow-xl' : 'border-slate-50 bg-white/50 hover:border-indigo-100'
                     }`}
                 >
                   <div className="flex items-center space-x-4">
@@ -307,7 +324,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
                     </button>
                     <ChevronRightIcon className={`w-4 h-4 ${selectedDoc?.id === doc.id ? 'text-indigo-600' : 'text-slate-200'}`} />
                   </div>
-                </button>
+                </div>
               ))
             )}
           </div>
@@ -376,11 +393,11 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
               <div className="p-10 pt-0">
                 <button
                   onClick={handleBookClick}
-                  disabled={!selectedTime}
+                  disabled={!selectedTime || isBooking}
                   className="w-full py-5 bg-slate-900 text-white rounded-2xl flex items-center justify-center space-x-2 font-black uppercase text-xs tracking-widest disabled:opacity-20"
                 >
                   <CheckBadgeIcon className="w-4 h-4" />
-                  <span>{t.reviewAndBook}</span>
+                  <span>{isBooking ? t.verifying || "Verifying..." : t.reviewAndBook}</span>
                 </button>
               </div>
             </div>
@@ -424,6 +441,34 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
                 className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest"
               >
                 {t.dashboard}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {bookingError && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+          <div className="bg-white w-full max-w-sm rounded-[3.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="bg-rose-600 p-10 flex flex-col items-center text-white text-center">
+              <ExclamationCircleIcon className="w-12 h-12 mb-4" />
+              <h3 className="text-2xl font-black uppercase">
+                <TranslatedText text="Error" lang={user.preferredLanguage} />
+              </h3>
+            </div>
+            <div className="p-10 space-y-6">
+              <div className="text-center">
+                <p className="text-slate-600 font-bold uppercase text-[10px] tracking-widest leading-relaxed">
+                  <TranslatedText text={bookingError} lang={user.preferredLanguage} />
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBookingError(null)}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-800 transition-colors"
+              >
+                <TranslatedText text="Try Again" lang={user.preferredLanguage} />
               </button>
             </div>
           </div>

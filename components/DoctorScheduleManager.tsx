@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import api from '../services/api';
+import { alertService } from '../services/alertService';
 import {
   ClockIcon,
   CalendarDaysIcon,
@@ -150,7 +151,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       console.error('Failed to save schedule:', err);
-      alert('Failed to save schedule');
+      alertService.error('Failed to save schedule');
     } finally {
       setSaving(false);
     }
@@ -167,7 +168,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
       });
       setBlockedSlots(prev => [...prev, data]);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to block slot');
+      alertService.error(err.response?.data?.message || 'Failed to block slot');
     } finally {
       setBlocking(false);
     }

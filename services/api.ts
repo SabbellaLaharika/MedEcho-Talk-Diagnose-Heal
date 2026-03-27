@@ -37,10 +37,18 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response && error.response.status === 401) {
-            // Auto logout on 401
-            dbService.auth.logout();
-            window.location.href = '/';
+        if (error.response) {
+            if (error.response.status === 401) {
+                // Auto logout on 401
+                dbService.auth.logout();
+                window.location.href = '/';
+            }
+            // Extract the user-friendly backend message, if available
+            if (error.response.data && error.response.data.message) {
+                error.message = error.response.data.message;
+            } else if (error.response.data && error.response.data.error) {
+                error.message = error.response.data.error;
+            }
         }
         return Promise.reject(error);
     }

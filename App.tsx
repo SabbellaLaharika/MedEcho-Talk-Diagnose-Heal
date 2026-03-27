@@ -15,6 +15,8 @@ import DoctorScheduleManager from './components/DoctorScheduleManager';
 import ProfilePage from './components/ProfilePage';
 import { getTranslation, loadTranslations, subscribeToTranslations, translateString } from './services/translations';
 import TranslatedText from './components/TranslatedText';
+import { alertService } from './services/alertService';
+import GlobalAlertModal from './components/GlobalAlertModal';
 import {
   UserIcon,
   BriefcaseIcon,
@@ -281,13 +283,13 @@ const App: React.FC = () => {
       if (authMode === 'FORGOT_PASSWORD') {
         await dbService.auth.forgotPassword(formData.email);
         setAuthMode('RESET_PASSWORD');
-        alert("OTP sent to your email!");
+        alertService.success("OTP sent to your email!");
         setAuthLoading(false);
         return;
       } else if (authMode === 'RESET_PASSWORD') {
         await dbService.auth.resetPassword(formData.email, formData.otp, formData.newPassword);
         setAuthMode('LOGIN');
-        alert("Password reset successfully. You can now login.");
+        alertService.success("Password reset successfully. You can now login.");
         setAuthLoading(false);
         return;
       } else if (authMode === 'LOGIN') {
@@ -311,7 +313,7 @@ const App: React.FC = () => {
       }
       setActiveTab('dashboard');
     } catch (err: any) {
-      alert(err.message);
+      alertService.error(err.message || 'Authentication failed');
     } finally {
       setAuthLoading(false);
     }
@@ -430,6 +432,8 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+
+        <GlobalAlertModal fallbackLang={formData.language} />
       </div>
     );
   }
@@ -604,13 +608,15 @@ const App: React.FC = () => {
               try {
                 const saved = await dbService.appointments.create(newApt);
                 setAppointments(prev => [saved, ...prev]);
-                setActiveTab('dashboard');
-                setPreselectedDoctorId(null);
               } catch (e: any) {
                 console.error("Booking failed:", e);
-                const msg = e?.response?.data?.message || "There was an issue booking this appointment.";
-                alert(msg);
+                const msg = e?.response?.data?.message || e.message || "There was an issue booking this appointment.";
+                throw new Error(msg);
               }
+            }}
+            onBookingComplete={() => {
+              setActiveTab('dashboard');
+              setPreselectedDoctorId(null);
             }}
           />}
           {activeTab === 'schedule' && <DoctorScheduleManager doctor={user} />}
@@ -653,6 +659,7 @@ const App: React.FC = () => {
         </div>
 
         <FloatingAIChat onReportGenerated={(report) => setReports(prev => [report, ...prev])} />
+        <GlobalAlertModal fallbackLang={user.preferredLanguage || 'en'} />
       </main>
     </div>
   );

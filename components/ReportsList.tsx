@@ -23,6 +23,7 @@ import ClinicalReportPaper from './ClinicalReportPaper';
 import { getTranslation, translateString, translateClinical, loadTranslations } from '../services/translations';
 import TranslatedText from './TranslatedText';
 import api from '../services/api';
+import { alertService } from '../services/alertService';
 
 interface ReportsListProps {
   reports: MedicalReport[];
@@ -106,7 +107,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
       window.location.reload();
     } catch (err) {
       console.error('Delete failed:', err);
-      alert('Failed to delete report. Please try again.');
+      alertService.error('Failed to delete report. Please try again.');
     } finally {
       setIsDeleting(false);
       setDeleteConfirmId(null);

@@ -250,6 +250,65 @@ def analyze():
         'summary': final_summary
     })
 
+@app.route('/stt', methods=['POST'])
+def stt():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No audio file provided'}), 400
+    
+    file = request.files['file']
+    client_lang = request.form.get('language', 'auto')
+    
+    try:
+        import speech_recognition as sr
+        from pydub import AudioSegment
+        import tempfile
+        import os
+        import uuid
+        
+        temp_dir = tempfile.gettempdir()
+        uid = str(uuid.uuid4())
+        temp_input = os.path.join(temp_dir, f"input_{uid}.webm")
+        temp_output = os.path.join(temp_dir, f"output_{uid}.wav")
+        
+        file.save(temp_input)
+        
+        audio = AudioSegment.from_file(temp_input)
+        audio.export(temp_output, format='wav')
+        
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(temp_output) as source:
+            audio_data = recognizer.record(source)
+            
+        lang_map = {
+            'en': 'en-US', 'hi': 'hi-IN', 'te': 'te-IN', 'ta': 'ta-IN', 'bn': 'bn-IN',
+            'gu': 'gu-IN', 'kn': 'kn-IN', 'ml': 'ml-IN', 'pa': 'pa-IN', 'mr': 'mr-IN'
+        }
+        
+        if client_lang != 'auto' and client_lang in lang_map:
+            speech_lang = lang_map[client_lang]
+            text = recognizer.recognize_google(audio_data, language=speech_lang)
+            final_lang = client_lang
+        else:
+            try:
+                text = recognizer.recognize_google(audio_data, language='en-US')
+                final_lang = 'en'
+            except sr.UnknownValueError:
+                # Basic Auto-detect fallback to Hindi as standard regional
+                text = recognizer.recognize_google(audio_data, language='hi-IN')
+                final_lang = 'hi'
+        
+        try:
+            os.remove(temp_input)
+            os.remove(temp_output)
+        except Exception:
+            pass
+            
+        return jsonify({'text': text, 'lang': final_lang})
+        
+    except Exception as e:
+        print(f"STT Error: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/translate', methods=['POST'])
 def translate():
     data = request.json
