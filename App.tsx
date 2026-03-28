@@ -112,13 +112,23 @@ const App: React.FC = () => {
 
     // ─── Keep-Alive Ping: Prevents Render free-tier cold starts ─────────
     const pingMLService = () => {
+      // Only ping if the tab is visible to save Render resources
+      if (document.visibilityState !== 'visible') return;
+
       import('./services/api').then(({ default: api }) => {
-        api.get('ml/ping').catch(() => {});
-        api.get('health').catch(() => {});
+        // Random jitter (0-30s) to prevent simultaneous pings from multiple users
+        const jitter = Math.random() * 30000;
+        setTimeout(() => {
+          api.get('ml/ping').catch(() => {});
+          api.get('health').catch(() => {});
+        }, jitter);
       });
     };
-    pingMLService();
-    const pingInterval = setInterval(pingMLService, 10 * 60 * 1000);
+    
+    // Initial ping after 5s to allow other resources to load first
+    const initialPing = setTimeout(pingMLService, 5000);
+    const pingInterval = setInterval(pingMLService, 14 * 60 * 1000); // 14 mins (Just under Render's 15m timeout)
+
 
     // 1. One-time Emergency Purge for Cross-Language Hallucinations
     if (localStorage.getItem('medecho_purge_v11_final') !== 'true') {

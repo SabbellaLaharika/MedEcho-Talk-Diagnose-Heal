@@ -42,8 +42,15 @@ api.interceptors.response.use(
                 // Auto logout on 401
                 dbService.auth.logout();
                 window.location.href = '/';
+            } else if (error.response.status === 429) {
+                // Rate limited
+                error.message = 'AI Service is currently busy. Please wait a moment before trying again.';
+            } else if (error.response.status === 503) {
+                // Service down/starting up
+                error.message = 'AI Service is currently starting up or unavailable. Please try again in 30 seconds.';
             }
             // Extract the user-friendly backend message, if available
+
             if (error.response.data && error.response.data.message) {
                 error.message = error.response.data.message;
             } else if (error.response.data && error.response.data.error) {

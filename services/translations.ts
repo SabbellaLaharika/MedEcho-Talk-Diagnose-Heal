@@ -560,7 +560,7 @@ class TranslationQueue {
       q.resolvers.set(text, resList);
 
       if (this.timers.has(lang)) clearTimeout(this.timers.get(lang));
-      this.timers.set(lang, setTimeout(() => this.flush(lang), 50));
+      this.timers.set(lang, setTimeout(() => this.flush(lang), 250));
     });
   }
 
@@ -573,8 +573,31 @@ class TranslationQueue {
     const textsToTranslate = Array.from(q.texts);
     if (textsToTranslate.length === 0) return;
 
+    // Filter keys that definitely don't need translation
+    const filteredKeys = Array.from(q.resolvers.keys()).filter(text => {
+      if (!text || text.length < 2) return false;
+      // Skip pure numbers or dates (e.g., "123", "2024-01-01")
+      if (/^[\d\s\-\/:\.,]+$/.test(text)) return false;
+      // Skip likely IDs (e.g., "P98234", "APT-772")
+      if (/^[A-Z0-9_\-]+$/i.test(text) && text.length > 5 && /\d/.test(text)) return false;
+      return true;
+    });
+
+    if (filteredKeys.length === 0) {
+      // Resolve all with original text if nothing needs translating
+      q.resolvers.forEach((resList, text) => {
+        resList.forEach(res => res(text));
+      });
+      q.resolvers.clear();
+      return;
+    }
+
     try {
-      const res = await api.post('ml/translate_batch', { texts: textsToTranslate, target_lang: lang });
+      const res = await api.post('ml/translate_batch', {
+        texts: filteredKeys,
+        target_lang: lang
+      });
+
       const results: string[] = res.data.translations || [];
 
       textsToTranslate.forEach((original, idx) => {

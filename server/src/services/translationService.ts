@@ -50,25 +50,81 @@ export const translationService = {
   },
 
   /**
+   * Translates multiple strings in one batch request
+   */
+  translateBatch: async (texts: string[], targetLang: string): Promise<string[]> => {
+    if (!texts || texts.length === 0 || !targetLang) return texts;
+
+    // Filter out texts that don't need translation (ASCII/IDs)
+    const needsTranslation = texts.map(t => {
+      if (!t) return false;
+      if (targetLang === 'en' && !/[^\x00-\x7F]/.test(t)) return false;
+      // Skip IDs or very short technical strings
+      if (/^[A-Z0-9_\-]+$/i.test(t) && t.length > 5) return false;
+      return true;
+    });
+
+    const textsToTranslate = texts.filter((_, i) => needsTranslation[i]);
+    if (textsToTranslate.length === 0) return texts;
+
+    try {
+      const response = await axios.post(`${ML_SERVICE_URL}/translate_batch`, {
+        texts: textsToTranslate,
+        target_lang: targetLang
+      });
+
+      const translatedBatch = response.data.translated || [];
+      let batchIdx = 0;
+      return texts.map((original, i) => {
+        if (needsTranslation[i]) {
+          return translatedBatch[batchIdx++] || original;
+        }
+        return original;
+      });
+    } catch (error) {
+      console.error('Core Batch Translation Error:', error);
+      return texts;
+    }
+  },
+
+  /**
    * Translates multiple fields of an object
    */
   translateObject: async <T>(obj: T, fields: string[], targetLang: string): Promise<T> => {
     if (!targetLang || !obj) return obj;
 
     const translatedObj = { ...obj } as any;
+    const valuesToTranslate: string[] = [];
+    const fieldIndices: { field: string; isArray: boolean; arrayIdx?: number }[] = [];
 
+    // Collect all translatable values
     for (const field of fields) {
       if (translatedObj[field] && typeof translatedObj[field] === 'string') {
-        translatedObj[field] = await translationService.translate(translatedObj[field], targetLang);
+        valuesToTranslate.push(translatedObj[field]);
+        fieldIndices.push({ field, isArray: false });
       } else if (Array.isArray(translatedObj[field])) {
-        // Translate array of strings (e.g., symptoms, precautions)
-        translatedObj[field] = await Promise.all(
-          translatedObj[field].map((item: any) =>
-            typeof item === 'string' ? translationService.translate(item, targetLang) : item
-          )
-        );
+        translatedObj[field].forEach((item: any, idx: number) => {
+          if (typeof item === 'string') {
+            valuesToTranslate.push(item);
+            fieldIndices.push({ field, isArray: true, arrayIdx: idx });
+          }
+        });
       }
     }
+
+    if (valuesToTranslate.length === 0) return obj;
+
+    const results = await translationService.translateBatch(valuesToTranslate, targetLang);
+
+    // Re-assign translated values
+    results.forEach((translated, i) => {
+      const { field, isArray, arrayIdx } = fieldIndices[i];
+      if (isArray && arrayIdx !== undefined) {
+        translatedObj[field][arrayIdx] = translated;
+      } else {
+        translatedObj[field] = translated;
+      }
+    });
 
     return translatedObj as T;
   },
@@ -78,7 +134,13 @@ export const translationService = {
    */
   translateArray: async <T>(arr: T[], fields: string[], targetLang: string): Promise<T[]> => {
     if (!targetLang || !arr || arr.length === 0) return arr;
-
-    return Promise.all(arr.map(item => translationService.translateObject(item, fields, targetLang)));
+    // We do sequential object translation here to avoid one huge payload, 
+    // but each object now uses a single batch request instead of N individual ones.
+    const results: T[] = [];
+    for (const item of arr) {
+      results.push(await translationService.translateObject(item, fields, targetLang));
+    }
+    return results;
   }
 };
+

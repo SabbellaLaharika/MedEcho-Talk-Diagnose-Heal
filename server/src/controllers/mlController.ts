@@ -5,22 +5,41 @@ import FormData from 'form-data';
 // Get Python Service URL from env or default
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
+let lastPingStatus: { time: number; data: any } | null = null;
+const PING_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 // Proxy Chat/Predict Request
 export const pingML = async (req: Request, res: Response) => {
+    // Check cache
+    const now = Date.now();
+    if (lastPingStatus && (now - lastPingStatus.time < PING_CACHE_TTL)) {
+        return res.status(200).json(lastPingStatus.data);
+    }
+
     try {
-        await axios.get(`${ML_SERVICE_URL}/ping`, { timeout: 5000 });
-        res.status(200).json({ status: 'ok', message: 'ML Service Active' });
+        const { data } = await axios.get(`${ML_SERVICE_URL}/ping`, { timeout: 5000 });
+        lastPingStatus = { time: now, data: { status: 'ok', message: 'ML Service Active', ...data } };
+        res.status(200).json(lastPingStatus.data);
     } catch (error: any) {
         // Return 200 even if down to "clear" the browser console error as requested
         // But log the real issue on the server side for the developer
         console.warn(`⚠️ ML Service Ping Failed at ${ML_SERVICE_URL}: ${error.message}`);
-        res.status(200).json({ 
+        
+        const sleepingData = { 
             status: 'sleeping', 
             message: 'ML Service is currently unreachable or sleeping',
             url: ML_SERVICE_URL
-        });
+        };
+        
+        // Don't cache failures for too long, but at least 30s to prevent spam
+        if (!lastPingStatus || (now - lastPingStatus.time > 30000)) {
+            lastPingStatus = { time: now, data: sleepingData };
+        }
+        
+        res.status(200).json(sleepingData);
     }
 };
+
 
 export const chatWithAI = async (req: Request, res: Response) => {
     try {
@@ -36,17 +55,29 @@ export const chatWithAI = async (req: Request, res: Response) => {
 
         res.json(response.data);
     } catch (error: any) {
-        console.error('Chat AI Proxy Error:', error.message);
+        const status = error.response?.status || 503;
+        const message = error.response?.data?.message || error.message;
+        
+        console.error(`Chat AI Proxy Error (${status}):`, message);
+        
+        if (status === 429) {
+            return res.status(429).json({
+                message: 'AI Service is currently busy. Please wait a moment.',
+                reply: 'I am receiving too many requests right now. Please wait a few seconds and try again!'
+            });
+        }
+
         if (error.code === 'ECONNREFUSED') {
             console.error('CRITICAL: Backend cannot reach ML Service. Check ML_SERVICE_URL env var.');
         }
-        // If Python service is down, return a fallback or error
-        res.status(503).json({
+
+        res.status(status).json({
             message: 'AI Service is currently unavailable',
             reply: 'I am sorry, I cannot process your request right now. Please try again later.'
         });
     }
 };
+
 
 interface MulterRequest extends Request {
     file?: Express.Multer.File;
