@@ -36,7 +36,7 @@ import {
   Bars3Icon
 } from '@heroicons/react/24/solid';
 
-const MED_ECHO_ICON = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%232563eb%22/><text y=%22.9em%22 x=%22.1em%22 font-size=%2270%22 font-weight=%22900%22 fill=%22white%22 font-family=%22sans-serif%22>ME</text></svg>";
+const MED_ECHO_ICON = "/Logo.jpeg";
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -136,8 +136,8 @@ const App: React.FC = () => {
         // Random jitter (0-30s) to prevent simultaneous pings from multiple users
         const jitter = Math.random() * 30000;
         setTimeout(() => {
-          api.get('ml/ping').catch(() => {});
-          api.get('health').catch(() => {});
+          api.get('/api/keep-alive-backend').catch(() => {});
+          api.get('/api/keep-alive-ml').catch(() => {});
         }, jitter);
       });
     };

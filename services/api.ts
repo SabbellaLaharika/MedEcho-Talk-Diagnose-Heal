@@ -2,11 +2,16 @@ import axios from 'axios';
 import { dbService } from './dbService';
 
 // Backend Base URL
-export let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Use local proxy /api in production (enabled by rewrites), fallback to localhost:5000 in dev
+const isPROD = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+export let API_URL = import.meta.env.VITE_API_URL || (isPROD ? '/api' : 'http://localhost:5000/api');
 
 // Safety check: Ensure URL ends with /api to match backend routes
-if (API_URL && !API_URL.endsWith('/api')) {
-    API_URL = API_URL.endsWith('/') ? `${API_URL}api` : `${API_URL}/api`;
+// But only for external full URLs (not the relative proxy /api)
+if (API_URL && API_URL.startsWith('http')) {
+    if (!API_URL.endsWith('/api')) {
+        API_URL = API_URL.endsWith('/') ? `${API_URL}api` : `${API_URL}/api`;
+    }
 }
 
 const api = axios.create({

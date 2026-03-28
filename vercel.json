@@ -1,14 +1,16 @@
 {
-  "crons": [
-    {
-      "path": "/api/keep-alive-backend",
-      "schedule": "*/14 * * * *"
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/keep-alive-backend",
       "destination": "https://medecho-backend.onrender.com/api/health"
+    },
+    {
+      "source": "/api/keep-alive-ml",
+      "destination": "https://medecho-ml-service.onrender.com/ping"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://medecho-backend.onrender.com/api/:path*"
     }
   ]
 }
