@@ -149,107 +149,108 @@ class ChatEngine:
                 if not new_symptoms:
                     return f"Okay, I've removed **{removed_str}** from your list. What else are you experiencing?", context
                     
-                if new_symptoms:
-                    for s in new_symptoms:
-                        if s not in collected_symptoms:
-                            collected_symptoms.append(s)
-                    context['collected_symptoms'] = collected_symptoms
-                    
-                    # Format symptom list for message (snake_case to natural/bold)
-                    new_symptoms_str = " and ".join([f"**{s.replace('_', ' ')}**" for s in new_symptoms])
-                    if len(new_symptoms) > 2:
-                        new_symptoms_str = ", ".join([f"**{s.replace('_', ' ')}**" for s in new_symptoms[:-1]]) + f" and **{new_symptoms[-1].replace('_', ' ')}**"
+            if new_symptoms:
+                for s in new_symptoms:
+                    if s not in collected_symptoms:
+                        collected_symptoms.append(s)
+                context['collected_symptoms'] = collected_symptoms
+                
+                # Format symptom list for message (snake_case to natural/bold)
+                new_symptoms_str = " and ".join([f"**{s.replace('_', ' ')}**" for s in new_symptoms])
+                if len(new_symptoms) > 2:
+                    new_symptoms_str = ", ".join([f"**{s.replace('_', ' ')}**" for s in new_symptoms[:-1]]) + f" and **{new_symptoms[-1].replace('_', ' ')}**"
 
-                    # If we have enough symptoms, move to details
-                    if len(collected_symptoms) >= 6 or any(word in user_text for word in ["done", "that's all", "nothing", "no more"]):
-                         # Increased threshold to 6 to encourage more detail, or user says done
-                        context['state'] = 'GATHERING_DETAILS'
-                        first_q_key = list(questions_map.keys())[0]
-                        context['pending_suggestions'] = options_map[first_q_key]
-                        return f"I noted: {', '.join(collected_symptoms).replace('_', ' ')}. Now, {questions_map[first_q_key]}", context
-                    else:
-                        # SMART SUGGESTION LOGIC
-                        # Base suggestions on the most recently added symptom
-                        last_symptom = new_symptoms[-1] 
-                        suggestions = self.related_symptoms.get(last_symptom, [])
-                        
-                        # Filter out already collected ones
-                        canonical_suggestions = [s for s in suggestions if s not in collected_symptoms]
-                        
-                        if canonical_suggestions:
-                            # Suggest up to 3 symptoms
-                            suggest_list = canonical_suggestions[:3]
-                            context['pending_suggestions'] = suggest_list
-                            return f"I noted {new_symptoms_str}. Do you also experience any of the following? (Or select 'None')", context
-                        else:
-                            context.pop('pending_suggestions', None)
-                            return f"I have noted {new_symptoms_str}. Do you have any other symptoms? (Or say 'that\\'s all')", context
+                # If we have enough symptoms, move to details
+                if len(collected_symptoms) >= 6 or any(word in user_text for word in ["done", "that's all", "nothing", "no more"]):
+                     # Increased threshold to 6 to encourage more detail, or user says done
+                    context['state'] = 'GATHERING_DETAILS'
+                    first_q_key = list(questions_map.keys())[0]
+                    context['pending_suggestions'] = options_map[first_q_key]
+                    return f"I noted: {', '.join(collected_symptoms).replace('_', ' ')}. Now, {questions_map[first_q_key]}", context
                 else:
-                    # No new explicit symptoms found
-
-                    # Check for "stop" words
-                    stop_keywords = ["no", "done", "that's all", "none", "nothing", "nope", "not really", "other"]
-                    if len(collected_symptoms) > 0 and any(word in user_text for word in stop_keywords):
+                    # SMART SUGGESTION LOGIC
+                    # Base suggestions on the most recently added symptom
+                    last_symptom = new_symptoms[-1] 
+                    suggestions = self.related_symptoms.get(last_symptom, [])
+                    
+                    # Filter out already collected ones
+                    canonical_suggestions = [s for s in suggestions if s not in collected_symptoms]
+                    
+                    if canonical_suggestions:
+                        # Suggest up to 3 symptoms
+                        suggest_list = canonical_suggestions[:3]
+                        context['pending_suggestions'] = suggest_list
+                        return f"I noted {new_symptoms_str}. Do you also experience any of the following? (Or select 'None')", context
+                    else:
                         context.pop('pending_suggestions', None)
-                        if "other" in user_text.lower():
-                            return "Please tell me exactly what those other symptoms are.", context
-                        context['state'] = 'GATHERING_DETAILS'
-                        first_q_key = list(questions_map.keys())[0]
-                        context['pending_suggestions'] = options_map[first_q_key]
-                        return f"Okay. Let's get some more details. {questions_map[first_q_key]}", context
-                    
-                    # Check for "continuation" or "confirmation" words 
-                    continuation_keywords = ["yes", "yeah", "i have", "there are", "more", "ok", "okay", "unnayi", "avunu", "yep", "yup"] 
-                    
-                    if any(word in user_text for word in continuation_keywords):
-                        pending = context.get('pending_suggestions', [])
-                        if len(pending) == 1:
-                            # Only 1 was suggested, safely assume 'yes' means this one
-                            confirmed_symptom = pending[0]
-                            if confirmed_symptom not in collected_symptoms:
-                                collected_symptoms.append(confirmed_symptom)
-                            context['collected_symptoms'] = collected_symptoms
-                            context.pop('pending_suggestions', None)
-                            
-                            # Check threshold before suggesting another
-                            if len(collected_symptoms) >= 6:
-                                context['state'] = 'GATHERING_DETAILS'
-                                first_q_key = list(questions_map.keys())[0]
-                                context['pending_suggestions'] = options_map[first_q_key]
-                                return f"Got it, noted **{confirmed_symptom.replace('_', ' ')}**. Now, {questions_map[first_q_key]}", context
-                            
-                            # Suggest the next ones based on newly confirmed symptom
-                            next_suggestions = self.related_symptoms.get(confirmed_symptom, [])
-                            next_canonical = [s for s in next_suggestions if s not in collected_symptoms]
-                            
-                            if next_canonical:
-                                suggest_list = next_canonical[:3]
-                                context['pending_suggestions'] = suggest_list
-                                return f"Got it. Do you also experience any of these?", context
-                            else:
-                                return f"Got it, noted **{confirmed_symptom.replace('_', ' ')}**. Do you have any other symptoms?", context
-                        elif len(pending) > 1:
-                            return "Please select which exact symptoms you have from the list, or type 'None'.", context
-                        else:
-                            return "Please tell me what those symptoms are.", context
+                        return f"I have noted {new_symptoms_str}. Do you have any other symptoms? (Or say 'that\\'s all')", context
+            else:
+                # No new explicit symptoms found
 
-                    # FALLBACK: Use history to suggest if possible
-                    if collected_symptoms:
-                        last_symptom = collected_symptoms[-1]
-                        suggestions = self.related_symptoms.get(last_symptom, [])
-                        canonical_suggestions = [s for s in suggestions if s not in collected_symptoms]
+                # Check for "stop" words
+                stop_keywords = ["no", "done", "that's all", "none", "nothing", "nope", "not really", "other"]
+                if len(collected_symptoms) > 0 and any(word in user_text for word in stop_keywords):
+                    context.pop('pending_suggestions', None)
+                    if "other" in user_text.lower():
+                        return "Please tell me exactly what those other symptoms are.", context
+                    context['state'] = 'GATHERING_DETAILS'
+                    first_q_key = list(questions_map.keys())[0]
+                    context['pending_suggestions'] = options_map[first_q_key]
+                    return f"Okay. Let's get some more details. {questions_map[first_q_key]}", context
+                
+                # Check for "continuation" or "confirmation" words 
+                continuation_keywords = ["yes", "yeah", "i have", "there are", "more", "ok", "okay", "unnayi", "avunu", "yep", "yup"] 
+                
+                if any(word in user_text for word in continuation_keywords):
+                    pending = context.get('pending_suggestions', [])
+                    if len(pending) == 1:
+                        # Only 1 was suggested, safely assume 'yes' means this one
+                        confirmed_symptom = pending[0]
+                        if confirmed_symptom not in collected_symptoms:
+                            collected_symptoms.append(confirmed_symptom)
+                        context['collected_symptoms'] = collected_symptoms
+                        context.pop('pending_suggestions', None)
                         
-                        if canonical_suggestions:
-                            suggest_list = canonical_suggestions[:3]
+                        # Check threshold before suggesting another
+                        if len(collected_symptoms) >= 6:
+                            context['state'] = 'GATHERING_DETAILS'
+                            first_q_key = list(questions_map.keys())[0]
+                            context['pending_suggestions'] = options_map[first_q_key]
+                            return f"Got it, noted **{confirmed_symptom.replace('_', ' ')}**. Now, {questions_map[first_q_key]}", context
+                        
+                        # Suggest the next ones based on newly confirmed symptom
+                        next_suggestions = self.related_symptoms.get(confirmed_symptom, [])
+                        next_canonical = [s for s in next_suggestions if s not in collected_symptoms]
+                        
+                        if next_canonical:
+                            suggest_list = next_canonical[:3]
                             context['pending_suggestions'] = suggest_list
-                            return f"I understand you're not feeling well. Based on your symptoms, do you also have any of these?", context
+                            return f"Got it. Do you also experience any of these?", context
+                        else:
+                            return f"Got it, noted **{confirmed_symptom.replace('_', ' ')}**. Do you have any other symptoms?", context
+                    elif len(pending) > 1:
+                        return "Please select which exact symptoms you have from the list, or type 'None'.", context
+                    else:
+                        return "Please tell me what those symptoms are.", context
 
-                    # If no symptoms yet and generic "unwell" input
-                    unwell_keywords = ["not feeling good", "i am sick", "help me", "pain", "issue", "problem"]
-                    if any(word in user_text for word in unwell_keywords):
-                        return "I'm here to help. To give you an accurate assessment, I need to know specific symptoms. Are you experiencing things like Fever, Body Pain, or a Cough?", context
+                # FALLBACK: Use history to suggest if possible
+                if collected_symptoms:
+                    last_symptom = collected_symptoms[-1]
+                    suggestions = self.related_symptoms.get(last_symptom, [])
+                    canonical_suggestions = [s for s in suggestions if s not in collected_symptoms]
+                    
+                    if canonical_suggestions:
+                        suggest_list = canonical_suggestions[:3]
+                        context['pending_suggestions'] = suggest_list
+                        return f"I understand you're not feeling well. Based on your symptoms, do you also have any of these?", context
 
-                return "I'm sorry, I didn't quite catch a specific symptom. Could you please name them directly? For example: 'I have a headache' or 'I feel nauseous'.", context
+                # If no symptoms yet and generic "unwell" input
+                unwell_keywords = ["not feeling good", "i am sick", "help me", "pain", "issue", "problem"]
+                if any(word in user_text for word in unwell_keywords):
+                    return "I'm here to help. To give you an accurate assessment, I need to know specific symptoms. Are you experiencing things like Fever, Body Pain, or a Cough?", context
+
+            return "I'm sorry, I didn't quite catch a specific symptom. Could you please name them directly? For example: 'I have a headache' or 'I feel nauseous'.", context
+
 
         # 3. GATHERING DETAILS (Smart Questioning)
         if context.get('state') == 'GATHERING_DETAILS':
