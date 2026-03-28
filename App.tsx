@@ -36,10 +36,27 @@ import {
   Bars3Icon
 } from '@heroicons/react/24/solid';
 
+const MED_ECHO_ICON = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%232563eb%22/><text y=%22.9em%22 x=%22.1em%22 font-size=%2270%22 font-weight=%22900%22 fill=%22white%22 font-family=%22sans-serif%22>ME</text></svg>";
+
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const t = getTranslation(user?.preferredLanguage);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Persistent Active Tab: Initialize from sessionStorage if exists
+  const [activeTab, setActiveTabState] = useState(() => {
+    try {
+      return sessionStorage.getItem('medecho_activeTab') || 'dashboard';
+    } catch (e) {
+      return 'dashboard';
+    }
+  });
+
+  const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
+    try {
+      sessionStorage.setItem('medecho_activeTab', tab);
+    } catch (e) {}
+  };
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [reports, setReports] = useState<MedicalReport[]>([]);
@@ -131,14 +148,24 @@ const App: React.FC = () => {
 
 
     // 1. One-time Emergency Purge for Cross-Language Hallucinations
-    if (localStorage.getItem('medecho_purge_v11_final') !== 'true') {
-      const keys = Object.keys(localStorage);
-      keys.forEach(k => {
-        if (k.startsWith('med_echo_')) localStorage.removeItem(k);
-      });
-      localStorage.setItem('medecho_purge_v11_final', 'true');
-      window.location.reload();
-      return;
+    // Fix: Only reload if we actually found items to delete to prevent loops in restricted storage
+    try {
+      if (localStorage.getItem('medecho_purge_v11_final') !== 'true') {
+        const keys = Object.keys(localStorage);
+        const toDelete = keys.filter(k => k.startsWith('med_echo_'));
+        
+        if (toDelete.length > 0) {
+          toDelete.forEach(k => localStorage.removeItem(k));
+          localStorage.setItem('medecho_purge_v11_final', 'true');
+          window.location.reload();
+          return;
+        } else {
+          // Nothing to delete, just mark as done
+          localStorage.setItem('medecho_purge_v11_final', 'true');
+        }
+      }
+    } catch (storageError) {
+      console.warn("Storage restricted (Incognito?): Purge skipped to prevent loop.");
     }
 
     // ─── Deep-Link Handler: Email button routing ───────────────────────
@@ -208,6 +235,15 @@ const App: React.FC = () => {
       loadTranslations(user.preferredLanguage, 'common');
       loadTranslations(user.preferredLanguage, 'dashboard'); // Pre-load dashboard
       
+      const playNotificationSound = () => {
+        try {
+          // Subtle "Ding" sound for messaging-app feel (WhatsApp-like)
+          const audio = new Audio("data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YV92T19AAYAAAICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA=="); // Short beep fallback
+          audio.volume = 0.5;
+          audio.play().catch(() => {});
+        } catch (e) {}
+      };
+
       const fetchData = async () => {
         try {
           const [apts, reps, notifs] = await Promise.all([
@@ -217,21 +253,23 @@ const App: React.FC = () => {
           ]);
           
           setNotifications(prev => {
-            const combined = [...notifs, ...prev];
-            // Ensure uniqueness and sort by time
-            const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
-            
-            // Trigger native notification for new unread messages if not already in store
             const existingIds = new Set(prev.map(n => n.id));
-            notifs.forEach(n => {
-              if (!n.isRead && !existingIds.has(n.id) && 'Notification' in window && Notification.permission === 'granted') {
-                 new Notification(n.title, { 
-                   body: n.message,
-                   icon: '/favicon.ico' // Or specific icon based on type
-                 });
-              }
-            });
+            const hasNew = notifs.some(n => !n.isRead && !existingIds.has(n.id));
+            
+            if (hasNew) {
+               playNotificationSound();
+               notifs.forEach(n => {
+                 if (!n.isRead && !existingIds.has(n.id) && 'Notification' in window && Notification.permission === 'granted') {
+                    new Notification(n.title, { 
+                      body: n.message,
+                      icon: MED_ECHO_ICON
+                    });
+                 }
+               });
+            }
 
+            const combined = [...notifs, ...prev];
+            const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
             return unique.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
           });
 
@@ -276,7 +314,7 @@ const App: React.FC = () => {
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification(notif.title as string, {
             body: notif.message as string,
-            icon: '/favicon.ico'
+            icon: MED_ECHO_ICON
           });
         }
         return [{ ...notif, isRead: false }, ...prev];

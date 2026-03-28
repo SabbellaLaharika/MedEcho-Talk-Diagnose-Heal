@@ -9,14 +9,17 @@ const pdf = require('pdf-parse');
 
 const prisma = new PrismaClient();
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+import { callMLWithRetry } from './mlController';
 
 // Generate report from call transcript using ML service
 export const generateReportFromCall = async (req: Request, res: Response) => {
     try {
         const { text } = req.body;
         if (!text) return res.status(400).json({ message: "No transcript provided" });
-
-        const { data } = await axios.post(`${ML_SERVICE_URL}/analyze`, { text });
+ 
+        const { data } = await callMLWithRetry(() => 
+            axios.post(`${ML_SERVICE_URL}/analyze`, { text }, { timeout: 30000 })
+        );
         res.json(data);
     } catch (error: any) {
         console.error("ML Analysis Proxy Error:", error.message);
@@ -239,10 +242,12 @@ export const uploadReport = async (req: Request, res: Response) => {
             // ── STEP 1: Try Python ML Service extraction (higher quality) ──
             try {
                 console.log(`[Upload] Trying Python /extract-text for: ${fileName}...`);
-                const { data: pyResult } = await axios.post(
-                    `${ML_SERVICE_URL}/extract-text`,
-                    { file_base64: base64, mime_type: file.mimetype },
-                    { timeout: 30000 }
+                const { data: pyResult } = await callMLWithRetry(() => 
+                    axios.post(
+                        `${ML_SERVICE_URL}/extract-text`,
+                        { file_base64: base64, mime_type: file.mimetype },
+                        { timeout: 30000 }
+                    )
                 );
                 if (pyResult?.success && pyResult?.text) {
                     extractedText = pyResult.text;
@@ -288,7 +293,9 @@ export const uploadReport = async (req: Request, res: Response) => {
         if (extractedText) {
             try {
                 console.log('[Upload] Sending extracted text to ML /analyze...');
-                const { data } = await axios.post(`${ML_SERVICE_URL}/analyze`, { text: extractedText });
+                const { data } = await callMLWithRetry(() => 
+                    axios.post(`${ML_SERVICE_URL}/analyze`, { text: extractedText }, { timeout: 30000 })
+                );
                 aiAnalysis = data;
             } catch (analyzeErr) {
                 console.warn('[Upload] AI analysis failed, using raw extracted text:', analyzeErr);

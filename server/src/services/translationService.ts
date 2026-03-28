@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+import { callMLWithRetry } from '../controllers/mlController';
+
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
 export const translationService = {
@@ -27,11 +29,13 @@ export const translationService = {
     }
 
     try {
-      const response = await axios.post(`${ML_SERVICE_URL}/translate`, {
-        text,
-        target_lang: targetLang,
-        source_lang: 'auto'
-      });
+      const response = await callMLWithRetry(() => 
+        axios.post(`${ML_SERVICE_URL}/translate`, {
+          text,
+          target_lang: targetLang,
+          source_lang: 'auto'
+        }, { timeout: 30000 })
+      );
       let translated = response.data.translated || text;
       const isVirtual = translated.includes('వర్చువల్') || translated.includes('वर्चुअल') || translated.toLowerCase().includes('virtual');
 
@@ -68,10 +72,12 @@ export const translationService = {
     if (textsToTranslate.length === 0) return texts;
 
     try {
-      const response = await axios.post(`${ML_SERVICE_URL}/translate_batch`, {
-        texts: textsToTranslate,
-        target_lang: targetLang
-      });
+      const response = await callMLWithRetry(() => 
+        axios.post(`${ML_SERVICE_URL}/translate_batch`, {
+          texts: textsToTranslate,
+          target_lang: targetLang
+        }, { timeout: 45000 })
+      );
 
       const translatedBatch = response.data.translated || [];
       let batchIdx = 0;

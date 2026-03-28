@@ -38,19 +38,24 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response) {
+            const currentPath = window.location.pathname;
+
             if (error.response.status === 401) {
                 // Auto logout on 401
                 dbService.auth.logout();
-                window.location.href = '/';
+                // ONLY redirect if we aren't already on the login/home page to prevent infinite refresh loops
+                if (currentPath !== '/' && currentPath !== '/index.html') {
+                    window.location.href = '/';
+                }
             } else if (error.response.status === 429) {
-                // Rate limited
-                error.message = 'AI Service is currently busy. Please wait a moment before trying again.';
+                // Rate limited (often during Render cold starts)
+                error.message = 'AI Service is currently waking up or busy. Please wait 10 seconds and try again.';
             } else if (error.response.status === 503) {
                 // Service down/starting up
-                error.message = 'AI Service is currently starting up or unavailable. Please try again in 30 seconds.';
+                error.message = 'AI Service is currently starting up (Cold Start). Please wait 30 seconds for the system to initialize.';
             }
+            
             // Extract the user-friendly backend message, if available
-
             if (error.response.data && error.response.data.message) {
                 error.message = error.response.data.message;
             } else if (error.response.data && error.response.data.error) {
