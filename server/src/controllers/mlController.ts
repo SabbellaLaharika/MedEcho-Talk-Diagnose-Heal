@@ -11,24 +11,33 @@ const PING_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 // Helper function for automatic retries on cold starts (429/503)
 /**
  * Wraps an axios call with a retry strategy explicitly for Render cold-starts.
- * If we get a 429 (Busy) or 503 (Starting), we wait and try again.
+ * Uses exponential backoff (3s -> 8s -> 15s -> 25s) to allow Render instances 
+ * to fully boot (can take 30-50s on free tier).
  */
-export const callMLWithRetry = async (fn: () => Promise<any>, retries = 3, delay = 3000) => {
-    for (let i = 0; i < retries; i++) {
+export const callMLWithRetry = async (fn: () => Promise<any>, maxRetries = 5) => {
+    let lastError;
+    // Delay sequence for cold starts: 3s, 8s, 15s, 20s, 25s
+    const delays = [3000, 8000, 15000, 20000, 25000];
+
+    for (let i = 0; i <= maxRetries; i++) {
         try {
             return await fn();
         } catch (error: any) {
+            lastError = error;
             const status = error.response?.status;
+            
             // 429 = Too many requests (Render rate limiter during boot)
             // 503 = Service Unavailable (Render during spin-up)
-            if ((status === 429 || status === 503) && i < retries - 1) {
-                console.log(`ML Proxy: Service busy (Status ${status}). Retrying in ${delay/1000}s... (Attempt ${i+1}/${retries})`);
-                await new Promise(resolve => setTimeout(resolve, delay));
+            if ((status === 429 || status === 503) && i < maxRetries) {
+                const currentDelay = delays[i] || 30000;
+                console.log(`ML Proxy: [Waking Up] Service busy (${status}). Retrying in ${currentDelay/1000}s... (Attempt ${i+1}/${maxRetries})`);
+                await new Promise(resolve => setTimeout(resolve, currentDelay));
                 continue;
             }
             throw error;
         }
     }
+    throw lastError;
 };
 
 export const pingML = async (req: Request, res: Response) => {

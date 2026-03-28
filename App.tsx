@@ -36,12 +36,12 @@ import {
   Bars3Icon
 } from '@heroicons/react/24/solid';
 
-const MED_ECHO_ICON = "/Logo.jpeg";
+const MED_ECHO_ICON = "../Logo.jpeg";
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const t = getTranslation(user?.preferredLanguage);
-  
+
   // Persistent Active Tab: Initialize from sessionStorage if exists
   const [activeTab, setActiveTabState] = useState(() => {
     try {
@@ -55,7 +55,7 @@ const App: React.FC = () => {
     setActiveTabState(tab);
     try {
       sessionStorage.setItem('medecho_activeTab', tab);
-    } catch (e) {}
+    } catch (e) { }
   };
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -77,7 +77,7 @@ const App: React.FC = () => {
     const oneDayInMs = 24 * 60 * 60 * 1000;
 
     const newNotifications: AppNotification[] = [];
-    
+
     // 1. Appointment Reminders
     apts.forEach(apt => {
       if (apt.status !== 'PENDING') return;
@@ -100,20 +100,20 @@ const App: React.FC = () => {
 
     // 2. Medication Reminders (Latest Report)
     if (user.role === 'PATIENT' && reports.length > 0) {
-       const latest = reports[0];
-       if (latest.medications && latest.medications.length > 0) {
-          latest.medications.forEach((med, idx) => {
-             newNotifications.push({
-                id: `med-${latest.id}-${idx}`,
-                userId: user.id,
-                title: "Medication Reminder",
-                message: `Time to take your prescribed: ${med}. Check your report for dosage.`,
-                type: 'REMINDER',
-                timestamp: new Date(),
-                isRead: false
-             });
+      const latest = reports[0];
+      if (latest.medications && latest.medications.length > 0) {
+        latest.medications.forEach((med, idx) => {
+          newNotifications.push({
+            id: `med-${latest.id}-${idx}`,
+            userId: user.id,
+            title: "Medication Reminder",
+            message: `Time to take your prescribed: ${med}. Check your report for dosage.`,
+            type: 'REMINDER',
+            timestamp: new Date(),
+            isRead: false
           });
-       }
+        });
+      }
     }
 
     setNotifications(prev => {
@@ -136,36 +136,33 @@ const App: React.FC = () => {
         // Random jitter (0-30s) to prevent simultaneous pings from multiple users
         const jitter = Math.random() * 30000;
         setTimeout(() => {
-          api.get('/api/keep-alive-backend').catch(() => {});
-          api.get('/api/keep-alive-ml').catch(() => {});
+          api.get('/api/keep-alive-backend').catch(() => { });
+          api.get('/api/keep-alive-ml').catch(() => { });
         }, jitter);
       });
     };
-    
+
     // Initial ping after 5s to allow other resources to load first
     const initialPing = setTimeout(pingMLService, 5000);
     const pingInterval = setInterval(pingMLService, 14 * 60 * 1000); // 14 mins (Just under Render's 15m timeout)
 
 
     // 1. One-time Emergency Purge for Cross-Language Hallucinations
-    // Fix: Only reload if we actually found items to delete to prevent loops in restricted storage
+    // Fix: NEVER reload the page automatically on mobile/production as it causes infinite loops
     try {
-      if (localStorage.getItem('medecho_purge_v11_final') !== 'true') {
+      if (localStorage.getItem('medecho_purge_v12_stable') !== 'true') {
         const keys = Object.keys(localStorage);
         const toDelete = keys.filter(k => k.startsWith('med_echo_'));
-        
+
         if (toDelete.length > 0) {
           toDelete.forEach(k => localStorage.removeItem(k));
-          localStorage.setItem('medecho_purge_v11_final', 'true');
-          window.location.reload();
-          return;
-        } else {
-          // Nothing to delete, just mark as done
-          localStorage.setItem('medecho_purge_v11_final', 'true');
+          console.log("MedEcho: Stale data cleared.");
         }
+        // Always mark as done to prevent checking again and reduce startup overhead
+        localStorage.setItem('medecho_purge_v12_stable', 'true');
       }
     } catch (storageError) {
-      console.warn("Storage restricted (Incognito?): Purge skipped to prevent loop.");
+      console.warn("Storage restricted (Incognito?): Purge skipped.");
     }
 
     // ─── Deep-Link Handler: Email button routing ───────────────────────
@@ -234,14 +231,14 @@ const App: React.FC = () => {
     if (user) {
       loadTranslations(user.preferredLanguage, 'common');
       loadTranslations(user.preferredLanguage, 'dashboard'); // Pre-load dashboard
-      
+
       const playNotificationSound = () => {
         try {
           // Subtle "Ding" sound for messaging-app feel (WhatsApp-like)
           const audio = new Audio("data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YV92T19AAYAAAICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA=="); // Short beep fallback
           audio.volume = 0.5;
-          audio.play().catch(() => {});
-        } catch (e) {}
+          audio.play().catch(() => { });
+        } catch (e) { }
       };
 
       const fetchData = async () => {
@@ -251,21 +248,21 @@ const App: React.FC = () => {
             dbService.reports.getAll(),
             dbService.notifications.getAll()
           ]);
-          
+
           setNotifications(prev => {
             const existingIds = new Set(prev.map(n => n.id));
             const hasNew = notifs.some(n => !n.isRead && !existingIds.has(n.id));
-            
+
             if (hasNew) {
-               playNotificationSound();
-               notifs.forEach(n => {
-                 if (!n.isRead && !existingIds.has(n.id) && 'Notification' in window && Notification.permission === 'granted') {
-                    new Notification(n.title, { 
-                      body: n.message,
-                      icon: MED_ECHO_ICON
-                    });
-                 }
-               });
+              playNotificationSound();
+              notifs.forEach(n => {
+                if (!n.isRead && !existingIds.has(n.id) && 'Notification' in window && Notification.permission === 'granted') {
+                  new Notification(n.title, {
+                    body: n.message,
+                    icon: MED_ECHO_ICON
+                  });
+                }
+              });
             }
 
             const combined = [...notifs, ...prev];
@@ -440,18 +437,18 @@ const App: React.FC = () => {
                     </select>
                   </>
                 )}
-                
+
                 {authMode !== 'RESET_PASSWORD' && (
-                  <input 
-                    required 
-                    type={authMode === 'LOGIN' ? "text" : "email"} 
-                    placeholder={authMode === 'LOGIN' ? (t.loginId || 'Email or User ID') : (t.primaryEmail || 'Primary Email Address')} 
-                    className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" 
-                    value={formData.email} 
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
+                  <input
+                    required
+                    type={authMode === 'LOGIN' ? "text" : "email"}
+                    placeholder={authMode === 'LOGIN' ? (t.loginId || 'Email or User ID') : (t.primaryEmail || 'Primary Email Address')}
+                    className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
                 )}
-                
+
                 {(authMode === 'LOGIN' || authMode === 'REGISTER') && (
                   <input required type="password" placeholder={t.changePassword} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
                 )}
@@ -473,7 +470,7 @@ const App: React.FC = () => {
                   {authLoading ? <TranslatedText text="Verifying..." lang={formData.language} /> : (authMode === 'LOGIN' ? <TranslatedText text="Sign In" lang={formData.language} /> : authMode === 'FORGOT_PASSWORD' ? <TranslatedText text="Send OTP" lang={formData.language} /> : authMode === 'RESET_PASSWORD' ? <TranslatedText text="Reset Password" lang={formData.language} /> : <TranslatedText text="Register" lang={formData.language} />)}
                 </button>
               </form>
-              
+
               <button type="button" onClick={() => setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN')} className="w-full text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-blue-600">
                 <TranslatedText text={authMode === 'LOGIN' ? t.joinMedEcho : t.alreadyHaveAccess} lang={formData.language} />
               </button>
@@ -542,17 +539,17 @@ const App: React.FC = () => {
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-slate-100 rounded-2xl shadow-2xl py-2 z-50 overflow-hidden text-left flex flex-col max-h-[80vh]">
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-white border border-slate-100 rounded-2xl shadow-2xl py-2 z-[100] overflow-hidden text-left flex flex-col max-h-[80vh]">
                   <div className="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">
                       <TranslatedText text="Notifications" lang={user.preferredLanguage} />
                     </h3>
                     <div className="flex items-center space-x-3">
                       {notifications.some(n => !n.isRead) && (
-                        <button 
+                        <button
                           onClick={async () => {
                             await dbService.notifications.markAllAsRead();
-                            setNotifications(prev => prev.map(n => ({...n, isRead: true})));
+                            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
                           }}
                           className="text-[10px] uppercase font-bold text-blue-600 hover:underline"
                         >
@@ -580,7 +577,7 @@ const App: React.FC = () => {
                               <span className="text-[10px] text-slate-400 font-bold ml-2 shrink-0">{new Date(n.timestamp || Date.now()).toLocaleDateString()}</span>
                             </div>
                             <p className={`text-xs leading-relaxed ${n.isRead ? 'text-slate-500' : 'text-slate-700'}`}>
-                                {typeof n.message === 'string' ? <TranslatedText text={n.message} lang={user.preferredLanguage} /> : n.message}
+                              {typeof n.message === 'string' ? <TranslatedText text={n.message} lang={user.preferredLanguage} /> : n.message}
                             </p>
                           </li>
                         ))}
@@ -668,7 +665,12 @@ const App: React.FC = () => {
             }}
           />}
           {activeTab === 'schedule' && <DoctorScheduleManager doctor={user} />}
-          {activeTab === 'reports' && <ReportsList reports={reports} user={user} appointments={appointments} />}
+          {activeTab === 'reports' && <ReportsList
+            reports={reports}
+            user={user}
+            appointments={appointments}
+            onDeleteReport={(id) => setReports(prev => prev.filter(r => r.id !== id))}
+          />}
           {activeTab === 'chat' && <AIChatAssistant
             onReportGenerated={(report) => setReports(prev => [report, ...prev])}
             onConsultDoctor={(doctorId) => {

@@ -29,6 +29,7 @@ interface ReportsListProps {
   reports: MedicalReport[];
   user: User;
   onReportUploaded?: (report: MedicalReport) => void;
+  onDeleteReport?: (id: string) => void;
   appointments?: Appointment[];
 }
 
@@ -61,7 +62,7 @@ const TAB_CONFIG: { key: TabType; label: string; icon: React.ReactNode; color: s
   },
 ];
 
-const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUploaded, appointments }) => {
+const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUploaded, onDeleteReport, appointments }) => {
   const t = getTranslation(user.preferredLanguage);
 
   React.useEffect(() => {
@@ -103,8 +104,11 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
     setIsDeleting(true);
     try {
       await api.delete(`reports/${reportId}`);
-      // Notify parent to remove the report — fallback: reload page
-      window.location.reload();
+      if (onDeleteReport) {
+        onDeleteReport(reportId);
+      } else {
+        window.location.reload();
+      }
     } catch (err) {
       console.error('Delete failed:', err);
       alertService.error('Failed to delete report. Please try again.');
