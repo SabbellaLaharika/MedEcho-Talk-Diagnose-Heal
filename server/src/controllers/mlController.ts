@@ -16,8 +16,8 @@ const PING_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
  */
 export const callMLWithRetry = async (fn: () => Promise<any>, maxRetries = 5) => {
     let lastError;
-    // Delay sequence for cold starts: 3s, 8s, 15s, 20s, 25s
-    const delays = [3000, 8000, 15000, 20000, 25000];
+    // Conservative delays for Render free tier (3s -> 10s -> 20s -> 30s -> 45s)
+    const delays = [3000, 10000, 20000, 30000, 45000];
 
     for (let i = 0; i <= maxRetries; i++) {
         try {
@@ -56,13 +56,12 @@ export const pingML = async (req: Request, res: Response) => {
         
         const sleepingData = { 
             status: 'sleeping', 
-            message: 'ML Service is currently unreachable or sleeping',
+            message: 'ML Service is currently unreachable or sleeping (Cold Start)',
             url: ML_SERVICE_URL
         };
         
-        if (!lastPingStatus || (now - lastPingStatus.time > 30000)) {
-            lastPingStatus = { time: now, data: sleepingData };
-        }
+        // If it failed, cache the 'sleeping' state for 30 seconds to prevent hammering
+        lastPingStatus = { time: now, data: sleepingData };
         
         res.status(200).json(sleepingData);
     }
