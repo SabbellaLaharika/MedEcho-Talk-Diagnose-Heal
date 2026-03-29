@@ -1,5 +1,6 @@
 
 import { PrismaClient } from '@prisma/client';
+import axios from 'axios';
 import { sendEmail } from './emailService';
 import { getPatientAppointmentTemplate, getDoctorAppointmentTemplate } from './emailTemplates';
 import { translationService } from './translationService';
@@ -7,8 +8,35 @@ import { translationService } from './translationService';
 const prisma = new PrismaClient();
 const sentReminders = new Set<string>();
 
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+
+/**
+ * Keeps the ML Service and Database warm by pinging them every 10 minutes.
+ * This prevents Render Free Tier and Neon Free Tier from spinning down.
+ */
+const startKeepAlive = () => {
+    setInterval(async () => {
+        try {
+            console.log('💓 Keep-Alive: Pinging services to prevent sleep...');
+            
+            // 1. Ping ML Service
+            axios.get(`${ML_SERVICE_URL}/ping`).catch(() => {});
+            
+            // 2. Ping Database (Run a simple query)
+            await prisma.$queryRaw`SELECT 1`;
+            
+            console.log('✅ Keep-Alive: ML Service and Database are awake.');
+        } catch (error: any) {
+            console.warn('⚠️ Keep-Alive Ping Failed:', error.message);
+        }
+    }, 10 * 60 * 1000); // Every 10 minutes
+};
+
 export const startReminderService = () => {
     console.log('⏰ Reminder Service started (checking every 60 seconds)...');
+    
+    // Start the keep-alive background task
+    startKeepAlive();
     
     // Cleanup sentReminders every 24 hours to prevent memory leak
     setInterval(() => sentReminders.clear(), 24 * 60 * 60 * 1000);

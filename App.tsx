@@ -127,24 +127,24 @@ const App: React.FC = () => {
     dbService.init();
     const currentUser = dbService.auth.getCurrentUser();
 
-    // ─── Keep-Alive Ping: Prevents Render free-tier cold starts ─────────
-    const pingMLService = () => {
-      // Only ping if the tab is visible to save Render resources
-      if (document.visibilityState !== 'visible') return;
-
+    // ─── Session Heartbeat: Keeps services awake while user is logged in ───
+    const runHeartbeat = () => {
+      // We removed the visibility check to support background keep-alive as requested
       import('./services/api').then(({ default: api }) => {
-        // Random jitter (0-30s) to prevent simultaneous pings from multiple users
-        const jitter = Math.random() * 30000;
+        const jitter = Math.random() * 20000;
         setTimeout(() => {
-          api.get('/api/keep-alive-backend').catch(() => { });
-          api.get('/api/keep-alive-ml').catch(() => { });
+          // These endpoints trigger the backend and ML service to stay "warm"
+          api.get('/api/ml/ping').catch(() => { }); 
         }, jitter);
       });
     };
 
-    // Initial ping after 5s to allow other resources to load first
-    const initialPing = setTimeout(pingMLService, 5000);
-    const pingInterval = setInterval(pingMLService, 14 * 60 * 1000); // 14 mins (Just under Render's 15m timeout)
+    // Initial ping after login, then every 12 minutes
+    let heartbeatInterval: any;
+    if (currentUser) {
+      setTimeout(runHeartbeat, 2000);
+      heartbeatInterval = setInterval(runHeartbeat, 12 * 60 * 1000); 
+    }
 
 
     // 1. One-time Emergency Purge for Cross-Language Hallucinations
@@ -220,7 +220,7 @@ const App: React.FC = () => {
 
     return () => {
       unsubscribe();
-      clearInterval(pingInterval);
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
     };
   }, []);
 

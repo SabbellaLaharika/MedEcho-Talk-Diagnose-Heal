@@ -53,23 +53,46 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, 'disease_model.pkl')
 SYMPTOMS_PATH = os.path.join(BASE_DIR, 'symptoms_list.pkl')
 
+# Global state for lazy loading
 chat_engine = None
+_load_lock = threading.Lock()
+_is_loading = False
 
-# Load Model and Symptoms
-try:
-    with open(MODEL_PATH, 'rb') as f:
-        model = pickle.load(f)
-    with open(SYMPTOMS_PATH, 'rb') as f:
-        symptoms_list = pickle.load(f)
-    
-    print("Model and symptoms loaded successfully.")
-    # Initialize Chat Engine
-    chat_engine = ChatEngine(symptoms_list, model)
-    
-except FileNotFoundError:
-    print("Error: Model files not found. Please run 'train_model.py' first.")
-    model = None
-    symptoms_list = []
+def _lazy_load():
+    """Load model and symptoms list only when needed, to allow instant server startup."""
+    global chat_engine, _is_loading
+    if chat_engine is not None:
+        return True
+        
+    with _load_lock:
+        # Double-check inside lock
+        if chat_engine is not None:
+            return True
+        
+        if _is_loading:
+            return False # Avoid re-entry if already loading
+            
+        _is_loading = True
+        try:
+            print("🚀 Loading ML Model and Symptoms (Lazy)...")
+            if not os.path.exists(MODEL_PATH) or not os.path.exists(SYMPTOMS_PATH):
+                print(f"❌ Error: Model files not found. MODEL_PATH={MODEL_PATH}, SYMPTOMS_PATH={SYMPTOMS_PATH}")
+                return False
+                
+            with open(MODEL_PATH, 'rb') as f:
+                loaded_model = pickle.load(f)
+            with open(SYMPTOMS_PATH, 'rb') as f:
+                loaded_symptoms = pickle.load(f)
+            
+            # Initialize Chat Engine
+            chat_engine = ChatEngine(loaded_symptoms, loaded_model)
+            print("✅ Model and symptoms loaded successfully.")
+            return True
+        except Exception as e:
+            print(f"❌ Critical Error Loading Model: {e}")
+            return False
+        finally:
+            _is_loading = False
 
 @app.route('/', methods=['GET'])
 def home():
@@ -77,13 +100,28 @@ def home():
 
 @app.route('/ping', methods=['GET'])
 def ping():
-    """Keep-alive endpoint to prevent cold starts from Render's free tier sleep."""
-    return jsonify({'status': 'ok', 'cache_size': sum(len(v) for v in _translation_cache.values())})
+    """Keep-alive endpoint to prevent cold starts. Responds immediately even if model is still loading."""
+    status = 'ok'
+    if chat_engine is None:
+        # Start loading in background if it hasn't started
+        threading.Thread(target=_lazy_load).start()
+        status = 'loading'
+        
+    return jsonify({
+        'status': status, 
+        'cache_size': sum(len(v) for v in _translation_cache.values()),
+        'is_ready': chat_engine is not None
+    })
 
 @app.route('/chat', methods=['POST'])
 def chat():
+    _lazy_load()
     if not chat_engine:
-        return jsonify({'response': "System is initializing or model is missing.", 'context': {}}), 500
+        return jsonify({
+            'response': "The AI system is still waking up. Please wait about 10 seconds and try again!", 
+            'context': {},
+            'is_waking_up': True
+        }), 503
 
     data = request.json
     user_text = data.get('text', '')
@@ -147,8 +185,9 @@ def chat():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
+    _lazy_load()
     if not chat_engine:
-        return jsonify({'error': "Model missing"}), 500
+        return jsonify({'error': "Model is still loading. Please retry in a moment."}), 503
     
     data = request.json
     transcript = data.get('text', '')
