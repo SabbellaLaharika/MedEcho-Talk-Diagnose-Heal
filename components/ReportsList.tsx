@@ -300,7 +300,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto min-h-0 space-y-2 pr-2 custom-scrollbar">
+          <div className="flex-1 overflow-y-scroll min-h-0 space-y-2 pr-4 custom-scrollbar">
             {user.role === 'DOCTOR' && !selectedPatientId ? (
               // Doctor Patient Selection View
               uniquePatients.length > 0 ? uniquePatients.map(p => (
@@ -422,7 +422,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                 </span>
               </div>
 
-              <div className="flex-1 overflow-y-auto min-h-0 p-6 sm:p-8 space-y-6 sm:space-y-8 custom-scrollbar">
+              <div className="flex-1 overflow-y-scroll min-h-0 p-6 sm:p-8 space-y-6 sm:space-y-8 pr-4 custom-scrollbar">
 
                 {/* If uploaded file — show viewer */}
                 {activeReport.fileUrl && (

@@ -369,7 +369,13 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
       )}
 
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (!isOpen) {
+            // Proactive wake-up call for ML service
+            api.get('/ml/ping', { timeout: 60000 }).catch(() => {});
+          }
+        }}
         className={`p-3 sm:p-4 rounded-full shadow-2xl transition-all transform hover:scale-110 active:scale-95 ${isOpen ? 'bg-slate-800' : 'bg-gradient-to-tr from-blue-600 to-indigo-600'
           } text-white`}
       >

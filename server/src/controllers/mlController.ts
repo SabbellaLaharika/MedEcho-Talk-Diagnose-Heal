@@ -48,8 +48,10 @@ export const pingML = async (req: Request, res: Response) => {
     }
 
     try {
-        const { data } = await axios.get(`${ML_SERVICE_URL}/ping`, { timeout: 10000 });
-        lastPingStatus = { time: now, data: { status: 'ok', message: 'ML Service Active', ...data } };
+        const data = await callMLWithRetry(() => 
+            axios.get(`${ML_SERVICE_URL}/ping`, { timeout: 50000 })
+        );
+        lastPingStatus = { time: now, data: { status: 'ok', message: 'ML Service Active', ...data.data } };
         res.status(200).json(lastPingStatus.data);
     } catch (error: any) {
         console.warn(`⚠️ ML Service Ping Failed at ${ML_SERVICE_URL}: ${error.message}`);

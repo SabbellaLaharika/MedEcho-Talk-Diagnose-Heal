@@ -166,6 +166,10 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
     if (user?.preferredLanguage) {
       loadTranslations(user.preferredLanguage, 'chat');
     }
+    // Proactive wake-up call for ML service on mount
+    import('../services/api').then(({ default: api }) => {
+      api.get('/ml/ping', { timeout: 60000 }).catch(() => {});
+    });
   }, [user?.preferredLanguage]);
 
   const [messages, setMessages] = useState<Message[]>([

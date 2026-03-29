@@ -497,7 +497,7 @@ const App: React.FC = () => {
         />
       </div>
 
-      <main className="flex-1 overflow-y-auto custom-scrollbar relative flex flex-col h-full">
+      <main className="flex-1 overflow-hidden relative flex flex-col h-full">
         {/* Responsive Header */}
         <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md px-6 sm:px-10 py-5 sm:py-6 border-b border-slate-100 flex justify-between items-center flex-shrink-0">
           <div className="flex items-center space-x-4">
@@ -598,7 +598,7 @@ const App: React.FC = () => {
         </header>
 
         {/* Tab Content Container */}
-        <div className="flex-1">
+        <div className="flex-1 overflow-hidden flex flex-col">
           {activeTab === 'dashboard' && (
             user.role === 'DOCTOR'
               ? <DoctorDashboard
