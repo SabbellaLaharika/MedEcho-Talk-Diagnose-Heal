@@ -16,6 +16,7 @@ import ProfilePage from './components/ProfilePage';
 import { getTranslation, loadTranslations, subscribeToTranslations, translateString } from './services/translations';
 import TranslatedText from './components/TranslatedText';
 import { alertService } from './services/alertService';
+import { notificationService } from './services/notificationService';
 import GlobalAlertModal from './components/GlobalAlertModal';
 import {
   UserIcon,
@@ -214,8 +215,8 @@ const App: React.FC = () => {
     const unsubscribe = subscribeToTranslations(() => setTick(t => t + 1));
 
     // Request Notification permission
-    if (currentUser && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+    if (currentUser) {
+      notificationService.requestPermission();
     }
 
     return () => {
@@ -254,13 +255,9 @@ const App: React.FC = () => {
             const hasNew = notifs.some(n => !n.isRead && !existingIds.has(n.id));
 
             if (hasNew) {
-              playNotificationSound();
               notifs.forEach(n => {
-                if (!n.isRead && !existingIds.has(n.id) && 'Notification' in window && Notification.permission === 'granted') {
-                  new Notification(n.title, {
-                    body: n.message,
-                    icon: MED_ECHO_ICON
-                  });
+                if (!n.isRead && !existingIds.has(n.id)) {
+                  notificationService.notify(n.title, n.message);
                 }
               });
             }
@@ -307,13 +304,10 @@ const App: React.FC = () => {
       setNotifications(prev => {
         // Avoid duplicates if already fetched via polling
         if (prev.some(n => n.id === notif.id)) return prev;
-        // Browser push notification
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification(notif.title as string, {
-            body: notif.message as string,
-            icon: MED_ECHO_ICON
-          });
-        }
+        
+        // Browser push notification via service
+        notificationService.notify(notif.title as string, notif.message as string);
+        
         return [{ ...notif, isRead: false }, ...prev];
       });
     });

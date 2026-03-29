@@ -29,6 +29,7 @@ import { Message, MedicalReport } from '../types';
 import api from '../services/api';
 import { dbService, mapBackendReportToFrontend } from '../services/dbService';
 import { alertService } from '../services/alertService';
+import { notificationService } from '../services/notificationService';
 import {
   PaperAirplaneIcon,
   ExclamationTriangleIcon,
@@ -467,6 +468,11 @@ const AIChatAssistant: React.FC<AIChatAssistantProps> = ({ initialContext, isMod
 
       setIsTyping(false);
       speakText(data.response, data.lang || langShort);
+
+      // Trigger background notification if tab is hidden
+      if (document.hidden && aiResponse) {
+        notificationService.notify(t.medEchoLogo || "MedEcho AI", aiResponse);
+      }
 
       if (data.context?.final_report) {
         saveToMedicalFiles(data.context);

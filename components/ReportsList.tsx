@@ -250,21 +250,21 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
       {/* Header */}
       <div className="flex justify-between items-start flex-shrink-0">
         <div>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight uppercase">
             <TranslatedText text={t.medicalReports} lang={user.preferredLanguage} />
           </h2>
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">
+          <p className="text-slate-400 text-[8px] sm:text-[10px] font-black uppercase tracking-widest mt-1">
             <TranslatedText text={t.aiHistory} lang={user.preferredLanguage} />
           </p>
         </div>
         <button
           disabled={user.role === 'DOCTOR' && !selectedPatientId}
           onClick={() => setIsUploadOpen(true)}
-          className={`flex items-center space-x-2 px-5 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-lg ${user.role === 'DOCTOR' && !selectedPatientId ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-slate-900 text-white hover:bg-slate-700'}`}
-          title={user.role === 'DOCTOR' && !selectedPatientId ? 'Select a patient first to upload a report' : ''}
+          className={`flex items-center space-x-0 sm:space-x-2 px-3 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-lg ${user.role === 'DOCTOR' && !selectedPatientId ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-slate-900 text-white hover:bg-slate-700'}`}
+          title={user.role === 'DOCTOR' && !selectedPatientId ? 'Select a patient first to upload a report' : 'Upload Report'}
         >
-          <CloudArrowUpIcon className="w-4 h-4" />
-          <span><TranslatedText text="Upload Report" lang={user.preferredLanguage} /></span>
+          <CloudArrowUpIcon className="w-5 h-5 sm:w-4 h-4" />
+          <span className="hidden sm:inline"><TranslatedText text="Upload Report" lang={user.preferredLanguage} /></span>
         </button>
       </div>
 
@@ -274,11 +274,11 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
           <button
             key={tab.key}
             onClick={() => { setActiveTab(tab.key); setSelectedReport(null); }}
-            className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-[10px] uppercase tracking-widest transition-all ${getTabStyle(tab.key)}`}
+            className={`flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] uppercase tracking-widest transition-all ${getTabStyle(tab.key)}`}
           >
             {tab.icon}
-            <span><TranslatedText text={tab.label} lang={user.preferredLanguage} /></span>
-            <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-black ${activeTab === tab.key ? 'bg-white/60' : 'bg-slate-200 text-slate-500'}`}>
+            <span className={activeTab === tab.key ? 'inline' : 'hidden sm:inline'}><TranslatedText text={tab.label} lang={user.preferredLanguage} /></span>
+            <span className={`ml-1 px-1.2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-black ${activeTab === tab.key ? 'bg-white/60' : 'bg-slate-200 text-slate-500'}`}>
               {badgeCount(tab.key)}
             </span>
           </button>

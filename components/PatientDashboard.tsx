@@ -186,23 +186,23 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
   ];
 
   return (
-    <div className="p-4 sm:p-10 space-y-8 sm:space-y-12 animate-in fade-in duration-700">
+    <div className="p-4 sm:p-10 space-y-6 sm:space-y-12 animate-in fade-in duration-700">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight">
+          <h1 className="text-xl sm:text-4xl font-black text-slate-800 tracking-tight">
             {t.welcomeBack}, <span className="text-blue-600">
               <TranslatedText text={user.name.split(' ')[0]} lang={user.preferredLanguage} />
             </span>
           </h1>
-          <p className="text-slate-500 mt-1 font-medium italic text-sm">MedEcho {t.dashboard}</p>
+          <p className="text-slate-400 mt-0.5 font-bold uppercase tracking-wider text-[9px] sm:text-sm">MedEcho {t.dashboard}</p>
         </div>
-        <div className="flex items-center space-x-3 bg-white px-4 py-3 rounded-2xl shadow-sm border border-slate-100">
-          <div className="p-2 bg-blue-500 rounded-xl text-white">
-            <UserCircleIcon className="w-5 h-5" />
+        <div className="flex items-center space-x-3 bg-white px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-sm border border-slate-100">
+          <div className="p-1.5 sm:p-2 bg-blue-500 rounded-lg sm:rounded-xl text-white">
+            <UserCircleIcon className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div>
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{(t.patient || 'Patient') + " ID"}</p>
-            <span className="font-black text-slate-700 text-xs">{user.username || `P${user.id.replace(/\D/g, '').slice(0, 5).padStart(5, '0')}`}</span>
+            <p className="text-[8px] sm:text-[9px] text-slate-400 font-black uppercase tracking-widest">{(t.patient || 'Patient') + " ID"}</p>
+            <span className="font-black text-slate-700 text-[10px] sm:text-xs">{user.username || `P${user.id.replace(/\D/g, '').slice(0, 5).padStart(5, '0')}`}</span>
           </div>
         </div>
       </header>
@@ -210,9 +210,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
       {/* Vital Stats Grid — 2 cols on sm, 4 on xl */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
         {stats.map((stat) => (
-          <div key={stat.key} className="relative bg-white p-5 sm:p-8 rounded-3xl sm:rounded-[2rem] shadow-sm border border-slate-50 flex items-center justify-between group hover:shadow-xl hover:-translate-y-1 transition-all">
+          <div key={stat.key} className="relative bg-white p-4 sm:p-8 rounded-2xl sm:rounded-[2rem] shadow-sm border border-slate-50 flex items-center justify-between group hover:shadow-xl hover:-translate-y-1 transition-all">
             <div className="flex-1">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1"><TranslatedText text={stat.label} lang={user.preferredLanguage} /></p>
+              <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1"><TranslatedText text={stat.label} lang={user.preferredLanguage} /></p>
               {editingVital === stat.key ? (
                 <div className="flex items-center gap-2 mt-1">
                   <input
@@ -231,14 +231,14 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
                   </button>
                 </div>
               ) : (
-                <div className="flex items-baseline space-x-2">
-                  <span className="text-2xl sm:text-4xl font-black text-slate-800">{stat.value || <span className="text-slate-300 text-xl">—</span>}</span>
-                  {stat.value && <span className="text-[9px] font-bold text-emerald-500 uppercase">{stat.sub}</span>}
+                <div className="flex items-baseline space-x-1.5 sm:space-x-2">
+                  <span className="text-xl sm:text-4xl font-black text-slate-800">{stat.value || <span className="text-slate-300 text-lg">—</span>}</span>
+                  {stat.value && <span className="text-[8px] sm:text-[9px] font-bold text-emerald-500 uppercase">{stat.sub}</span>}
                 </div>
               )}
             </div>
             <div className="flex flex-col items-center gap-2">
-              <div className={`p-3 sm:p-5 rounded-2xl sm:rounded-3xl ${stat.color} text-white shadow-lg`}>
+              <div className={`p-2.5 sm:p-5 rounded-xl sm:rounded-3xl ${stat.color} text-white shadow-lg`}>
                 <stat.icon className="w-5 h-5 sm:w-7 sm:h-7" />
               </div>
               {/* Edit/Delete — shown on hover */}

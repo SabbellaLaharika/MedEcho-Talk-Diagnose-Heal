@@ -246,15 +246,15 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, onBooki
       {/* Header & Search */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight uppercase">{t.bookVisit}</h2>
-          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">{t.selectTime}</p>
+          <h2 className="text-xl sm:text-4xl font-black text-slate-800 tracking-tight uppercase">{t.bookVisit}</h2>
+          <p className="text-slate-400 font-bold text-[9px] sm:text-xs uppercase tracking-widest mt-1">{t.selectTime}</p>
         </div>
         <div className="relative w-full md:w-96">
           <MagnifyingGlassIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
           <input
             type="text"
             placeholder={t.searchSpecialists}
-            className="w-full pl-12 pr-5 py-4 bg-white border-2 border-slate-100 rounded-2xl outline-none font-bold text-sm focus:border-indigo-500 shadow-sm"
+            className="w-full pl-11 pr-5 py-3 sm:py-4 bg-white border-2 border-slate-100 rounded-2xl outline-none font-bold text-xs sm:text-sm focus:border-indigo-500 shadow-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -293,7 +293,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, onBooki
                   tabIndex={0}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDoc(doc); setSelectedTime(null); } }}
                   onClick={() => { setSelectedDoc(doc); setSelectedTime(null); }}
-                  className={`w-full text-left p-6 rounded-[2rem] border-2 flex items-center justify-between transition-all cursor-pointer ${selectedDoc?.id === doc.id ? 'border-indigo-600 bg-white shadow-xl' : 'border-slate-50 bg-white/50 hover:border-indigo-100'
+                  className={`w-full text-left p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border-2 flex items-center justify-between transition-all cursor-pointer ${selectedDoc?.id === doc.id ? 'border-indigo-600 bg-white shadow-xl' : 'border-slate-50 bg-white/50 hover:border-indigo-100'
                     }`}
                 >
                   <div className="flex items-center space-x-4">
@@ -318,7 +318,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, onBooki
                         const clean = phone.replace(/[^\d+]/g, '');
                         if (clean.length > 0) window.location.href = `tel:${clean}`;
                       }}
-                      className="text-[10px] font-black uppercase text-white bg-emerald-500 px-2 py-1 rounded-full"
+                      className="text-[9px] font-black uppercase text-white bg-emerald-500 px-2.5 py-1.5 rounded-full whitespace-nowrap"
                     >
                       {t.call}
                     </button>

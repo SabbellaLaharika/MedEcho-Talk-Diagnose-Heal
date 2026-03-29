@@ -370,10 +370,10 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
 
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`p-4 rounded-full shadow-2xl transition-all transform hover:scale-110 active:scale-95 ${isOpen ? 'bg-slate-800' : 'bg-gradient-to-tr from-blue-600 to-indigo-600'
+        className={`p-3 sm:p-4 rounded-full shadow-2xl transition-all transform hover:scale-110 active:scale-95 ${isOpen ? 'bg-slate-800' : 'bg-gradient-to-tr from-blue-600 to-indigo-600'
           } text-white`}
       >
-        {isOpen ? <XMarkIcon className="w-8 h-8" /> : <ChatBubbleLeftRightIcon className="w-8 h-8" />}
+        {isOpen ? <XMarkIcon className="w-6 h-6 sm:w-8 sm:h-8" /> : <ChatBubbleLeftRightIcon className="w-6 h-6 sm:w-8 sm:h-8" />}
       </button>
     </div>
   );

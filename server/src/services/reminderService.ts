@@ -4,6 +4,7 @@ import axios from 'axios';
 import { sendEmail } from './emailService';
 import { getPatientAppointmentTemplate, getDoctorAppointmentTemplate } from './emailTemplates';
 import { translationService } from './translationService';
+import { notificationService } from './notificationService';
 
 const prisma = new PrismaClient();
 const sentReminders = new Set<string>();
@@ -128,6 +129,25 @@ export const startReminderService = () => {
                             })
                         });
                     }
+
+                    // --- NEW: In-App & Browser Notifications ---
+                    await notificationService.sendNotification({
+                        userId: apt.patient.id,
+                        title: 'Appointment Reminder',
+                        message: `Your consultation with Dr. ${apt.doctor.name} starts in 10 minutes!`,
+                        type: 'REMINDER',
+                        role: 'PATIENT',
+                        metadata: { appointmentId: apt.id, jitsiLink }
+                    });
+
+                    await notificationService.sendNotification({
+                        userId: apt.doctor.id,
+                        title: 'Consultation Alert',
+                        message: `Upcoming appointment with ${apt.patient.name} starts in 10 minutes.`,
+                        type: 'REMINDER',
+                        role: 'DOCTOR',
+                        metadata: { appointmentId: apt.id, jitsiLink }
+                    });
 
                     sentReminders.add(apt.id);
                 }
