@@ -331,10 +331,10 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, onBooki
         </div>
 
         {/* Booking Panel */}
-        <div className={`lg:col-span-7 bg-white rounded-[4rem] shadow-xl border border-slate-50 overflow-hidden flex flex-col min-h-[500px] ${!selectedDoc ? 'hidden lg:flex' : 'flex'}`}>
+        <div className={`lg:col-span-7 bg-white rounded-[3rem] lg:rounded-[4rem] shadow-xl border border-slate-50 overflow-hidden flex flex-col min-h-[500px] ${!selectedDoc ? 'hidden lg:flex' : 'flex'}`}>
           {selectedDoc ? (
             <div className="flex-1 flex flex-col">
-              <div className="p-10 border-b bg-slate-50/50 flex flex-col gap-6">
+              <div className="p-6 sm:p-10 border-b bg-slate-50/50 flex flex-col gap-6">
                 <div className="flex justify-between items-start">
                   <button onClick={() => setSelectedDoc(null)} className="lg:hidden text-[10px] font-black uppercase text-indigo-600 underline">← {t.backToList}</button>
                   <input
@@ -342,16 +342,16 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, onBooki
                     value={date}
                     min={new Date().toISOString().split('T')[0]}
                     onChange={(e) => setDate(e.target.value)}
-                    className="pl-4 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black outline-none"
+                    className="pl-3 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[9px] sm:text-[10px] font-black outline-none"
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-2xl font-black text-slate-800 truncate">
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-800 truncate">
                     <TranslatedText text={selectedDoc.name} lang={user.preferredLanguage} />
                   </h3>
-                  <div className="flex gap-2">
-                    <button onClick={() => setType('IN_PERSON')} className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'IN_PERSON' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-400'}`}>{t.inPerson}</button>
-                    <button onClick={() => setType('VIRTUAL')} className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'VIRTUAL' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-400'}`}>{t.virtual}</button>
+                  <div className="flex gap-1.5 sm:gap-2">
+                    <button onClick={() => setType('IN_PERSON')} className={`text-[9px] sm:text-[10px] font-black uppercase px-2.5 py-1.5 rounded-full border ${type === 'IN_PERSON' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-400'}`}>{t.inPerson}</button>
+                    <button onClick={() => setType('VIRTUAL')} className={`text-[9px] sm:text-[10px] font-black uppercase px-2.5 py-1.5 rounded-full border ${type === 'VIRTUAL' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-400'}`}>{t.virtual}</button>
                   </div>
                 </div>
               </div>
@@ -366,7 +366,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, onBooki
                           key={time}
                           disabled={disabled}
                           onClick={() => setSelectedTime(time)}
-                          className={`py-4 px-2 rounded-2xl border-2 font-black text-xs transition-all relative ${selectedTime === time
+                          className={`py-3 sm:py-4 px-1 sm:px-2 rounded-xl sm:rounded-2xl border-2 font-black text-[10px] sm:text-xs transition-all relative ${selectedTime === time
                             ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg scale-105'
                             : disabled
                               ? 'bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed'
@@ -419,26 +419,26 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, onBooki
       {showSuccessModal && bookedAptSummary && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
           <div className="bg-white w-full max-w-sm rounded-[3.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="bg-emerald-600 p-10 flex flex-col items-center text-white text-center">
-              <CheckCircleIcon className="w-12 h-12 mb-4" />
-              <h3 className="text-2xl font-black uppercase">{t.confirmed}</h3>
+            <div className="bg-emerald-600 p-6 sm:p-10 flex flex-col items-center text-white text-center">
+              <CheckCircleIcon className="w-10 h-10 sm:w-12 sm:h-12 mb-4" />
+              <h3 className="text-xl sm:text-2xl font-black uppercase">{t.confirmed}</h3>
             </div>
-            <div className="p-10 space-y-6">
+            <div className="p-6 sm:p-10 space-y-6">
               <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400 font-black uppercase text-[10px]">{t.doctor}</span>
+                <div className="flex justify-between text-xs sm:text-sm">
+                  <span className="text-slate-400 font-black uppercase text-[9px] sm:text-[10px]">{t.doctor}</span>
                   <span className="font-black text-slate-800">
                     <TranslatedText text={bookedAptSummary.doctorName} lang={user.preferredLanguage} />
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400 font-black uppercase text-[10px]">{t.time}</span>
+                <div className="flex justify-between text-xs sm:text-sm">
+                  <span className="text-slate-400 font-black uppercase text-[9px] sm:text-[10px]">{t.time}</span>
                   <span className="font-black text-slate-800">{bookedAptSummary.date} @ {bookedAptSummary.time}</span>
                 </div>
               </div>
               <button
                 onClick={confirmFinalBooking}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest"
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[9px] sm:text-[10px] tracking-widest"
               >
                 {t.dashboard}
               </button>

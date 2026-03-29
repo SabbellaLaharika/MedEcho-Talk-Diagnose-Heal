@@ -190,9 +190,9 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
   };
 
   return (
-    <div className="relative min-h-screen p-4 sm:p-10 space-y-8 sm:space-y-12 animate-in fade-in duration-500">
+    <div className="relative min-h-screen p-4 sm:p-10 lg:space-y-12 space-y-8 animate-in fade-in duration-500">
       {/* Doctor Header */}
-      <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 bg-white p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[3.5rem] shadow-sm border border-slate-50">
+      <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 bg-white p-5 sm:p-10 rounded-3xl lg:rounded-[3.5rem] shadow-sm border border-slate-50">
         <div className="flex items-center space-x-4 sm:space-x-6">
           <div className="relative flex-shrink-0">
             <img src={doctor.avatar} className="w-16 h-16 sm:w-24 sm:h-24 rounded-[1.5rem] sm:rounded-[2rem] object-cover border-4 border-slate-50 shadow-sm" alt={doctor.name} />
@@ -240,12 +240,12 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
       {/* Grid Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
         {stats.map((stat, i) => (
-          <div key={i} className="bg-white p-6 sm:p-8 rounded-[2rem] shadow-sm border border-slate-50 flex items-center justify-between">
+          <div key={i} className="bg-white p-5 sm:p-8 rounded-3xl lg:rounded-[2.5rem] shadow-sm border border-slate-50 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
-              <p className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tighter">{stat.value}</p>
+              <p className="text-2xl sm:text-4xl font-black text-slate-800 tracking-tighter">{stat.value}</p>
             </div>
-            <div className={`${stat.color} p-4 sm:p-5 rounded-3xl text-white shadow-lg`}>
+            <div className={`${stat.color} p-3 sm:p-5 rounded-2xl sm:rounded-3xl text-white shadow-lg`}>
               <stat.icon className="w-6 h-6 sm:w-7 sm:h-7" />
             </div>
           </div>
@@ -253,8 +253,8 @@ const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-10">
-        <div className="lg:col-span-2 bg-white rounded-[2rem] sm:rounded-[3.5rem] shadow-sm border border-slate-50 overflow-hidden">
-          <div className="p-6 sm:p-10 border-b flex justify-between items-center bg-indigo-50/10">
+        <div className="lg:col-span-2 bg-white rounded-3xl lg:rounded-[3.5rem] shadow-sm border border-slate-50 overflow-hidden">
+          <div className="p-5 sm:p-10 border-b flex justify-between items-center bg-indigo-50/10">
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-800 uppercase tracking-tight">{t.activeQueue}</h2>
             </div>

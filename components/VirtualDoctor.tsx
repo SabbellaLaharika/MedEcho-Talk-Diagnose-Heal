@@ -491,7 +491,7 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
         )}
 
         {!isActive && !isConnecting && (
-          <div className="absolute inset-0 flex items-center justify-center p-6 mt-60 z-30">
+          <div className="absolute inset-0 flex items-center justify-center p-6 z-30">
             <button
               onClick={startSession}
               className="bg-white/95 p-6 sm:p-10 rounded-[2rem] sm:rounded-[4rem] shadow-2xl text-center active:scale-95 transition-all w-full sm:w-auto"

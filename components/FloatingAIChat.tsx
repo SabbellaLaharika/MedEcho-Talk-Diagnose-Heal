@@ -264,9 +264,9 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end max-w-full">
       {isOpen && (
-        <div className="w-80 md:w-96 h-[500px] bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden mb-4 flex flex-col animate-in slide-in-from-bottom-10 duration-300">
+        <div className="w-[calc(100vw-2rem)] sm:w-80 md:w-96 h-[60vh] sm:h-[500px] bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden mb-4 flex flex-col animate-in slide-in-from-bottom-10 duration-300">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-4 text-white flex justify-between items-center">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md">

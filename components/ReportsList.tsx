@@ -17,6 +17,7 @@ import {
   ArrowsPointingOutIcon,
   PhotoIcon,
   ExclamationTriangleIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 import { HeartIcon } from '@heroicons/react/24/solid';
 import ClinicalReportPaper from './ClinicalReportPaper';
@@ -285,9 +286,9 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden gap-8">
+      <div className="flex flex-1 overflow-hidden gap-0 lg:gap-8 flex-col lg:flex-row">
         {/* Left: List */}
-        <div className="w-72 flex-shrink-0 flex flex-col space-y-3">
+        <div className={`w-full lg:w-72 flex-shrink-0 flex flex-col space-y-3 ${selectedReport ? 'hidden lg:flex' : 'flex'}`}>
           <div className="relative">
             <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
@@ -393,11 +394,18 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
         </div>
 
         {/* Right: Detail */}
-        <div className="flex-1 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm flex flex-col overflow-hidden">
+        <div className={`flex-1 bg-white border border-slate-100 rounded-[2rem] lg:rounded-[2.5rem] shadow-sm flex flex-col overflow-hidden ${!selectedReport ? 'hidden lg:flex' : 'flex'}`}>
           {activeReport ? (
             <>
-              <div className="p-8 border-b border-slate-50 flex justify-between items-center">
-                <div>
+              <div className="p-6 lg:p-8 border-b border-slate-50 flex justify-between items-center group">
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => setSelectedReport(null)}
+                    className="lg:hidden p-2 -ml-2 bg-slate-50 text-slate-500 rounded-xl hover:bg-slate-100 transition-colors"
+                  >
+                    <ArrowLeftIcon className="w-5 h-5" />
+                  </button>
+                  <div>
                   <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">
                     <TranslatedText text={t.diagnosisReport} lang={user.preferredLanguage} />
                   </h2>
@@ -407,6 +415,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                       <span className="text-[9px] text-slate-400 font-bold">{activeReport.fileName}</span>
                     )}
                   </div>
+                </div>
                 </div>
                 <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
                   ID: {getShortId(activeReport.id)}

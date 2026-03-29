@@ -210,7 +210,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
       {/* Vital Stats Grid — 2 cols on sm, 4 on xl */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
         {stats.map((stat) => (
-          <div key={stat.key} className="relative bg-white p-6 sm:p-8 rounded-[2rem] shadow-sm border border-slate-50 flex items-center justify-between group hover:shadow-xl hover:-translate-y-1 transition-all">
+          <div key={stat.key} className="relative bg-white p-5 sm:p-8 rounded-3xl sm:rounded-[2rem] shadow-sm border border-slate-50 flex items-center justify-between group hover:shadow-xl hover:-translate-y-1 transition-all">
             <div className="flex-1">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1"><TranslatedText text={stat.label} lang={user.preferredLanguage} /></p>
               {editingVital === stat.key ? (
@@ -232,14 +232,14 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
                 </div>
               ) : (
                 <div className="flex items-baseline space-x-2">
-                  <span className="text-3xl sm:text-4xl font-black text-slate-800">{stat.value || <span className="text-slate-300 text-xl">—</span>}</span>
+                  <span className="text-2xl sm:text-4xl font-black text-slate-800">{stat.value || <span className="text-slate-300 text-xl">—</span>}</span>
                   {stat.value && <span className="text-[9px] font-bold text-emerald-500 uppercase">{stat.sub}</span>}
                 </div>
               )}
             </div>
             <div className="flex flex-col items-center gap-2">
-              <div className={`p-4 sm:p-5 rounded-3xl ${stat.color} text-white shadow-lg`}>
-                <stat.icon className="w-6 h-6 sm:w-7 sm:h-7" />
+              <div className={`p-3 sm:p-5 rounded-2xl sm:rounded-3xl ${stat.color} text-white shadow-lg`}>
+                <stat.icon className="w-5 h-5 sm:w-7 sm:h-7" />
               </div>
               {/* Edit/Delete — shown on hover */}
               {editingVital !== stat.key && (

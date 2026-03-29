@@ -708,7 +708,9 @@ const App: React.FC = () => {
           }} />}
         </div>
 
-        <FloatingAIChat onReportGenerated={(report) => setReports(prev => [report, ...prev])} />
+        {(activeTab !== 'chat' && activeTab !== 'virtual-doc') && (
+          <FloatingAIChat onReportGenerated={(report) => setReports(prev => [report, ...prev])} />
+        )}
         <GlobalAlertModal fallbackLang={user.preferredLanguage || 'en'} />
       </main>
     </div>
