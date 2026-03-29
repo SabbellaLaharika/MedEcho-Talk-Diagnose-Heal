@@ -135,7 +135,7 @@ const App: React.FC = () => {
         const jitter = Math.random() * 20000;
         setTimeout(() => {
           // These endpoints trigger the backend and ML service to stay "warm"
-          api.get('/api/ml/ping').catch(() => { }); 
+          api.get('/ml/ping').catch(() => { }); 
         }, jitter);
       });
     };
