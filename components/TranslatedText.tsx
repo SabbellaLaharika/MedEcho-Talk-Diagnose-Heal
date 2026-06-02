@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { getTranslation, translateString, translateClinical } from '../services/translations';
+import { getTranslation, translateString, FALLBACK_PACK, subscribeToTranslations } from '../services/translations';
 
 interface TranslatedTextProps {
   text: string;
   lang: string;
-  isClinical?: boolean;
 }
 
 /**
@@ -13,41 +12,38 @@ interface TranslatedTextProps {
  * - Skips ML service for English (en)
  * - Fallback to ML service for dynamic data (e.g. database strings)
  */
-const TranslatedText: React.FC<TranslatedTextProps> = ({ text, lang, isClinical = false }) => {
+const TranslatedText: React.FC<TranslatedTextProps> = ({ text, lang }) => {
   const [translated, setTranslated] = useState(text);
   const t = getTranslation(lang);
 
   useEffect(() => {
-    if (!text) return;
-
     const updateTranslation = async () => {
+      if (!text) return;
+      setTranslated(text); // Reset to original while loading
       const code = (lang || 'en').toLowerCase().slice(0, 2);
-      // 1. Skip ML for pure English text
+      const lowerText = (text || '').toLowerCase().trim();
+
+      // 1. If it's pure English and we are in English mode, avoid any extra work
       if (code === 'en' && !/[^\x00-\x7F]/.test(text)) {
         setTranslated(text);
         return;
       }
 
-      // 2. Check Dictionary First (case-insensitive)
-      const lowerText = text.toLowerCase().trim();
+      // 2. Dictionary Lookup
       const dictVal = t[lowerText] || t[text.trim()];
-      if (dictVal && dictVal !== lowerText && dictVal !== text.trim()) {
+      
+      // Only use dictionary value if it's NOT the same as original OR if it's specifically for this language
+      // But we must be careful: if we are in 'te' and dictVal is English, it's just a fallback.
+      const isEnglishFallback = code !== 'en' && dictVal === FALLBACK_PACK[lowerText];
+
+      if (dictVal && !isEnglishFallback && dictVal !== lowerText && dictVal !== text.trim()) {
         setTranslated(dictVal);
         return;
       }
 
-      // 3. ML Service Fallback for dynamic data
+      // 4. ML Service Fallback
       try {
-        let result = text;
-        if (isClinical) {
-          result = translateClinical(text, code);
-          // Fallback to ML service if formatting doesn't change text
-          if (result === text || result === text.replace(/_/g, ' ')) {
-            result = await translateString(text, code);
-          }
-        } else {
-          result = await translateString(text, code);
-        }
+        const result = await translateString(text, code);
 
         // Final sanity check
         const halls = ['thank you', 'dhanyavad', 'answer', 'uttar', 'उत्तर', 'धन्यवाद', 'not available'];
@@ -61,8 +57,10 @@ const TranslatedText: React.FC<TranslatedTextProps> = ({ text, lang, isClinical 
       }
     };
 
+    const unsubscribe = subscribeToTranslations(updateTranslation);
     updateTranslation();
-  }, [text, lang, isClinical]);
+    return () => unsubscribe();
+  }, [text, lang]);
 
   return <>{translated}</>;
 };

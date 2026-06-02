@@ -1,0 +1,20 @@
+{
+  "coreDemographics": "કોર ડેમોગ્રાફિક્સ",
+  "bloodGroup": "બ્લડ ગ્રુપ",
+  "selectBloodGroup": "બ્લડ ગ્રુપ પસંદ કરો",
+  "selectGender": "લિંગ પસંદ કરો",
+  "dateOfBirth": "જન્મ તારીખ",
+  "contactInfrastructure": "ઇન્ફ્રાસ્ટ્રક્ચરનો સંપર્ક કરો",
+  "primaryEmail": "પ્રાથમિક ઈમેલ",
+  "mobileContact": "મોબાઇલ સંપર્ક",
+  "residentialAddress": "રહેઠાણનું સરનામું",
+  "medicalProfileId": "મેડિકલ પ્રોફાઇલ ID",
+  "enterAddress": "તમારું સંપૂર્ણ રહેણાંક સરનામું દાખલ કરો...",
+  "editProfile": "વ્યક્તિગત પ્રોફાઇલ સંપાદિત કરો",
+  "profileSyncDesc": "તમારી મેડિકલ પ્રોફાઇલ સિંક્રનાઇઝ કરવામાં આવી છે.",
+  "securityStatus": "સુરક્ષા સ્થિતિ",
+  "systemAuthenticated": "સિસ્ટમ પ્રમાણિત",
+  "changePassword": "પાસવર્ડ બદલો",
+  "securityDesc": "AES-256 પ્રોટોકોલનો ઉપયોગ કરીને ક્લિનિકલ ડેટાને એન્ક્રિપ્ટ કરવામાં આવે છે.",
+  "updateProfileFail": "પ્રોફાઇલ અપડેટ કરવામાં નિષ્ફળ"
+}

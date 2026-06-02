@@ -1,0 +1,9 @@
+{
+  "medicationReminderBody": "നിങ്ങളുടെ {മരുന്ന്} കഴിക്കാനുള്ള സമയമാണിത്.",
+  "appointmentReminderTitle": "വരാനിരിക്കുന്ന നിയമനം",
+  "appointmentReminderBody": "15 മിനിറ്റിനുള്ളിൽ സെഷൻ ആരംഭിക്കുന്നു.",
+  "appointmentReminderBodyDoc": "15 മിനിറ്റിനുള്ളിൽ അടുത്ത രോഗി.",
+  "appointmentCancelled": "അപ്പോയിൻ്റ്മെൻ്റ് റദ്ദാക്കി",
+  "appointmentCancelledBody": "ദാതാവ് സെഷൻ റദ്ദാക്കി.",
+  "cancellationNoticeSubj": "MedEcho: റദ്ദാക്കൽ അറിയിപ്പ്"
+}

@@ -1,0 +1,20 @@
+{
+  "coreDemographics": "കോർ ഡെമോഗ്രാഫിക്സ്",
+  "bloodGroup": "രക്ത ഗ്രൂപ്പ്",
+  "selectBloodGroup": "രക്തഗ്രൂപ്പ് തിരഞ്ഞെടുക്കുക",
+  "selectGender": "ലിംഗഭേദം തിരഞ്ഞെടുക്കുക",
+  "dateOfBirth": "ജനനത്തീയതി",
+  "contactInfrastructure": "ഇൻഫ്രാസ്ട്രക്ചറുമായി ബന്ധപ്പെടുക",
+  "primaryEmail": "പ്രാഥമിക ഇമെയിൽ",
+  "mobileContact": "മൊബൈൽ കോൺടാക്റ്റ്",
+  "residentialAddress": "താമസ വിലാസം",
+  "medicalProfileId": "മെഡിക്കൽ പ്രൊഫൈൽ ഐഡി",
+  "enterAddress": "നിങ്ങളുടെ പൂർണ്ണമായ താമസ വിലാസം നൽകുക...",
+  "editProfile": "വ്യക്തിഗത പ്രൊഫൈൽ എഡിറ്റ് ചെയ്യുക",
+  "profileSyncDesc": "നിങ്ങളുടെ മെഡിക്കൽ പ്രൊഫൈൽ സമന്വയിപ്പിച്ചിരിക്കുന്നു.",
+  "securityStatus": "സുരക്ഷാ നില",
+  "systemAuthenticated": "സിസ്റ്റം പ്രാമാണീകരിച്ചു",
+  "changePassword": "പാസ്വേഡ് മാറ്റുക",
+  "securityDesc": "AES-256 പ്രോട്ടോക്കോളുകൾ ഉപയോഗിച്ചാണ് ക്ലിനിക്കൽ ഡാറ്റ എൻക്രിപ്റ്റ് ചെയ്തിരിക്കുന്നത്.",
+  "updateProfileFail": "പ്രൊഫൈൽ അപ്ഡേറ്റ് ചെയ്യുന്നതിൽ പരാജയപ്പെട്ടു"
+}

@@ -1,0 +1,20 @@
+{
+  "coreDemographics": "ಕೋರ್ ಜನಸಂಖ್ಯಾಶಾಸ್ತ್ರ",
+  "bloodGroup": "ರಕ್ತದ ಗುಂಪು",
+  "selectBloodGroup": "ರಕ್ತದ ಗುಂಪನ್ನು ಆಯ್ಕೆಮಾಡಿ",
+  "selectGender": "ಲಿಂಗವನ್ನು ಆಯ್ಕೆಮಾಡಿ",
+  "dateOfBirth": "ಹುಟ್ಟಿದ ದಿನಾಂಕ",
+  "contactInfrastructure": "ಮೂಲಸೌಕರ್ಯವನ್ನು ಸಂಪರ್ಕಿಸಿ",
+  "primaryEmail": "ಪ್ರಾಥಮಿಕ ಇಮೇಲ್",
+  "mobileContact": "ಮೊಬೈಲ್ ಸಂಪರ್ಕ",
+  "residentialAddress": "ವಸತಿ ವಿಳಾಸ",
+  "medicalProfileId": "ವೈದ್ಯಕೀಯ ಪ್ರೊಫೈಲ್ ಐಡಿ",
+  "enterAddress": "ನಿಮ್ಮ ಸಂಪೂರ್ಣ ವಸತಿ ವಿಳಾಸವನ್ನು ನಮೂದಿಸಿ...",
+  "editProfile": "ವೈಯಕ್ತಿಕ ಪ್ರೊಫೈಲ್ ಸಂಪಾದಿಸಿ",
+  "profileSyncDesc": "ನಿಮ್ಮ ವೈದ್ಯಕೀಯ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಸಿಂಕ್ರೊನೈಸ್ ಮಾಡಲಾಗಿದೆ.",
+  "securityStatus": "ಭದ್ರತಾ ಸ್ಥಿತಿ",
+  "systemAuthenticated": "ಸಿಸ್ಟಮ್ ಪ್ರಮಾಣೀಕರಿಸಲಾಗಿದೆ",
+  "changePassword": "ಪಾಸ್ವರ್ಡ್ ಬದಲಾಯಿಸಿ",
+  "securityDesc": "ಕ್ಲಿನಿಕಲ್ ಡೇಟಾವನ್ನು AES-256 ಪ್ರೋಟೋಕಾಲ್‌ಗಳನ್ನು ಬಳಸಿಕೊಂಡು ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡಲಾಗಿದೆ.",
+  "updateProfileFail": "ಪ್ರೊಫೈಲ್ ಅನ್ನು ನವೀಕರಿಸಲು ವಿಫಲವಾಗಿದೆ"
+}

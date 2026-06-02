@@ -45,6 +45,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
   }, [doctor.preferredLanguage]);
   const [schedule, setSchedule] = useState<DayScheduleData[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlotData[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -70,14 +71,20 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
 
   const loadData = async () => {
     try {
-      const [schedRes, blockedRes] = await Promise.all([
+      const [schedRes, blockedRes, bookedRes] = await Promise.all([
         api.get(`/schedules/${doctor.id}`),
-        api.get(`/schedules/${doctor.id}/blocked`)
+        api.get(`/schedules/${doctor.id}/blocked`),
+        api.get(`/appointments/${doctor.id}?role=DOCTOR`) // Fix: Use correct user/role path
       ]);
       setSchedule(schedRes.data);
       setBlockedSlots(blockedRes.data);
+      // Filter for upcoming ones
+      const doctorApts = (bookedRes.data || []).filter((a: any) => 
+        (a.status === 'PENDING' || a.status === 'CONFIRMED')
+      );
+      setAppointments(doctorApts);
     } catch (err) {
-      console.error('Failed to load schedule:', err);
+      console.error('Failed to load schedule data:', err);
     }
   };
 
@@ -138,7 +145,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
   };
 
   const updateSlot = (index: number, field: keyof DayScheduleData, value: any) => {
-    setSchedule(prev => prev.map((s, i) => i === index ? { ...s, [field]: value } : s));
+    setSchedule(prev => prev.map((s, i) => i === index ? { ...s, [field]: value, isActive: true } : s));
     setSaved(false);
   };
 
@@ -189,9 +196,51 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
       timeOptions.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
     }
   }
-
   return (
     <div className="p-4 sm:p-10 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
+      {/* Appointment Context Banner */}
+      <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-slate-100 shadow-sm overflow-hidden relative group">
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-5">
+            <div className={`w-14 h-14 ${appointments.length > 0 ? 'bg-indigo-600' : 'bg-slate-100'} rounded-2xl flex items-center justify-center shadow-lg transition-colors`}>
+               <CalendarDaysIcon className={`w-8 h-8 ${appointments.length > 0 ? 'text-white' : 'text-slate-400'}`} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black uppercase tracking-tight text-slate-800">
+                <TranslatedText text={t.consultationLoad} lang={doctor.preferredLanguage} />
+              </h3>
+              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-0.5">
+                {appointments.length > 0 
+                  ? `${appointments.length} ${t.bookedSlotsPeriod}` 
+                  : <TranslatedText text={t.noUpcomingAppts} lang={doctor.preferredLanguage} />}
+              </p>
+            </div>
+          </div>
+          
+          {appointments.length > 0 ? (
+            <div className="flex gap-2 flex-wrap justify-center">
+              {appointments.slice(0, 3).map((apt, i) => (
+                <div key={i} className="px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center gap-2 shadow-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></div>
+                  <span className="text-[10px] font-black uppercase tracking-tight text-indigo-600 whitespace-nowrap">
+                    {new Date(apt.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })} @ {apt.time}
+                  </span>
+                </div>
+              ))}
+              {appointments.length > 3 && (
+                <div className="px-4 py-2 bg-slate-100 rounded-xl text-[10px] font-black text-slate-400">
+                  +{appointments.length - 3} More
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic bg-slate-50 px-6 py-3 rounded-2xl border border-dashed border-slate-200">
+              <TranslatedText text={t.calendarClear} lang={doctor.preferredLanguage} />
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -278,6 +327,32 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Weekly Schedule Summary (Compact Preview) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        {DAY_KEYS.map((day, idx) => {
+          const daySlots = schedule.filter(s => s.dayIndex === idx);
+          return (
+            <div key={day} className={`p-4 rounded-3xl border-2 transition-all flex flex-col items-center gap-1.5 ${daySlots.length > 0 ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-50/50 border-slate-50 opacity-40'}`}>
+              <span className="text-[9px] font-black uppercase text-slate-400">
+                <TranslatedText text={day} lang={doctor.preferredLanguage} />
+              </span>
+              <div className="flex flex-col items-center">
+                {daySlots.length > 0 ? (
+                  daySlots.slice(0, 2).map((s, i) => (
+                    <span key={i} className="text-[10px] font-black text-slate-800 tabular-nums">
+                      {s.startTime}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-[10px] font-black text-slate-300 italic">—</span>
+                )}
+                {daySlots.length > 2 && <span className="text-[8px] font-black text-indigo-500">+{daySlots.length - 2}</span>}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Weekly Schedule */}

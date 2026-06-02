@@ -1,0 +1,9 @@
+{
+  "medicationReminderBody": "તમારી {દવા} લેવાનો આ સમય છે.",
+  "appointmentReminderTitle": "આગામી એપોઇન્ટમેન્ટ",
+  "appointmentReminderBody": "સત્ર 15 મિનિટમાં શરૂ થાય છે.",
+  "appointmentReminderBodyDoc": "આગામી દર્દી 15 મિનિટમાં.",
+  "appointmentCancelled": "એપોઇન્ટમેન્ટ રદ કરી",
+  "appointmentCancelledBody": "પ્રદાતા દ્વારા સત્ર રદ કરવામાં આવ્યું.",
+  "cancellationNoticeSubj": "MedEcho: રદ કરવાની સૂચના"
+}

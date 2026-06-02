@@ -1,17 +1,16 @@
 
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { translationService } from '../services/translationService';
 import { sendEmail } from '../services/emailService';
 import { getPatientAppointmentTemplate, getDoctorAppointmentTemplate, getCallInviteTemplate } from '../services/emailTemplates';
 import { notificationService } from '../services/notificationService';
-
-const prisma = new PrismaClient();
+import * as reminderService from '../services/reminderService';
 
 // Create Appointment
 export const createAppointment = async (req: Request, res: Response) => {
     try {
-        const { doctorId, patientId, date, time, type } = req.body;
+        const { doctorId, patientId, date, time, type, timezoneOffset } = req.body;
 
         if (!doctorId || !patientId || !date) {
             return res.status(400).json({ message: 'doctorId, patientId, and date are required' });
@@ -28,7 +27,7 @@ export const createAppointment = async (req: Request, res: Response) => {
         }
 
         const appointmentDate = new Date(date);
-        
+
         // --- 1. PREVENT BOOKING IN THE PAST ---
         const now = new Date();
         const bookingDateObj = new Date(date);
@@ -59,32 +58,32 @@ export const createAppointment = async (req: Request, res: Response) => {
             }
         }
 
-        // --- 3. ONE-APPOINTMENT-PER-DOCTOR RULE ---
-        const existingWithDoctor = await prisma.appointment.findFirst({
+        // --- 3. PLATFORM-WIDE ONE-APPOINTMENT RULE ---
+        const existingActive = await prisma.appointment.findFirst({
             where: {
                 patientId,
-                doctorId,
                 status: { in: ['PENDING', 'CONFIRMED'] }
             }
         });
-        if (existingWithDoctor) {
-            return res.status(409).json({ message: 'You already have an active appointment with this doctor. Please cancel it before booking a new one.' });
+        if (existingActive) {
+            return res.status(409).json({ message: 'You already have an active appointment scheduled. Please complete or cancel it before booking a new one.' });
         }
 
-        const appointment = await prisma.appointment.create({
+        const appointment = await (prisma.appointment.create({
             data: {
                 doctorId,
                 patientId,
                 date: appointmentDate,
                 time: time || null,
                 type: type || 'VIRTUAL',
-                status: 'PENDING'
-            },
+                status: 'PENDING',
+                timezoneOffset: timezoneOffset !== undefined ? timezoneOffset : -330
+            } as any,
             include: {
                 doctor: { select: { name: true, username: true, specialization: true, contact: true, email: true, preferredLanguage: true } },
                 patient: { select: { name: true, username: true, email: true, preferredLanguage: true } }
             }
-        });
+        }) as any);
 
         const jitsiLink = `https://meet.jit.si/MedEcho-Apt-${appointment.id.replace(/-/g, '')}`;
 
@@ -186,10 +185,19 @@ export const createAppointment = async (req: Request, res: Response) => {
                 message: `New appointment booked by ${appointment.patient.name} for ${appointmentDate.toDateString()} at ${time || 'TBD'}.`
             }
         });
+        
+        // --- 4. REAL-TIME SLOT SYNC ---
+        // Notify ALL connected clients that this slot is now taken
+        notificationService.broadcast('appointment_booked', { 
+            doctorId, 
+            time, 
+            date: appointmentDate.toISOString() 
+        });
 
         res.status(201).json(appointment);
+        reminderService.forceCheck(); // Wake up worker to include new appointment in schedule
     } catch (error) {
-        console.error(error);
+        console.error("Appointment creation error:", error);
         res.status(500).json({ message: 'Server error creating appointment' });
     }
 };
@@ -213,11 +221,51 @@ export const getAppointments = async (req: Request, res: Response) => {
             select: { preferredLanguage: true }
         });
 
+        // --- ROBUST LAZY SYNC: Auto-expire all past appointments ---
+        const now = new Date();
+        
+        // Fetch ALL pending/confirmed appointments to evaluate their specific UTC expiry
+        const activeAppointments = await prisma.appointment.findMany({
+            where: {
+                status: { in: ['PENDING', 'CONFIRMED'] }
+            }
+        });
+
+        for (const apt of activeAppointments) {
+            if (apt.time) {
+                const [h, m] = apt.time.split(':').map(Number);
+                const scheduledTime = new Date(apt.date);
+                scheduledTime.setUTCHours(h, m, 0, 0); 
+
+                const offset = apt.timezoneOffset; // Uses default from schema if not set
+                const scheduledTimeUtc = new Date(scheduledTime.getTime() + (offset * 60000));
+                
+                // Buffer: 30 minutes grace period
+                const expiryTime = new Date(scheduledTimeUtc.getTime() + (30 * 60 * 1000));
+
+                if (expiryTime < now) {
+                    console.log(`[Auto-Expire] Cleanup: Expiring appointment ${apt.id} (${apt.time}) after buffer.`);
+                    await prisma.appointment.update({
+                        where: { id: apt.id },
+                        data: { status: 'EXPIRED' as any }
+                    });
+
+                    // Notify relevant parties in real-time
+                    notificationService.broadcast('appointment_completed', { 
+                        id: apt.id,
+                        status: 'EXPIRED',
+                        patientId: apt.patientId,
+                        doctorId: apt.doctorId
+                    });
+                }
+            }
+        }
+
         const appointments = await prisma.appointment.findMany({
             where: whereClause,
             include: {
                 doctor: { select: { id: true, name: true, username: true, specialization: true, contact: true } },
-                patient: { select: { id: true, name: true, username: true } }
+                patient: { select: { id: true, name: true, username: true, contact: true } }
             },
             orderBy: { date: 'desc' }
         });
@@ -276,10 +324,57 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
 
         const updated = await prisma.appointment.update({
             where: { id },
-            data: { status }
-        });
+            data: { status },
+            include: {
+                doctor: { select: { name: true, preferredLanguage: true } },
+                patient: { select: { id: true, name: true, email: true, preferredLanguage: true } }
+            }
+        }) as any;
+
+        // --- CANCELLATION NOTIFICATION ---
+        if (status === 'CANCELLED') {
+            const patientLang = updated.patient.preferredLanguage || 'en';
+            // Store DB notifications in English; frontend handles translation
+            const notifTitle = 'Appointment Cancelled';
+            const notifMsg = `Your appointment with Dr. ${updated.doctor.name} has been cancelled.`;
+
+            const [emailSubj, btnText] = await Promise.all([
+                translationService.translate('cancellationNoticeSubj', patientLang),
+                translationService.translate('bookNewSlot', patientLang)
+            ]);
+
+            // 1. In-App Notification (English only for DB)
+            await notificationService.sendNotification({
+                userId: updated.patientId,
+                title: notifTitle,
+                message: notifMsg,
+                role: 'PATIENT',
+                type: 'ALERT'
+            });
+
+            // 2. Email Notification (Still localized)
+            if (updated.patient.email) {
+                const translatedMsg = await translationService.translate('appointmentCancelledBody', patientLang, { name: updated.doctor.name });
+                const translatedTitle = await translationService.translate('appointmentCancelled', patientLang);
+                await sendEmail({
+                    to: updated.patient.email,
+                    subject: emailSubj,
+                    text: translatedMsg,
+                    html: `
+                        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                            <h2 style="color: #e11d48;">${translatedTitle}</h2>
+                            <p>${translatedMsg}</p>
+                            <a href="${process.env.FRONTEND_URL}/dashboard" style="display: inline-block; padding: 12px 24px; background: #4f46e5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px;">
+                                ${btnText}
+                            </a>
+                        </div>
+                    `
+                });
+            }
+        }
 
         res.json(updated);
+        reminderService.forceCheck(); // Wake up worker to recalculate
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error updating appointment' });
@@ -294,25 +389,30 @@ export const startCall = async (req: Request, res: Response) => {
         const appointment = await prisma.appointment.findUnique({
             where: { id },
             include: {
-                patient: { select: { id: true, name: true, email: true, role: true } },
-                doctor: { select: { id: true, name: true, email: true, role: true } }
+                patient: { select: { id: true, name: true, email: true, role: true, preferredLanguage: true } },
+                doctor: { select: { id: true, name: true, email: true, role: true, preferredLanguage: true, specialization: true } }
             }
-        });
+        }) as any;
 
         if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
 
-        // --- TIME GUARD: Allow only 5 min before appointment ---
-        if (appointment.date && appointment.time) {
+        // --- TIME GUARD: Allow only 15 min before appointment (Restriction for PATIENTS ONLY) ---
+        if (appointment.date && appointment.time && initiatorId === appointment.patientId) {
             const [h, m] = appointment.time.split(':').map(Number);
             const scheduledAt = new Date(appointment.date);
             scheduledAt.setHours(h, m, 0, 0);
+
+            const offset = (appointment as any).timezoneOffset || -330;
+            const scheduledAtUtc = new Date(scheduledAt.getTime() + (offset * 60000));
+
             const now = new Date();
-            const diffMs = scheduledAt.getTime() - now.getTime();
-            // Block if more than 5 minutes before scheduled time
-            if (diffMs > 5 * 60 * 1000) {
-                const minutesLeft = Math.ceil(diffMs / 60000);
+            const diffMs = scheduledAtUtc.getTime() - now.getTime();
+
+            // Block if more than 15 minutes before scheduled time
+            if (diffMs > 15 * 60 * 1000) {
+                const minutesLeft = Math.ceil((diffMs - (15 * 60 * 1000)) / 60000);
                 return res.status(403).json({
-                    message: `Call cannot be started yet. Your appointment begins in ${minutesLeft} minute(s). You can join 5 minutes before.`
+                    message: `Consultation room is not open yet. Please wait another ${minutesLeft} minute(s). You can join 15 minutes before the scheduled time.`
                 });
             }
         }
@@ -322,40 +422,103 @@ export const startCall = async (req: Request, res: Response) => {
         const initiatorName = isPatient ? appointment.patient.name : appointment.doctor.name;
         const targetRole = isPatient ? 'DOCTOR' : 'PATIENT';
 
-        // Generate Jitsi meeting link
-        const jitsiLink = `https://meet.jit.si/MedEcho-Apt-${appointment.id.replace(/-/g, '')}`;
+        // Standardized Room Name (Must match VideoConsultation.tsx exactly)
+        const roomNameHash = appointment.id.replace(/-/g, '').substring(0, 16).toUpperCase();
+        const jitsiRoomName = `MedEcho-Consult-${roomNameHash}`;
+        const jitsiLink = `https://meet.element.io/${jitsiRoomName}#config.prejoinPageEnabled=false&config.enableLobby=false`;
 
-        // Real-time push notification
+        // Store in English only in DB; UI TranslatedText handles display
+        const notifTitle = callType === 'VIDEO' ? 'Incoming Video Call' : 'Incoming Voice Call';
+        const notifMsg = `${initiatorName} is starting the ${callType === 'VIDEO' ? 'video' : 'voice'} consultation. Click to join.`;
+
+        // Localize for Email only
+        const targetLang = (target as any).preferredLanguage || 'en';
+        const [emailSubj, btnText] = await Promise.all([
+            translationService.translate('MedEcho: Call Invitation', targetLang),
+            translationService.translate('Join Meeting Now', targetLang)
+        ]);
+
+        const doctorObj = appointment.doctor as any;
+        const metadata = {
+            appointmentId: appointment.id,
+            jitsiLink,
+            callType,
+            initiatorName: initiatorName,
+            initiatorId: initiatorId,
+            patientId: appointment.patientId,
+            doctorId: appointment.doctorId,
+            doctorName: doctorObj.name,
+            patientName: (appointment.patient as any).name,
+            doctorSpecialization: doctorObj['specialization'] || 'Medical Specialist'
+        };
+
+        // Real-time notification with full metadata
         await notificationService.sendNotification({
             userId: target.id,
-            title: callType === 'VIDEO' ? '📹 Incoming Video Call' : '📞 Incoming Voice Call',
-            message: `${initiatorName} is starting the ${callType === 'VIDEO' ? 'video' : 'voice'} consultation. Click to join.`,
+            title: notifTitle,
+            message: notifMsg,
             type: 'CALL',
             role: targetRole,
-            metadata: { appointmentId: appointment.id, jitsiLink }
+            metadata
         });
 
         // Send Email Alert with Jitsi link
         if (target.email) {
-            console.log(`📧 Sending call invite to: ${target.email}`);
+            console.log(`📧 Sending call invite to: ${target.email} (Lang: ${targetLang})`);
             await sendEmail({
                 to: target.email,
-                subject: 'MedEcho: Call Invitation',
+                subject: emailSubj,
                 text: `${initiatorName} is waiting for you. Join: ${jitsiLink}`,
                 html: getCallInviteTemplate({
                     recipientName: target.name,
                     callerName: initiatorName,
                     appointmentId: appointment.id,
                     meetingLink: jitsiLink,
-                    btn: 'Join Meeting Now'
+                    btn: btnText
                 })
             });
         }
 
         res.json({ message: 'Call started', jitsiLink });
     } catch (error) {
-        console.error('Error starting call:', error);
-        res.status(500).json({ message: 'Server error starting call' });
+        res.status(500).json({ message: 'Error starting call', error });
+    }
+};
+
+export const nudgeCall = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { initiatorId } = req.body;
+
+    try {
+        const appointment = await prisma.appointment.findUnique({
+            where: { id },
+            include: { patient: true, doctor: true }
+        });
+
+        if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
+
+        const isPatient = initiatorId === appointment.patientId;
+        const target = isPatient ? appointment.doctor : appointment.patient;
+        const initiatorName = isPatient ? appointment.patient.name : appointment.doctor.name;
+        const targetRole = isPatient ? 'DOCTOR' : 'PATIENT';
+
+        // Store in English for DB
+        const nudgeTitle = 'Call Reminder';
+        const nudgeMsg = `${initiatorName}: Waiting for you to join the session`;
+
+        // Send Urgent Notification
+        await notificationService.sendNotification({
+            userId: target.id,
+            title: nudgeTitle,
+            message: `${initiatorName}: ${nudgeMsg}`,
+            type: 'CALL_NUDGE',
+            role: targetRole,
+            metadata: { appointmentId: appointment.id }
+        });
+
+        res.json({ message: 'Nudge sent successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error sending nudge', error });
     }
 };
 
@@ -366,8 +529,54 @@ export const getDoctorAppointmentsByStatus = async (req: Request, res: Response)
 
         const updated = await prisma.appointment.update({
             where: { id },
-            data: { status }
-        });
+            data: { status },
+            include: {
+                doctor: { select: { name: true, preferredLanguage: true } },
+                patient: { select: { id: true, name: true, email: true, preferredLanguage: true } }
+            }
+        }) as any;
+
+        // --- CANCELLATION NOTIFICATION ---
+        if (status === 'CANCELLED') {
+            const patientLang = updated.patient.preferredLanguage || 'en';
+            // Store DB notifications in English
+            const notifTitle = 'Appointment Cancelled';
+            const notifMsg = `Your appointment with Dr. ${updated.doctor.name} has been cancelled.`;
+
+            const [emailSubj, btnText] = await Promise.all([
+                translationService.translate('cancellationNoticeSubj', patientLang),
+                translationService.translate('bookNewSlot', patientLang)
+            ]);
+
+            // 1. In-App Notification (English only)
+            await notificationService.sendNotification({
+                userId: updated.patientId,
+                title: notifTitle,
+                message: notifMsg,
+                role: 'PATIENT',
+                type: 'ALERT'
+            });
+
+            // 2. Email Notification (Localized)
+            if (updated.patient.email) {
+                const translatedMsg = await translationService.translate('appointmentCancelledBody', patientLang, { name: updated.doctor.name });
+                const translatedTitle = await translationService.translate('appointmentCancelled', patientLang);
+                await sendEmail({
+                    to: updated.patient.email,
+                    subject: emailSubj,
+                    text: translatedMsg,
+                    html: `
+                        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                            <h2 style="color: #e11d48;">${translatedTitle}</h2>
+                            <p>${translatedMsg}</p>
+                            <a href="${process.env.FRONTEND_URL}/dashboard" style="display: inline-block; padding: 12px 24px; background: #4f46e5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px;">
+                                ${btnText}
+                            </a>
+                        </div>
+                    `
+                });
+            }
+        }
 
         res.json(updated);
     } catch (error) {
@@ -417,6 +626,7 @@ export const deleteAppointment = async (req: Request, res: Response) => {
         });
 
         res.json({ message: 'Appointment removed' });
+        reminderService.forceCheck(); // Wake up worker to recalculate
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error deleting appointment' });

@@ -26,6 +26,7 @@ import {
   ArrowPathIcon
 } from '@heroicons/react/24/solid';
 import VideoConsultation from './VideoConsultation';
+import { alertService } from '../services/alertService';
 
 
 interface PatientDashboardProps {
@@ -34,64 +35,34 @@ interface PatientDashboardProps {
   reports: MedicalReport[];
   notifications: AppNotification[];
   onUpdateUser?: (u: User) => void;
+  socket?: any;
+  activeCallApt: Appointment | null;
+  setActiveCallApt: (apt: Appointment | null) => void;
+  setIsCallInitiator: (val: boolean) => void;
+  setIsCallVoiceOnly: (val: boolean) => void;
 }
 
-const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments, reports, notifications, onUpdateUser }) => {
+const PatientDashboard: React.FC<PatientDashboardProps> = ({ 
+  user, 
+  appointments, 
+  reports, 
+  notifications, 
+  onUpdateUser, 
+  socket,
+  activeCallApt,
+  setActiveCallApt,
+  setIsCallInitiator,
+  setIsCallVoiceOnly
+}) => {
   const t = getTranslation(user.preferredLanguage);
+  
+  // State Definitions (At top to avoid hoisting issues)
   const [viewingReport, setViewingReport] = useState<MedicalReport | null>(null);
+  
   const [sendingReportsId, setSendingReportsId] = useState<string | null>(null);
   const [localSentDoctorId, setLocalSentDoctorId] = useState<string | null>(null);
   const [sendReportsMessage, setSendReportsMessage] = useState<string>('');
-  const [activeCallApt, setActiveCallApt] = useState<Appointment | null>(null);
-  const [isCallInitiator, setIsCallInitiator] = useState(false);
-  const [isCallVoiceOnly, setIsCallVoiceOnly] = useState(false);
-
-  // Deep Link Handling (Join from Email)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const joinAptId = params.get('joinCall');
-    if (joinAptId && !activeCallApt) {
-       const apt = appointments.find(a => a.id === joinAptId);
-       if (apt) {
-          setActiveCallApt(apt);
-          setIsCallInitiator(false);
-          // Clean up URL
-          window.history.replaceState({}, '', window.location.pathname);
-       }
-    }
-  }, [appointments, activeCallApt]);
-
-  // Automatic Call Detection (Patient side)
-  useEffect(() => {
-    const incoming = notifications.find(n => !n.isRead && (n.title === 'Incoming Voice Call' || n.title === 'Incoming Video Call'));
-    if (incoming && !activeCallApt) {
-      const notifTime = new Date(incoming.timestamp).getTime();
-      const now = new Date().getTime();
-      
-      // Only auto-open if less than 60 seconds old
-      if (now - notifTime < 60000) {
-        // Mark as read immediately to prevent loop
-        api.put(`notifications/${incoming.id}/read`);
-        // Find matching appointment by doctor name mention
-        const apt = appointments.find(a => incoming.message.includes(a.doctorName || a.doctor?.name || ''));
-        if (apt) {
-          setIsCallVoiceOnly(incoming.title === 'Incoming Voice Call');
-          setActiveCallApt(apt);
-          setIsCallInitiator(false);
-        }
-      } else {
-         // It's an old notification, just mark it as read so it doesn't bother us.
-         api.put(`notifications/${incoming.id}/read`);
-      }
-    }
-  }, [notifications, appointments, activeCallApt]);
-  const upcoming = appointments.filter(a => a.status === 'PENDING');
-  const latestReports = reports.slice(0, 2);
-
-  // Multi-doctor send prevention logic
-  const effectiveSentDoctorId = localSentDoctorId || reports[0]?.doctorId;
-
-  // Vitals CRUD state
+  
   const [editingVital, setEditingVital] = useState<'bp' | 'weight' | 'glucose' | 'temperature' | null>(null);
   const [editValue, setEditValue] = useState('');
   const [vitals, setVitals] = useState({
@@ -101,6 +72,34 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
     temperature: user.vitalTemperature || '',
   });
   const [savingVital, setSavingVital] = useState(false);
+
+  // Effects & logic
+
+  // Deep Link Handling (Join from Email)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const joinAptId = params.get('joinCall');
+    if (joinAptId && !activeCallApt) {
+      const apt = appointments.find(a => a.id === joinAptId);
+      if (apt) {
+        setActiveCallApt(apt);
+        setIsCallInitiator(false);
+        // Clean up URL
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, [appointments, activeCallApt]);
+
+  // Redundant call detection and overlay removed - handled globally in App.tsx
+
+  
+  // Real-time Session End Listener moved to App.tsx
+
+  const upcoming = appointments.filter(a => a.status === 'PENDING');
+  const latestReports = reports.slice(0, 2);
+
+  // Multi-doctor send prevention logic
+  const effectiveSentDoctorId = localSentDoctorId || reports[0]?.doctorId;
 
   const saveVital = async (key: 'bp' | 'weight' | 'glucose' | 'temperature', value: string | null) => {
     setSavingVital(true);
@@ -113,13 +112,13 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
         const v = normalized.trim();
         const lower = v.toLowerCase().replace(/\s+/g, '');
         if (key === 'bp') {
-          normalized = lower.endsWith('mmhg') ? v : `${v} mmHg`;
+          normalized = lower.endsWith('mmhg') ? v : `${v} ${t.mmhg}`;
         } else if (key === 'weight') {
-          normalized = lower.endsWith('kg') ? v : `${v} kg`;
+          normalized = lower.endsWith('kg') ? v : `${v} ${t.kg}`;
         } else if (key === 'glucose') {
-          normalized = lower.endsWith('mg/dl') || lower.endsWith('mgdl') ? v : `${v} mg/dL`;
+          normalized = lower.endsWith('mg/dl') || lower.endsWith('mgdl') ? v : `${v} ${t.mgdl}`;
         } else if (key === 'temperature') {
-          normalized = lower.endsWith('°c') || lower.endsWith('c') || lower.endsWith('°f') || lower.endsWith('f') ? v : `${v} °C`;
+          normalized = lower.endsWith('°c') || lower.endsWith('c') || lower.endsWith('°f') || lower.endsWith('f') ? v : `${v} ${t.celsius}`;
         }
       }
 
@@ -148,16 +147,20 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
   const dialDoctor = async (apt: Appointment, isVoice: boolean = false) => {
     // Notify doctor of incoming call via backend
     try {
-      await api.post(`appointments/${apt.id}/start-call`, { 
+      await api.post(`appointments/${apt.id}/start-call`, {
         initiatorId: user.id,
         callType: isVoice ? 'VOICE' : 'VIDEO'
       });
-    } catch (err) {
-      console.warn("Call notification failed, but opening channel...");
+      
+      setIsCallVoiceOnly(isVoice);
+      setIsCallInitiator(true);
+      setActiveCallApt(apt);
+    } catch (err: any) {
+      console.error("Call initiation failed:", err);
+      const msg = err.response?.data?.message || "Failed to notify the doctor. Please ensure you are within 15 minutes of your appointment time.";
+      alertService.error(msg);
+      // We don't setActiveCallApt here because the server rejected the initiation
     }
-    setIsCallVoiceOnly(isVoice);
-    setIsCallInitiator(true);
-    setActiveCallApt(apt);
   };
 
   const sendAllPatientReportsToDoctor = async (apt: Appointment) => {
@@ -165,13 +168,16 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
     setSendReportsMessage('');
     try {
       const { data } = await api.post(`reports/patient/${user.id}/send/${apt.id}`);
-      setSendReportsMessage(`Sent ${data.reports.length} report(s) to doctor.`);
+      const successMsg = t.reportsSentSuccess.includes('{n}') 
+        ? t.reportsSentSuccess.replace('{n}', data.reports.length.toString()) 
+        : `${t.reportsSentSuccess} (${data.reports.length})`;
+      setSendReportsMessage(successMsg);
       // Per user request: Only one doctor can have the reports.
       setLocalSentDoctorId(apt.doctorId);
       setTimeout(() => setSendReportsMessage(''), 4000);
     } catch (error) {
       console.error('Send reports failed:', error);
-      setSendReportsMessage('Failed to send reports.');
+      setSendReportsMessage(t.failedSend);
       setTimeout(() => setSendReportsMessage(''), 4000);
     } finally {
       setSendingReportsId(null);
@@ -179,10 +185,10 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
   };
 
   const stats = [
-    { key: 'bp' as const, icon: HeartIcon, label: t.bpm, value: vitals.bp, color: 'bg-rose-500', sub: t.optimalRange, placeholder: 'e.g. 120/80' },
-    { key: 'weight' as const, icon: ScaleIcon, label: t.weight, value: vitals.weight, color: 'bg-blue-500', sub: t.stable, placeholder: 'e.g. 72' },
-    { key: 'glucose' as const, icon: FireIcon, label: t.glucose, value: vitals.glucose, color: 'bg-amber-400', sub: t.stable, placeholder: 'e.g. 95' },
-    { key: 'temperature' as const, icon: BeakerIcon, label: t.temperature || 'Temperature', value: vitals.temperature, color: 'bg-purple-500', sub: t.stable, placeholder: 'e.g. 37' },
+    { key: 'bp' as const, icon: HeartIcon, label: t.bpm, value: vitals.bp, color: 'bg-rose-500', sub: t.optimalRange, placeholder: t.bpPlaceholder },
+    { key: 'weight' as const, icon: ScaleIcon, label: t.weight, value: vitals.weight, color: 'bg-blue-500', sub: t.stable, placeholder: t.weightPlaceholder },
+    { key: 'glucose' as const, icon: FireIcon, label: t.glucose, value: vitals.glucose, color: 'bg-amber-400', sub: t.stable, placeholder: t.glucosePlaceholder },
+    { key: 'temperature' as const, icon: BeakerIcon, label: t.temperature, value: vitals.temperature, color: 'bg-purple-500', sub: t.stable, placeholder: t.tempPlaceholder },
   ];
 
   return (
@@ -190,18 +196,18 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight">
-            {t.welcomeBack}, <span className="text-blue-600">
+            <TranslatedText text={t.welcomeBack} lang={user.preferredLanguage} />, <span className="text-blue-600">
               <TranslatedText text={user.name.split(' ')[0]} lang={user.preferredLanguage} />
             </span>
           </h1>
-          <p className="text-slate-500 mt-1 font-medium italic text-sm">MedEcho {t.dashboard}</p>
+          <p className="text-slate-500 mt-1 font-medium italic text-sm">MedEcho <TranslatedText text={t.dashboard} lang={user.preferredLanguage} /></p>
         </div>
         <div className="flex items-center space-x-3 bg-white px-4 py-3 rounded-2xl shadow-sm border border-slate-100">
           <div className="p-2 bg-blue-500 rounded-xl text-white">
             <UserCircleIcon className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{(t.patient || 'Patient') + " ID"}</p>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest"><TranslatedText text={t.patientId} lang={user.preferredLanguage} /></p>
             <span className="font-black text-slate-700 text-xs">{user.username || `P${user.id.replace(/\D/g, '').slice(0, 5).padStart(5, '0')}`}</span>
           </div>
         </div>
@@ -233,7 +239,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
               ) : (
                 <div className="flex items-baseline space-x-2">
                   <span className="text-3xl sm:text-4xl font-black text-slate-800">{stat.value || <span className="text-slate-300 text-xl">—</span>}</span>
-                  {stat.value && <span className="text-[9px] font-bold text-emerald-500 uppercase">{stat.sub}</span>}
+                  {stat.value && <span className="text-[9px] font-bold text-emerald-500 uppercase"><TranslatedText text={stat.sub} lang={user.preferredLanguage} /></span>}
                 </div>
               )}
             </div>
@@ -263,14 +269,23 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
         <section className="bg-slate-900 rounded-[2.5rem] sm:rounded-[3rem] p-8 sm:p-10 text-white shadow-2xl relative overflow-hidden">
           <div className="relative z-10">
             <div className="flex justify-between items-center mb-10">
-              <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight">{t.appointmentsTitle}</h2>
-              <span className="text-[9px] font-black bg-white/10 px-3 py-1 rounded-full text-blue-300 uppercase tracking-widest">{t.realTime}</span>
+              <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight">
+                <TranslatedText text={t.appointmentsTitle} lang={user.preferredLanguage} />
+              </h2>
+              <span className="text-[9px] font-black bg-white/10 px-3 py-1 rounded-full text-blue-300 uppercase tracking-widest">
+                <TranslatedText text={t.realTime} lang={user.preferredLanguage} />
+              </span>
             </div>
             <div className="space-y-4 max-h-[380px] overflow-y-auto pr-2 custom-scrollbar">
               {upcoming.length > 0 ? upcoming.map(apt => {
-                const doctorDisplayName = apt.doctorName || apt.doctor?.name || 'Doctor';
-                const dateStr = new Date(apt.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-                const isSent = !!effectiveSentDoctorId && (apt.doctorId === effectiveSentDoctorId);
+                const doctorDisplayName = apt.doctorName || apt.doctor?.name || t.doctor || 'Doctor';
+                const dateStr = new Date(apt.date).toLocaleDateString(user.preferredLanguage || 'en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                
+                // Determine if reports were ever sent to this doctor
+                const hasSentBefore = reports.some(r => r.doctorId === apt.doctorId);
+                // We show 'Update' instead of 'Send' if sent before, but we NEVER disable it permanently
+                // so the patient can send newly generated reports or sync again.
+                const isSentRecently = sendingReportsId === apt.id;
                 return (
                   <div key={apt.id} className="bg-white/5 border border-white/10 p-4 sm:p-6 rounded-[2rem] flex items-center justify-between group hover:bg-white/10 transition-colors">
                     <div className="flex items-center space-x-4 sm:space-x-5">
@@ -284,27 +299,27 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => dialDoctor(apt, true)}
-                        className={`p-3.5 sm:p-4 transition-all rounded-xl sm:rounded-2xl shadow-lg active:scale-95 ${notifications.some(n => !n.isRead && n.title === 'Incoming Voice Call' && n.message.includes(doctorDisplayName)) ? 'bg-red-500 animate-pulse text-white' : 'bg-white/10 text-white border border-white/10 hover:bg-white/20'}`}
-                        title="Voice Call"
+                        className={`p-3.5 sm:p-4 transition-all rounded-xl sm:rounded-2xl shadow-lg active:scale-95 ${notifications.some(n => !n.isRead && n.type === 'CALL' && n.metadata?.callType === 'VOICE' && n.metadata?.appointmentId === apt.id) ? 'bg-red-500 animate-pulse text-white' : 'bg-white/10 text-white border border-white/10 hover:bg-white/20'}`}
+                        title={t.voiceCall}
                       >
                         <PhoneIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <button
                         onClick={() => dialDoctor(apt, false)}
-                        className={`p-3.5 sm:p-4 transition-all rounded-xl sm:rounded-2xl shadow-lg active:scale-95 ${notifications.some(n => !n.isRead && n.title === 'Incoming Video Call' && n.message.includes(doctorDisplayName)) ? 'bg-red-500 animate-pulse text-white' : 'bg-emerald-500 text-white hover:bg-emerald-600'}`}
-                        title="Video Call"
+                        className={`p-3.5 sm:p-4 transition-all rounded-xl sm:rounded-2xl shadow-lg active:scale-95 ${notifications.some(n => !n.isRead && n.type === 'CALL' && n.metadata?.callType === 'VIDEO' && n.metadata?.appointmentId === apt.id) ? 'bg-red-500 animate-pulse text-white' : 'bg-emerald-500 text-white hover:bg-emerald-600'}`}
+                        title={t.videoCall}
                       >
                         <VideoCameraIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <button
                         onClick={() => sendAllPatientReportsToDoctor(apt)}
-                        className={`text-[9px] sm:text-[10px] font-black uppercase px-4 py-2 rounded-xl transition-all ${isSent ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg'}`}
-                        disabled={sendingReportsId === apt.id || isSent}
+                        className={`text-[9px] sm:text-[10px] font-black uppercase px-4 py-2 rounded-xl transition-all ${hasSentBefore ? 'bg-emerald-500/20 text-emerald-600 border border-emerald-500/30' : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg pulse-gentle'}`}
+                        disabled={sendingReportsId === apt.id}
                       >
                         {sendingReportsId === apt.id
                           ? <TranslatedText text={t.sending} lang={user.preferredLanguage} />
-                          : isSent
-                            ? <div className="flex items-center gap-1.5"><CheckCircleIcon className="w-3.5 h-3.5" /><TranslatedText text={t.reportsSent} lang={user.preferredLanguage} /></div>
+                          : hasSentBefore
+                            ? <div className="flex items-center gap-1.5"><ArrowPathIcon className="w-3.5 h-3.5" /><TranslatedText text="Update Reports" lang={user.preferredLanguage} /></div>
                             : <TranslatedText text={t.sendReports} lang={user.preferredLanguage} />
                         }
                       </button>
@@ -312,7 +327,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
                   </div>
                 )
               }) : (
-                <div className="text-center py-10 text-white/20 font-black uppercase tracking-widest text-[10px]">{t.noAppointmentsBooked}</div>
+                <div className="text-center py-10 text-white/20 font-black uppercase tracking-widest text-[10px]">
+                  <TranslatedText text={t.noAppointmentsBooked} lang={user.preferredLanguage} />
+                </div>
               )}
             </div>
           </div>
@@ -320,7 +337,7 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
 
         <section className="bg-white p-8 sm:p-10 rounded-[2.5rem] sm:rounded-[3rem] shadow-sm border border-slate-50 flex flex-col">
           <div className="flex justify-between items-center mb-10">
-            <h2 className="text-xl sm:text-2xl font-black text-slate-800 uppercase tracking-tight">{t.latestReports}</h2>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-800 uppercase tracking-tight"><TranslatedText text={t.latestReports} lang={user.preferredLanguage} /></h2>
           </div>
           <div className="space-y-4 flex-1 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
             {latestReports.length > 0 ? latestReports.map((report) => (
@@ -330,13 +347,13 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
                 className="w-full bg-slate-50 p-6 sm:p-8 rounded-[2rem] border border-slate-100 flex flex-col justify-between hover:bg-blue-50 hover:border-blue-100 transition-all text-left group"
               >
                 <div>
-                  <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest bg-blue-100/50 px-3 py-1 rounded-full border border-blue-200">{t.latestReports}</span>
+                  <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest bg-blue-100/50 px-3 py-1 rounded-full border border-blue-200"><TranslatedText text={t.latestReports} lang={user.preferredLanguage} /></span>
                   <p className="text-base sm:text-lg font-bold text-slate-800 mt-6 leading-relaxed">
-                    <TranslatedText text={report.diagnosis} lang={user.preferredLanguage} isClinical={true} />
+                    <TranslatedText text={report.diagnosis} lang={user.preferredLanguage} />
                   </p>
                   <div className="mt-4 flex items-center space-x-2 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
                     <span className="text-[10px] font-black uppercase tracking-widest">
-                      <TranslatedText text="See Detailed Report" lang={user.preferredLanguage} />
+                      <TranslatedText text={t.seeDetailedReport} lang={user.preferredLanguage} />
                     </span>
                     <ArrowRightCircleIcon className="w-4 h-4" />
                   </div>
@@ -344,10 +361,10 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
 
                 <div className="flex flex-wrap items-center gap-2 mt-10 pt-6 border-t border-slate-200">
                   <span className="text-[11px] font-black text-slate-700 uppercase">
-                    {t.patient}: <TranslatedText text={report.patientName || user.name} lang={user.preferredLanguage} />
+                    <TranslatedText text={t.patient} lang={user.preferredLanguage} />: <TranslatedText text={report.patientName || user.name} lang={user.preferredLanguage} />
                   </span>
                   <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-                    {t.doctor}: <TranslatedText text={report.doctorName || 'Unassigned'} lang={user.preferredLanguage} />
+                    <TranslatedText text={t.doctor} lang={user.preferredLanguage} />: <TranslatedText text={report.doctorName || t.unassigned || 'Unassigned'} lang={user.preferredLanguage} />
                   </span>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     {report.date || new Date(report.createdAt).toISOString().split('T')[0]}
@@ -355,7 +372,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
                 </div>
               </button>
             )) : (
-              <div className="text-center py-20 text-slate-300 font-black uppercase text-[10px] tracking-widest">{t.noReports}</div>
+              <div className="text-center py-20 text-slate-300 font-black uppercase text-[10px] tracking-widest">
+                <TranslatedText text={t.noReports} lang={user.preferredLanguage} />
+              </div>
             )}
           </div>
         </section>
@@ -368,7 +387,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
               <CheckBadgeIcon className="w-5 h-5 text-white" />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest opacity-70">MedEcho System</p>
+              <p className="text-[10px] font-black uppercase tracking-widest opacity-70">
+                <TranslatedText text={t.medEchoSystem} lang={user.preferredLanguage} />
+              </p>
               <p className="font-bold text-sm">
                 <TranslatedText text={sendReportsMessage} lang={user.preferredLanguage} />
               </p>
@@ -377,7 +398,9 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
         </div>
       )}
       <div className="mt-8">
-        <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-6 px-2">{t.findNearbyCare}</h3>
+        <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-6 px-2">
+          <TranslatedText text={t.findNearbyCare} lang={user.preferredLanguage} />
+        </h3>
         <HospitalLocator user={user} />
       </div>
 
@@ -387,17 +410,6 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ user, appointments,
           report={viewingReport}
           user={user}
           onClose={() => setViewingReport(null)}
-        />
-      )}
-      
-      {/* Embedded P2P Voice Consultation */}
-      {activeCallApt && (
-        <VideoConsultation
-          user={user}
-          appointment={activeCallApt}
-          isInitiator={isCallInitiator}
-          isVoiceOnly={isCallVoiceOnly}
-          onClose={() => setActiveCallApt(null)}
         />
       )}
     </div>

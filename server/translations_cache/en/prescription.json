@@ -1,0 +1,8 @@
+{
+  "medicineName": "Medicine Name",
+  "dosagePlaceholder": "Dosage",
+  "daysPlaceholder": "Days",
+  "noPrescriptionsAdded": "No prescriptions added yet",
+  "discardDraft": "Discard Draft",
+  "verifyAndSend": "Verify & Send"
+}

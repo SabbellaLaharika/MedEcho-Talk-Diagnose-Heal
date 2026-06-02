@@ -36,7 +36,7 @@ const TAB_KEYS: Record<string, string> = {
 
 const HospitalLocator: React.FC<HospitalLocatorProps> = ({ user }) => {
   const t = getTranslation(user?.preferredLanguage);
-  
+
   useEffect(() => {
     loadTranslations(user?.preferredLanguage, 'hospitals');
   }, [user?.preferredLanguage]);

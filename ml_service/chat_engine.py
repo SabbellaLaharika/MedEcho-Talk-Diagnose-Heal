@@ -155,6 +155,11 @@ class ChatEngine:
                         collected_symptoms.append(s)
                 context['collected_symptoms'] = collected_symptoms
                 
+                # Format symptom list for message (snake_case to natural/bold)
+                new_symptoms_str = " and ".join([f"**{s.replace('_', ' ')}**" for s in new_symptoms])
+                if len(new_symptoms) > 2:
+                    new_symptoms_str = ", ".join([f"**{s.replace('_', ' ')}**" for s in new_symptoms[:-1]]) + f" and **{new_symptoms[-1].replace('_', ' ')}**"
+
                 # If we have enough symptoms, move to details
                 if len(collected_symptoms) >= 6 or any(word in user_text for word in ["done", "that's all", "nothing", "no more"]):
                      # Increased threshold to 6 to encourage more detail, or user says done
@@ -164,7 +169,8 @@ class ChatEngine:
                     return f"I noted: {', '.join(collected_symptoms).replace('_', ' ')}. Now, {questions_map[first_q_key]}", context
                 else:
                     # SMART SUGGESTION LOGIC
-                    last_symptom = new_symptoms[0] # Take one of the new ones
+                    # Base suggestions on the most recently added symptom
+                    last_symptom = new_symptoms[-1] 
                     suggestions = self.related_symptoms.get(last_symptom, [])
                     
                     # Filter out already collected ones
@@ -174,10 +180,10 @@ class ChatEngine:
                         # Suggest up to 3 symptoms
                         suggest_list = canonical_suggestions[:3]
                         context['pending_suggestions'] = suggest_list
-                        return f"I noted **{last_symptom.replace('_', ' ')}**. Do you also experience any of the following? (Or select 'None')", context
+                        return f"I noted {new_symptoms_str}. Do you also experience any of the following? (Or select 'None')", context
                     else:
                         context.pop('pending_suggestions', None)
-                        return f"I have noted {', '.join(new_symptoms).replace('_', ' ')}. Do you have any other symptoms? (Or say 'that\\'s all')", context
+                        return f"I have noted {new_symptoms_str}. Do you have any other symptoms? (Or say 'that\\'s all')", context
             else:
                 # No new explicit symptoms found
 
@@ -243,7 +249,8 @@ class ChatEngine:
                 if any(word in user_text for word in unwell_keywords):
                     return "I'm here to help. To give you an accurate assessment, I need to know specific symptoms. Are you experiencing things like Fever, Body Pain, or a Cough?", context
 
-                return "I'm sorry, I didn't quite catch a specific symptom. Could you please name them directly? For example: 'I have a headache' or 'I feel nauseous'.", context
+            return "I'm sorry, I didn't quite catch a specific symptom. Could you please name them directly? For example: 'I have a headache' or 'I feel nauseous'.", context
+
 
         # 3. GATHERING DETAILS (Smart Questioning)
         if context.get('state') == 'GATHERING_DETAILS':
@@ -304,22 +311,32 @@ class ChatEngine:
         import difflib
         
         text = text.lower()
+        # Handle commas, slashes, and periods by treating them as word boundaries
+        text = re.sub(r'[,/\.]', ' ', text)
         words = re.findall(r'\b\w+\b', text)
-        negation_words = {"not", "no", "remove", "don", "dont", "without", "none", "neither"}
+        negation_words = {"not", "no", "remove", "don", "dont", "without", "none", "neither", "didn", "didnt", "free"}
         
         for natural_name, key in self.symptom_map.items():
             match = False
             match_idx = -1
             
-            # 1. Exact or partial word match
-            if natural_name in text or key in text:
+            # 1. Exact match (handle multi-word)
+            if f" {natural_name} " in f" {text} " or f" {key.replace('_', ' ')} " in f" {text} ":
                 match = True
-            else:
-                parts = natural_name.split()
-                if len(parts) > 1 and all(p in text for p in parts):
-                    match = True
             
-            # 2. Fuzzy matching if no exact match
+            # 2. Token-based matching (e.g. "fever" in "high_fever")
+            if not match:
+                parts = natural_name.split()
+                if all(p in words for p in parts):
+                    match = True
+                elif len(parts) > 1 and any(p in words for p in parts):
+                    # Partial match for multi-word symptoms (e.g. "cough" matches "dry_cough")
+                    # Only match if the partial word is descriptive enough (length > 3)
+                    descriptive_parts = [p for p in parts if len(p) > 3]
+                    if descriptive_parts and all(p in words for p in descriptive_parts):
+                        match = True
+            
+            # 3. Fuzzy matching for misspellings
             if not match:
                 length = len(natural_name.split())
                 for i in range(len(words) - length + 1):
@@ -330,13 +347,13 @@ class ChatEngine:
                         break
             
             if match:
-                # 3. Negation Check (Look at preceding 3 words)
+                # 4. Negation Check (Look at preceding 4 words)
                 is_negated = False
-                # Try to find the matched word index if not already found via fuzzy
                 if match_idx == -1:
-                    symptom_first_word = natural_name.split()[0]
+                    # Find where it matched in the words list
+                    first_part = natural_name.split()[0]
                     for i, w in enumerate(words):
-                        if w == symptom_first_word or difflib.get_close_matches(w, [symptom_first_word], n=1, cutoff=0.85):
+                        if w == first_part or (len(w) > 3 and w in natural_name):
                             match_idx = i
                             break
                             

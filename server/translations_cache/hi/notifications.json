@@ -1,0 +1,9 @@
+{
+  "medicationReminderBody": "यह आपकी दवा लेने का समय है।",
+  "appointmentReminderTitle": "आगामी नियुक्ति",
+  "appointmentReminderBody": "सत्र 15 मिनट में शुरू होगा.",
+  "appointmentReminderBodyDoc": "15 मिनट में अगला मरीज।",
+  "appointmentCancelled": "नियुक्ति रद्द कर दी गई",
+  "appointmentCancelledBody": "प्रदाता द्वारा सत्र रद्द कर दिया गया.",
+  "cancellationNoticeSubj": "मेडइको: रद्दीकरण सूचना"
+}

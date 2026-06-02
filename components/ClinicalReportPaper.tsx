@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { MedicalReport, User } from '../types';
 import api from '../services/api';
-import { getTranslation, translateClinical, translateString, loadTranslations } from '../services/translations';
+import { getTranslation, translateString, loadTranslations } from '../services/translations';
 import TranslatedText from './TranslatedText';
 
 interface ClinicalReportPaperProps {
   report: MedicalReport;
   user?: User;
   idSuffix?: string;
+  lang?: string;
 }
 
-const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user, idSuffix = "" }) => {
-  const [targetLang, setTargetLang] = useState(user?.preferredLanguage || 'en');
+const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user, idSuffix = "", lang }) => {
+  const [targetLang, setTargetLang] = useState(lang || user?.preferredLanguage || 'en');
   const t = getTranslation(targetLang);
+
+  // Sync internal state with prop changes (from Modal)
+  useEffect(() => {
+    if (lang && lang !== targetLang) {
+      setTargetLang(lang);
+    }
+  }, [lang]);
 
   useEffect(() => {
     if (targetLang) {
@@ -42,12 +50,15 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
             className="bg-transparent border-none text-[10px] font-black text-blue-600 uppercase focus:ring-0 cursor-pointer"
           >
             <option value="en">English</option>
-            <option value="hi">Hindi (हिन्दी)</option>
-            <option value="te">Telugu (తెలుగు)</option>
-            <option value="ta">Tamil (தமிழ்)</option>
-            <option value="mr">Marathi (मराठी)</option>
-            <option value="bn">Bengali (বাংলা)</option>
-            <option value="kn">Kannada (ಕನ್ನಡ)</option>
+            <option value="hi">हिन्दी (Hindi)</option>
+            <option value="te">తెలుగు (Telugu)</option>
+            <option value="ta">தமிழ் (Tamil)</option>
+            <option value="mr">మరాఠీ (Marathi)</option>
+            <option value="bn">বাংলা (Bengali)</option>
+            <option value="kn">కన్నడ (Kannada)</option>
+            <option value="ml">മലയാളം (Malayalam)</option>
+            <option value="gu">ગુજરાતી (Gujarati)</option>
+            <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
           </select>
         </div>
       </div>
@@ -139,7 +150,7 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
               <TranslatedText text={t.predictedCondition} lang={targetLang} />
             </p>
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">
-              <TranslatedText text={report.diagnosis} lang={targetLang} isClinical={true} />
+              <TranslatedText text={report.diagnosis} lang={targetLang} />
             </h2>
           </div>
           {report.aiConfidence != null && report.aiConfidence > 0 && (
@@ -153,16 +164,14 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
         </div>
       </div>
 
-      {report.summary && (
         <div className="mb-10">
           <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">
-            <TranslatedText text="Clinical Summary / Extract" lang={targetLang} />
+            <TranslatedText text={t.clinicalSummaryExtract} lang={targetLang} />
           </h5>
           <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed font-sans whitespace-pre-wrap shadow-sm">
-            <TranslatedText text={report.summary} lang={targetLang} isClinical={true} />
+            <TranslatedText text={report.summary} lang={targetLang} />
           </div>
         </div>
-      )}
 
       {(report.symptoms?.length > 0 || (report.history && Object.keys(report.history).length > 0)) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-10 items-start">
@@ -174,7 +183,7 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
               <div className="flex flex-wrap gap-2">
                 {report.symptoms.map((s: string, i: number) => (
                   <span key={i} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 capitalize">
-                    <TranslatedText text={s.replace(/_/g, ' ')} lang={targetLang} isClinical={true} />
+                    <TranslatedText text={s.replace(/_/g, ' ')} lang={targetLang} />
                   </span>
                 ))}
               </div>
@@ -195,7 +204,7 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
                       </td>
                       <td className="py-2 text-slate-700 capitalize text-[11px]">
                         {typeof v === 'string' ? (
-                          <TranslatedText text={v} lang={targetLang} isClinical={true} />
+                          <TranslatedText text={v} lang={targetLang} />
                         ) : v}
                       </td>
                     </tr>
@@ -204,6 +213,46 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
               </table>
             </section>
           )}
+        </div>
+      )}
+
+      {report.medications && report.medications.length > 0 && (
+        <div className="mb-10">
+          <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">
+            <TranslatedText text={t.prescribedMeds} lang={targetLang} />
+          </h5>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b-2 border-slate-900 bg-slate-50">
+                  <th className="py-3 px-2 font-black uppercase text-[9px]"><TranslatedText text={t.medicineName} lang={targetLang} /></th>
+                  <th className="py-3 px-2 font-black uppercase text-[9px]"><TranslatedText text={t.dosage} lang={targetLang} /></th>
+                  <th className="py-3 px-2 font-black uppercase text-[9px]"><TranslatedText text={t.frequency} lang={targetLang} /></th>
+                  <th className="py-3 px-2 font-black uppercase text-[9px]"><TranslatedText text={t.duration} lang={targetLang} /></th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.medications.map((m: any, i: number) => (
+                  <tr key={i} className="border-b border-slate-100 items-center">
+                    <td className="py-3 px-2 font-bold text-slate-900">
+                       <TranslatedText text={typeof m === 'string' ? m : m.name} lang={targetLang} />
+                    </td>
+                    <td className="py-3 px-2 text-slate-600">
+                      {m.dosage} <TranslatedText text={m.unit || ''} lang={targetLang} />
+                    </td>
+                    <td className="py-3 px-2 text-slate-600">
+                      {m.times && (m.times.morning || m.times.afternoon || m.times.evening) 
+                        ? `${m.times.morning || 0}-${m.times.afternoon || 0}-${m.times.evening || 0}` 
+                        : (m.frequency || '-')}
+                    </td>
+                    <td className="py-3 px-2 text-slate-600">
+                      {m.days} <TranslatedText text={t.daysLabel || 'days'} lang={targetLang} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -216,7 +265,7 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
             {report.prescription.map((p: string, i: number) => (
               <li key={i} className="text-xs flex items-start space-x-3 text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <span className="font-black text-blue-500 mt-0.5">{i + 1}.</span>
-                <p><TranslatedText text={p} lang={targetLang} isClinical={true} /></p>
+                <p><TranslatedText text={p} lang={targetLang} /></p>
               </li>
             ))}
           </ul>

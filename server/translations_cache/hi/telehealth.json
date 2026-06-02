@@ -1,0 +1,19 @@
+{
+  "liveCall": "लाइव कॉल",
+  "incomingCall": "एक फोन आ रहा है...",
+  "inCall": "कॉल में",
+  "calling": "कॉल कर रहा हूँ...",
+  "endCall": "अंत",
+  "webRtcNote": "वेबआरटीसी लिंक सक्रिय।",
+  "callFrom": "से कॉल करें",
+  "callingUser": "कॉलिंग",
+  "aiContextReceived": "प्रसंग समन्वयित.",
+  "micDenied": "माइक ने मना कर दिया.",
+  "sttError": "भाषण त्रुटि.",
+  "aiServiceError": "एआई ऑफ़लाइन।",
+  "unassigned": "सौंपे नहीं गए",
+  "clinicalConsult": "परामर्श",
+  "consultProfessional": "विशेषज्ञ से सलाह लें.",
+  "aiMedicalIntake": "एआई सेवन",
+  "recordFiled": "दायर"
+}

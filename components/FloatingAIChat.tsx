@@ -2,10 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Message, MedicalReport } from '../types';
 import { dbService } from '../services/dbService';
 import api from '../services/api';
-import { 
-  PaperAirplaneIcon, 
-  ChatBubbleLeftRightIcon, 
-  XMarkIcon, 
+import {
+  PaperAirplaneIcon,
+  ChatBubbleLeftRightIcon,
+  XMarkIcon,
   ExclamationTriangleIcon,
   MicrophoneIcon,
   SpeakerWaveIcon,
@@ -51,7 +51,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
   const [reportSaved, setReportSaved] = useState(false);
   const [selectedLang, setSelectedLang] = useState('auto');
   const [conversationContext, setConversationContext] = useState<any>({ state: 'GREETING' });
-  
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -89,14 +89,14 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
       const synth = window.speechSynthesis;
       synth.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      
+
       if (langCode.length === 2) {
         const found = LANGUAGES.find(l => l.code.startsWith(langCode));
         if (found) utterance.lang = found.code;
       } else {
         utterance.lang = langCode;
       }
-      
+
       utterance.rate = 0.9;
       utterance.pitch = 1.0;
       synth.speak(utterance);
@@ -140,14 +140,15 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
         doctorName: t.unassigned,
         diagnosis: mlContext.diagnosis || t.aiConsultation,
         confidenceScore: parseFloat(mlContext.confidence) || 85,
-        preventions: mlContext.precautions 
-           ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : String(mlContext.precautions).split(/,\s*/))
-           : [t.consultHumanDoctor],
+        preventions: mlContext.precautions
+          ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : String(mlContext.precautions).split(/,\s*/))
+          : [t.consultHumanDoctor],
         summary: mlContext.summary || t.quickChatIntake,
         symptoms: mlContext.collected_symptoms || [],
         history: mlContext.history || {},
         vitals: vitals,
-        chatTranscript: transcript
+        chatTranscript: transcript,
+        reportType: 'AI'
       };
 
       const { data: savedReport } = await api.post('/reports', reportPayload);
@@ -162,9 +163,9 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
           date: new Date().toISOString().split('T')[0],
           diagnosis: mlContext.diagnosis || t.consultation,
           summary: t.reportGenQuickChat,
-          prescription: mlContext.precautions 
-             ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : String(mlContext.precautions).split(/,\s*/))
-             : [t.standardPrecautions],
+          prescription: mlContext.precautions
+            ? (Array.isArray(mlContext.precautions) ? mlContext.precautions : String(mlContext.precautions).split(/,\s*/))
+            : [t.standardPrecautions],
           aiConfidence: parseFloat(mlContext.confidence) || 85,
           symptoms: mlContext.collected_symptoms || [],
           history: mlContext.history || {},
@@ -196,7 +197,7 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
 
   const processMessage = async (text: string) => {
     if (!text.trim()) return;
-    
+
     const userMsg: Message = { id: Date.now().toString(), sender: 'user', text, timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
@@ -219,13 +220,13 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
         }
       }
 
-      const aiMsg: Message = { 
-        id: (Date.now() + 1).toString(), 
-        sender: 'ai', 
-        text: aiResponse, 
-        timestamp: new Date() 
+      const aiMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        sender: 'ai',
+        text: aiResponse,
+        timestamp: new Date()
       };
-      
+
       setMessages(prev => [...prev, aiMsg]);
       setConversationContext(data.context);
 
@@ -275,8 +276,8 @@ const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ onReportGenerated }) =>
                 <h3 className="font-bold text-sm"><TranslatedText text={t.aiChatTitle} lang={user?.preferredLanguage} /></h3>
                 <div className="flex items-center space-x-1">
                   <GlobeAltIcon className="w-3 h-3 text-blue-200" />
-                  <select 
-                    value={selectedLang} 
+                  <select
+                    value={selectedLang}
                     onChange={(e) => setSelectedLang(e.target.value)}
                     className="bg-transparent border-none text-[8px] font-bold text-blue-100 uppercase tracking-widest p-0 focus:ring-0 outline-none cursor-pointer"
                   >

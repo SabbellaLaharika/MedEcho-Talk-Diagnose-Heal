@@ -1,10 +1,7 @@
-
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { translationService } from '../services/translationService';
 import NodeCache from 'node-cache';
-
-const prisma = new PrismaClient();
 const apiCache = new NodeCache({ stdTTL: 600, checkperiod: 120 }); // Cache for 10 minutes
 
 // Get all doctors (Localized based on requesting user's preference if provided, or defaults)

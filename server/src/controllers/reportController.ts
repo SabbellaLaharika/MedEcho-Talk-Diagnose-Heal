@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { translationService } from '../services/translationService';
 import { sendEmail } from '../services/emailService';
 import { getMedicalReportTemplate } from '../services/emailTemplates';
@@ -7,16 +7,21 @@ import axios from 'axios';
 import Tesseract from 'tesseract.js';
 const pdf = require('pdf-parse');
 
-const prisma = new PrismaClient();
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+import { callMLWithRetry } from './mlController';
+import * as reminderService from '../services/reminderService';
+import { ocrRefiner } from '../services/ocrRefiner';
+
 
 // Generate report from call transcript using ML service
 export const generateReportFromCall = async (req: Request, res: Response) => {
     try {
         const { text } = req.body;
         if (!text) return res.status(400).json({ message: "No transcript provided" });
-
-        const { data } = await axios.post(`${ML_SERVICE_URL}/analyze`, { text });
+ 
+        const { data } = await callMLWithRetry(() => 
+            axios.post(`${ML_SERVICE_URL}/analyze`, { text }, { timeout: 30000 })
+        );
         res.json(data);
     } catch (error: any) {
         console.error("ML Analysis Proxy Error:", error.message);
@@ -27,11 +32,16 @@ export const generateReportFromCall = async (req: Request, res: Response) => {
 // Create Medical Report
 export const createReport = async (req: Request, res: Response) => {
     try {
-        const { patientId, doctorId, diagnosis, confidenceScore, preventions, chatTranscript, summary, symptoms, history, vitals, medications } = req.body;
+        const { patientId, doctorId, diagnosis, confidenceScore, preventions, chatTranscript, summary, symptoms, history, vitals, medications, prescriptions, timezoneOffset, reportType, appointmentId, notes } = req.body;
 
-        console.log("Creating report with payload:", { patientId, diagnosis, hasMedications: !!medications });
+        const effectivePrescriptions = prescriptions || medications || [];
+        const effectiveDiagnosis = diagnosis || notes || summary || 'Consultation Report';
+        const effectiveSummary = summary || notes || (diagnosis && diagnosis !== effectiveDiagnosis ? diagnosis : '');
+        const effectiveTimezoneOffset = timezoneOffset !== undefined ? timezoneOffset : -330;
 
-        if (!patientId || !diagnosis) {
+        console.log("Creating report with payload:", { patientId, diagnosis: effectiveDiagnosis, prescriptionCount: effectivePrescriptions.length, timezoneOffset: effectiveTimezoneOffset, reportType });
+
+        if (!patientId || !effectiveDiagnosis) {
             return res.status(400).json({ message: 'Missing required fields: patientId and diagnosis' });
         }
 
@@ -39,16 +49,16 @@ export const createReport = async (req: Request, res: Response) => {
             data: {
                 patientId,
                 doctorId: doctorId || null,
-                diagnosis,
-                confidenceScore: parseFloat(String(confidenceScore)) || 0,
+                diagnosis: effectiveDiagnosis,
+                confidenceScore: confidenceScore !== undefined && confidenceScore !== null ? parseFloat(String(confidenceScore)) : null,
                 precautions: preventions || [],
                 chatTranscript: chatTranscript || {},
-                summary: summary || '',
+                summary: effectiveSummary,
                 symptoms: symptoms || [],
-                medications: medications || [],
+                medications: effectivePrescriptions,
                 history: history || {},
                 vitals: vitals || {},
-                reportType: 'AI'
+                reportType: reportType || 'AI'
             },
             include: {
                 patient: { select: { name: true, username: true, email: true, preferredLanguage: true } },
@@ -56,11 +66,40 @@ export const createReport = async (req: Request, res: Response) => {
             }
         });
 
+        // --- NEW: Trigger structured reminders creation ---
+        if (effectivePrescriptions && effectivePrescriptions.length > 0) {
+            try {
+                await reminderService.createRemindersFromMedications(patientId, report.id, effectivePrescriptions, effectiveTimezoneOffset);
+                console.log(`Created ${effectivePrescriptions.length} structured reminders for report ${report.id} (Offset: ${effectiveTimezoneOffset})`);
+            } catch (err) {
+                console.error("Non-blocking error creating reminders:", err);
+            }
+        }
+
+        // --- NEW: Auto-complete appointment if ID is provided ---
+        if (appointmentId) {
+            try {
+                await prisma.appointment.update({
+                    where: { id: appointmentId },
+                    data: { status: 'COMPLETED' }
+                });
+                console.log(`[Report] Automatically completed appointment ${appointmentId}`);
+            } catch (aptErr) {
+                console.warn(`[Report] Failed to auto-complete appointment ${appointmentId}:`, aptErr);
+            }
+        }
+
         // Email report asynchronously
         if (report.patient?.email) {
             const lang = report.patient.preferredLanguage || 'en';
             console.log(`📧 Resolved report recipient: ${report.patient.email} (Lang: ${lang})`);
+            
             try {
+                // Translate Clinical Content for Email
+                const translatedDiagnosis = await translationService.translate(report.diagnosis, lang);
+                const translatedSummary = await translationService.translate(report.summary || '', lang);
+                const translatedPrecautions = await translationService.translateBatch(report.precautions || [], lang);
+
                 const [rSubject, rHeader, rBtn] = await Promise.all([
                     translationService.translate('Your Medical Report - MedEcho', lang),
                     translationService.translate('Medical Report', lang),
@@ -70,13 +109,13 @@ export const createReport = async (req: Request, res: Response) => {
                 await sendEmail({
                     to: report.patient.email,
                     subject: rSubject,
-                    text: `Your medical report has been generated. Diagnosis: ${report.diagnosis}`,
+                    text: `Your medical report has been generated. Diagnosis: ${translatedDiagnosis}`,
                     html: getMedicalReportTemplate({
                         patientName: report.patient.name,
                         doctorName: report.doctor?.name || 'AI Assistant',
                         date: new Date().toLocaleDateString(),
-                        diagnosis: report.diagnosis,
-                        precautions: report.precautions || [],
+                        diagnosis: translatedDiagnosis,
+                        precautions: translatedPrecautions || [],
                         headerTitle: rHeader,
                         btn: rBtn
                     })
@@ -239,10 +278,12 @@ export const uploadReport = async (req: Request, res: Response) => {
             // ── STEP 1: Try Python ML Service extraction (higher quality) ──
             try {
                 console.log(`[Upload] Trying Python /extract-text for: ${fileName}...`);
-                const { data: pyResult } = await axios.post(
-                    `${ML_SERVICE_URL}/extract-text`,
-                    { file_base64: base64, mime_type: file.mimetype },
-                    { timeout: 30000 }
+                const { data: pyResult } = await callMLWithRetry(() => 
+                    axios.post(
+                        `${ML_SERVICE_URL}/extract-text`,
+                        { file_base64: base64, mime_type: file.mimetype },
+                        { timeout: 30000 }
+                    )
                 );
                 if (pyResult?.success && pyResult?.text) {
                     extractedText = pyResult.text;
@@ -283,33 +324,55 @@ export const uploadReport = async (req: Request, res: Response) => {
             }
         }
 
-        // ── STEP 3: AI Analysis on extracted text (if any) ──────────────
-        let aiAnalysis: any = {};
-        if (extractedText) {
+        // ── STEP 2.5: Refine OCR text (Clean up noise and structure it) ──
+        let refinedText = extractedText;
+        if (extractedText && extractedText.length > 20) {
             try {
-                console.log('[Upload] Sending extracted text to ML /analyze...');
-                const { data } = await axios.post(`${ML_SERVICE_URL}/analyze`, { text: extractedText });
-                aiAnalysis = data;
-            } catch (analyzeErr) {
-                console.warn('[Upload] AI analysis failed, using raw extracted text:', analyzeErr);
+                // Fetch user language for better refinement
+                const user = await (prisma.user as any).findUnique({
+                    where: { id: patientId },
+                    select: { preferredLanguage: true }
+                });
+                const userLang = user?.preferredLanguage || 'en';
+                
+                console.log(`[Upload] Refining extracted text (Lang: ${userLang})...`);
+                refinedText = await ocrRefiner.refine(extractedText, userLang);
+                console.log(`[Upload] Refinement complete. New length: ${refinedText.length}`);
+            } catch (refineErr) {
+                console.warn('[Upload] Refinement failed, using raw extraction:', refineErr);
             }
         }
 
-        // Build the summary: AI summary preferred, then clean extracted text, then notes
+        // ── STEP 3: AI Analysis on extracted text (if any) ──────────────
+        let aiAnalysis: any = {};
+        if (refinedText) {
+            try {
+                console.log('[Upload] Sending refined text to ML /analyze...');
+                const { data } = await callMLWithRetry(() => 
+                    axios.post(`${ML_SERVICE_URL}/analyze`, { text: refinedText }, { timeout: 30000 })
+                );
+                aiAnalysis = data;
+            } catch (analyzeErr) {
+                console.warn('[Upload] AI analysis failed, using refined text:', analyzeErr);
+            }
+        }
+
+        // Build the summary: AI summary preferred, then refined text, then notes
         const summaryParts: string[] = [];
         if (notes) summaryParts.push(notes);
         if (aiAnalysis.summary) {
             summaryParts.push(aiAnalysis.summary);
-        } else if (extractedText) {
-            summaryParts.push(`--- Extracted Report Content ---\n${extractedText}`);
+        } else if (refinedText) {
+            summaryParts.push(refinedText);
         }
+
         const finalSummary = summaryParts.join('\n\n') || 'Manually uploaded report';
 
         const report = await (prisma.report as any).create({
             data: {
                 patientId,
                 diagnosis: aiAnalysis.condition || diagnosis || (fileName ? `Uploaded: ${fileName}` : 'External Report'),
-                confidenceScore: parseFloat(aiAnalysis.confidence) || 0,
+                confidenceScore: aiAnalysis.confidence ? parseFloat(aiAnalysis.confidence) : null,
                 precautions: aiAnalysis.suggestions || [],
                 chatTranscript: {},
                 summary: finalSummary,
@@ -371,5 +434,36 @@ export const uploadReport = async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Upload Report Error:', error);
         res.status(500).json({ message: 'Server error uploading report', error: error.message });
+    }
+};
+/**
+ * Delete a report by ID
+ */
+export const deleteReport = async (req: any, res: any) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id; // User must own the report to delete it
+
+        // Check if report exists and belongs to user
+        const report = await prisma.report.findUnique({
+            where: { id: id }
+        });
+
+        if (!report) {
+            return res.status(404).json({ message: 'Report not found' });
+        }
+
+        if (report.patientId !== userId) {
+            return res.status(403).json({ message: 'Not authorized to delete this report' });
+        }
+
+        await prisma.report.delete({
+            where: { id: id }
+        });
+
+        res.status(200).json({ message: 'Report deleted successfully' });
+    } catch (error: any) {
+        console.error('Delete Report Error:', error);
+        res.status(500).json({ message: 'Server error deleting report', error: error.message });
     }
 };

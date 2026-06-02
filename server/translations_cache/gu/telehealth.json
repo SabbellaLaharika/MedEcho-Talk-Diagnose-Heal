@@ -1,0 +1,19 @@
+{
+  "liveCall": "લાઈવ કોલ",
+  "incomingCall": "ઇનકમિંગ કૉલ...",
+  "inCall": "કૉલમાં",
+  "calling": "કૉલ કરી રહ્યાં છીએ...",
+  "endCall": "અંત",
+  "webRtcNote": "WebRTC લિંક સક્રિય.",
+  "callFrom": "તરફથી કૉલ કરો",
+  "callingUser": "કૉલિંગ",
+  "aiContextReceived": "સંદર્ભ સમન્વયિત.",
+  "micDenied": "માઇક નામંજૂર.",
+  "sttError": "વાણીમાં ભૂલ.",
+  "aiServiceError": "AI ઑફલાઇન.",
+  "unassigned": "અસાઇન કરેલ",
+  "clinicalConsult": "પરામર્શ",
+  "consultProfessional": "નિષ્ણાતની સલાહ લો.",
+  "aiMedicalIntake": "AI ઇન્ટેક",
+  "recordFiled": "દાખલ કરેલ"
+}

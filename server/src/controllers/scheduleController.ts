@@ -1,7 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 // Get doctor's weekly schedule
 export const getSchedule = async (req: Request, res: Response) => {
@@ -24,9 +22,9 @@ export const getSchedule = async (req: Request, res: Response) => {
         }
 
         res.json(schedules);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error fetching schedule' });
+    } catch (error: any) {
+        console.error('Error fetching schedule:', error);
+        res.status(500).json({ message: 'Server error fetching schedule', error: error.message });
     }
 };
 
@@ -34,27 +32,32 @@ export const getSchedule = async (req: Request, res: Response) => {
 export const saveSchedule = async (req: Request, res: Response) => {
     try {
         const { doctorId } = req.params;
-        const { days } = req.body; // Array of { dayIndex, startTime, endTime, isActive }
+        const { days } = req.body;
 
-        // Start a transaction: Clear all old schedule for this doctor and add new ones
+        if (!Array.isArray(days)) {
+            return res.status(400).json({ message: 'Days must be an array' });
+        }
+
+        console.log(`Saving schedule for doctor ${doctorId}:`, days);
+
         await prisma.$transaction([
             prisma.doctorSchedule.deleteMany({ where: { doctorId } }),
             prisma.doctorSchedule.createMany({
                 data: days.map((day: any) => ({
                     doctorId,
-                    dayIndex: day.dayIndex,
+                    dayIndex: parseInt(day.dayIndex),
                     startTime: day.startTime,
                     endTime: day.endTime,
-                    isActive: day.isActive
+                    isActive: !!day.isActive
                 }))
             })
         ]);
 
         const updated = await prisma.doctorSchedule.findMany({ where: { doctorId }, orderBy: { dayIndex: 'asc' } });
         res.json(updated);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error saving schedule' });
+    } catch (error: any) {
+        console.error('Error saving schedule:', error);
+        res.status(500).json({ message: 'Server error saving schedule', error: error.message });
     }
 };
 

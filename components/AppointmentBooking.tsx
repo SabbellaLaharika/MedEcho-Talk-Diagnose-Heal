@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { dbService } from '../services/dbService';
 import api, { API_URL } from '../services/api';
-import { getTranslation, translateClinical, translateString, loadTranslations } from '../services/translations';
+import { getTranslation, translateString, loadTranslations } from '../services/translations';
 import TranslatedText from './TranslatedText';
 import { User, Appointment } from '../types';
 import {
@@ -16,11 +16,12 @@ import {
 
 interface AppointmentBookingProps {
   onBook: (appointment: Partial<Appointment>) => void;
+  onBookingComplete?: () => void;
   user: User;
   preselectedDoctorId?: string | null;
 }
 
-const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, preselectedDoctorId }) => {
+const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, onBookingComplete, user, preselectedDoctorId }) => {
   const t = getTranslation(user.preferredLanguage);
 
   useEffect(() => {
@@ -38,6 +39,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [bookedAptSummary, setBookedAptSummary] = useState<any>(null);
+  const [isBooking, setIsBooking] = useState(false);
   const [doctorSchedule, setDoctorSchedule] = useState<any[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<any[]>([]);
 
@@ -149,13 +151,15 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
   // 7. MEMOIZED AVAILABLE SLOTS
   const availableSlots = useMemo(() => {
     if (!selectedDoc || !date) return [];
-    const bookingDate = new Date(date);
-    const dayOfWeek = bookingDate.getUTCDay();
+    // Parse YYYY-MM-DD string consistently. new Date(date) can be UTC or local depending on browser.
+    // Specifying time 12:00 avoids date shifts across timezones.
+    const bookingDate = new Date(`${date}T12:00:00`);
+    const dayOfWeek = bookingDate.getDay(); // 0-6
 
     let schedules = doctorSchedule.filter((s: any) => s.dayIndex === dayOfWeek && s.isActive);
 
     // Default 9-6 schedule if none provided
-    if (schedules.length === 0 && doctorSchedule.length === 0) {
+    if (doctorSchedule.length === 0) {
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
         schedules.push({ startTime: '09:00', endTime: '18:00', isActive: true });
       }
@@ -190,7 +194,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
     const now = new Date();
     const today = now.toISOString().split('T')[0];
     if (date !== today) return false;
-    
+
     const [h, m] = time.split(':').map(Number);
     const currentH = now.getHours();
     const currentM = now.getMinutes();
@@ -199,7 +203,8 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
   };
 
   // 8. HANDLERS
-  const handleBookClick = () => {
+  const handleBookClick = async () => {
+    setIsBooking(true);
     const summary = {
       doctorId: selectedDoc.id,
       doctorName: selectedDoc.name,
@@ -209,8 +214,19 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
       time: selectedTime,
       type
     };
-    setBookedAptSummary(summary);
-    setShowSuccessModal(true);
+    
+    // Instead of showing modal immediately, attempt booking
+    try {
+      const success = await onBook(summary);
+      if (success) {
+        setBookedAptSummary(summary);
+        setShowSuccessModal(true);
+        // Emit to server so others see this slot as taken
+        socketRef.current?.emit("new_appointment", summary);
+      }
+    } finally {
+      setIsBooking(false);
+    }
   };
 
   const confirmFinalBooking = () => {
@@ -220,6 +236,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
       socketRef.current?.emit("new_appointment", bookedAptSummary);
     }
     setShowSuccessModal(false);
+    if (onBookingComplete) onBookingComplete();
   };
 
   const filteredDoctors = doctors.filter(doc =>
@@ -232,8 +249,12 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
       {/* Header & Search */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight uppercase">{t.bookVisit}</h2>
-          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">{t.selectTime}</p>
+          <h2 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight uppercase">
+            <TranslatedText text={t.bookVisit} lang={user.preferredLanguage} />
+          </h2>
+          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">
+            <TranslatedText text={t.selectTime} lang={user.preferredLanguage} />
+          </p>
         </div>
         <div className="relative w-full md:w-96">
           <MagnifyingGlassIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
@@ -250,7 +271,9 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         {/* Doctor List */}
         <div className={`lg:col-span-5 space-y-4 ${selectedDoc ? 'hidden lg:block' : 'block'}`}>
-          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t.specialists}</label>
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+            <TranslatedText text={t.specialists} lang={user.preferredLanguage} />
+          </label>
           <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
             {loading ? (
               // Skeleton Loaders
@@ -269,17 +292,19 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
             ) : filteredDoctors.length === 0 ? (
               <div className="text-center py-10 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
                 <NoSymbolIcon className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-                <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">{t.noDoctorsFound}</p>
+                <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">
+                  <TranslatedText text={t.noDoctorsFound} lang={user.preferredLanguage} />
+                </p>
               </div>
             ) : (
               filteredDoctors.map((doc) => (
-                <button
+                <div
                   key={doc.id}
                   onClick={() => { setSelectedDoc(doc); setSelectedTime(null); }}
-                  className={`w-full p-6 rounded-[2rem] border-2 flex items-center justify-between transition-all ${selectedDoc?.id === doc.id ? 'border-indigo-600 bg-white shadow-xl' : 'border-slate-50 bg-white/50 hover:border-indigo-100'
+                  className={`w-full p-6 rounded-[2rem] border-2 flex items-center justify-between transition-all overflow-hidden cursor-pointer ${selectedDoc?.id === doc.id ? 'border-indigo-600 bg-white shadow-xl' : 'border-slate-50 bg-white/50 hover:border-indigo-100'
                     }`}
                 >
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-4 min-w-0">
                     <div className="relative flex-shrink-0">
                       <img src={doc.avatar} alt={doc.name} className="w-16 h-16 rounded-2xl object-cover border border-slate-50 shadow-sm" />
                       <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${doc.isAvailable ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
@@ -289,25 +314,35 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
                         <TranslatedText text={doc.name} lang={user.preferredLanguage} />
                       </p>
                       <p className="text-[10px] font-black text-indigo-500 uppercase mt-1 truncate">
-                        {translateClinical(doc.specialization || '', user.preferredLanguage)}
+                        <TranslatedText text={doc.specialization || ''} lang={user.preferredLanguage} />
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={(e) => {
                         e.stopPropagation();
                         const phone = doc.contact || '6300292724';
                         const clean = phone.replace(/[^\d+]/g, '');
                         if (clean.length > 0) window.location.href = `tel:${clean}`;
                       }}
-                      className="text-[10px] font-black uppercase text-white bg-emerald-500 px-2 py-1 rounded-full"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                          const phone = doc.contact || '6300292724';
+                          const clean = phone.replace(/[^\d+]/g, '');
+                          if (clean.length > 0) window.location.href = `tel:${clean}`;
+                        }
+                      }}
+                      className="text-[10px] font-black uppercase text-white bg-emerald-500 px-3 py-1.5 rounded-full hover:bg-emerald-600 transition-colors cursor-pointer"
                     >
-                      {t.call}
-                    </button>
+                      <TranslatedText text={t.call} lang={user.preferredLanguage} />
+                    </div>
                     <ChevronRightIcon className={`w-4 h-4 ${selectedDoc?.id === doc.id ? 'text-indigo-600' : 'text-slate-200'}`} />
                   </div>
-                </button>
+                </div>
               ))
             )}
           </div>
@@ -319,7 +354,9 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
             <div className="flex-1 flex flex-col">
               <div className="p-10 border-b bg-slate-50/50 flex flex-col gap-6">
                 <div className="flex justify-between items-start">
-                  <button onClick={() => setSelectedDoc(null)} className="lg:hidden text-[10px] font-black uppercase text-indigo-600 underline">← {t.backToList}</button>
+                  <button onClick={() => setSelectedDoc(null)} className="lg:hidden text-[10px] font-black uppercase text-indigo-600 underline">
+                    ← <TranslatedText text={t.backToList} lang={user.preferredLanguage} />
+                  </button>
                   <input
                     type="date"
                     value={date}
@@ -333,8 +370,12 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
                     <TranslatedText text={selectedDoc.name} lang={user.preferredLanguage} />
                   </h3>
                   <div className="flex gap-2">
-                    <button onClick={() => setType('IN_PERSON')} className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'IN_PERSON' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-400'}`}>{t.inPerson}</button>
-                    <button onClick={() => setType('VIRTUAL')} className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'VIRTUAL' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-400'}`}>{t.virtual}</button>
+                    <button onClick={() => setType('IN_PERSON')} className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'IN_PERSON' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-400'}`}>
+                      <TranslatedText text={t.inPerson} lang={user.preferredLanguage} />
+                    </button>
+                    <button onClick={() => setType('VIRTUAL')} className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${type === 'VIRTUAL' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-400'}`}>
+                      <TranslatedText text={t.virtual} lang={user.preferredLanguage} />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -368,7 +409,9 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
                   </div>
                 ) : (
                   <div className="h-48 flex flex-col items-center justify-center text-center p-8 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-100">
-                    <p className="text-slate-300 font-bold uppercase text-[10px]">{t.noAvailability}</p>
+                    <p className="text-slate-300 font-bold uppercase text-[10px]">
+                      <TranslatedText text={t.noAvailability} lang={user.preferredLanguage} />
+                    </p>
                   </div>
                 )}
               </div>
@@ -376,11 +419,17 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
               <div className="p-10 pt-0">
                 <button
                   onClick={handleBookClick}
-                  disabled={!selectedTime}
+                  disabled={!selectedTime || isBooking}
                   className="w-full py-5 bg-slate-900 text-white rounded-2xl flex items-center justify-center space-x-2 font-black uppercase text-xs tracking-widest disabled:opacity-20"
                 >
-                  <CheckBadgeIcon className="w-4 h-4" />
-                  <span>{t.reviewAndBook}</span>
+                  {isBooking ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <CheckBadgeIcon className="w-4 h-4" />
+                  )}
+                  <span>
+                    {isBooking ? <TranslatedText text="Booking..." lang={user.preferredLanguage} /> : <TranslatedText text={t.reviewAndBook} lang={user.preferredLanguage} />}
+                  </span>
                 </button>
               </div>
             </div>
@@ -390,8 +439,12 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
                 <UserIcon className="w-16 h-16" />
               </div>
               <div>
-                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-2">{t.selectSpecialist}</h3>
-                <p className="text-slate-400 text-sm max-w-xs mx-auto">{t.searchSpecialists}</p>
+                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-2">
+                  <TranslatedText text={t.selectSpecialist} lang={user.preferredLanguage} />
+                </h3>
+                <p className="text-slate-400 text-sm max-w-xs mx-auto">
+                  <TranslatedText text={t.searchSpecialists} lang={user.preferredLanguage} />
+                </p>
               </div>
             </div>
           )}
@@ -404,18 +457,24 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
           <div className="bg-white w-full max-w-sm rounded-[3.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="bg-emerald-600 p-10 flex flex-col items-center text-white text-center">
               <CheckCircleIcon className="w-12 h-12 mb-4" />
-              <h3 className="text-2xl font-black uppercase">{t.confirmed}</h3>
+              <h3 className="text-2xl font-black uppercase">
+                <TranslatedText text={t.confirmed} lang={user.preferredLanguage} />
+              </h3>
             </div>
             <div className="p-10 space-y-6">
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400 font-black uppercase text-[10px]">{t.doctor}</span>
+                  <span className="text-slate-400 font-black uppercase text-[10px]">
+                    <TranslatedText text={t.doctor} lang={user.preferredLanguage} />
+                  </span>
                   <span className="font-black text-slate-800">
                     <TranslatedText text={bookedAptSummary.doctorName} lang={user.preferredLanguage} />
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400 font-black uppercase text-[10px]">{t.time}</span>
+                  <span className="text-slate-400 font-black uppercase text-[10px]">
+                    <TranslatedText text={t.time} lang={user.preferredLanguage} />
+                  </span>
                   <span className="font-black text-slate-800">{bookedAptSummary.date} @ {bookedAptSummary.time}</span>
                 </div>
               </div>
@@ -423,7 +482,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, user, p
                 onClick={confirmFinalBooking}
                 className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest"
               >
-                {t.dashboard}
+                <TranslatedText text={t.dashboard} lang={user.preferredLanguage} />
               </button>
             </div>
           </div>

@@ -1,0 +1,9 @@
+{
+  "medicationReminderBody": "এটি আপনার {ঔষধ} নেওয়ার সময়।",
+  "appointmentReminderTitle": "আসন্ন অ্যাপয়েন্টমেন্ট",
+  "appointmentReminderBody": "সেশন শুরু হয় 15 মিনিটের মধ্যে।",
+  "appointmentReminderBodyDoc": "15 মিনিটের মধ্যে পরবর্তী রোগী।",
+  "appointmentCancelled": "অ্যাপয়েন্টমেন্ট বাতিল করা হয়েছে",
+  "appointmentCancelledBody": "প্রদানকারীর দ্বারা সেশন বাতিল করা হয়েছে।",
+  "cancellationNoticeSubj": "MedEcho: বাতিলকরণ বিজ্ঞপ্তি"
+}

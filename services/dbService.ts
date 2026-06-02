@@ -24,7 +24,7 @@ export const mapBackendReportToFrontend = (report: any): MedicalReport => {
       diagnosis: diagnosis, // Ensure it's a valid string
       medications: Array.isArray(report.medications) ? report.medications : [],
       prescription: Array.isArray(report.precautions) ? report.precautions : (Array.isArray(report.prescription) ? report.prescription : []),
-      aiConfidence: Number(report.confidenceScore) || 0,
+      confidenceScore: Number(report.confidenceScore) || 0,
       reportType: report.reportType || 'AI',
       fileUrl: report.fileUrl || undefined,
       fileName: report.fileName || undefined,
@@ -66,7 +66,7 @@ export const mapBackendReportToFrontend = (report: any): MedicalReport => {
       summary: 'Unable to load report details',
       diagnosis: 'Error loading diagnosis',
       prescription: [],
-      aiConfidence: 0,
+      confidenceScore: 0,
       vitals: {}
     };
   }
@@ -78,22 +78,22 @@ export const dbService = {
   },
 
   auth: {
-    register: async (user: User, password?: string): Promise<User> => {
+    register: async (user: User, password?: string): Promise<{ user: User, sessionId: string }> => {
       // Send password with user data
       const payload = { ...user, password: password || '123456' };
       const { data } = await api.post('auth/register', payload);
-      localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(data)); // Save { token, user }
-      return data.user;
+      localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(data)); // Save { token, user, sessionId }
+      return data;
     },
-    login: async (email: string, password?: string): Promise<User> => {
+
+    login: async (email: string, password?: string): Promise<{ user: User, sessionId: string }> => {
       // For now, sending email as password for simplicity in existing mock flow
-      // In real app, we need password field in UI
-      // Use provided password or default to '123456' for demo accounts
       const defaultPassword = '123456';
       const { data } = await api.post('auth/login', { email, password: password || defaultPassword });
-      localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(data)); // Save { token, user }
-      return data.user;
+      localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(data)); // Save { token, user, sessionId }
+      return data;
     },
+
     updateUser: async (updatedUser: User): Promise<User> => {
       const { data } = await api.put('auth/update', updatedUser);
       const currentSession = JSON.parse(localStorage.getItem(KEYS.CURRENT_USER) || '{}');
@@ -113,8 +113,13 @@ export const dbService = {
     getCurrentUser: (): User | null => {
       const data = localStorage.getItem(KEYS.CURRENT_USER);
       return data ? JSON.parse(data).user : null;
+    },
+    getCurrentSessionId: (): string | null => {
+      const data = localStorage.getItem(KEYS.CURRENT_USER);
+      return data ? JSON.parse(data).sessionId : null;
     }
   },
+
 
   appointments: {
     getAll: async (): Promise<Appointment[]> => {
@@ -124,7 +129,11 @@ export const dbService = {
       return data;
     },
     create: async (apt: Appointment): Promise<Appointment> => {
-      const { data } = await api.post('appointments', apt);
+      const payload = { 
+        ...apt, 
+        timezoneOffset: new Date().getTimezoneOffset() 
+      };
+      const { data } = await api.post('appointments', payload);
       return data;
     },
     update: async (updatedApt: Appointment): Promise<Appointment> => {
@@ -219,6 +228,38 @@ export const dbService = {
     markAllAsRead: async (): Promise<void> => {
       const user = dbService.auth.getCurrentUser();
       if (user) await api.put(`notifications/user/${user.id}/read-all`);
+    }
+  },
+  
+  reminders: {
+    getAll: async () => {
+      const user = dbService.auth.getCurrentUser();
+      if (!user) return [];
+      const { data } = await api.get('reminders');
+      return data;
+    },
+    create: async (reminderData: any) => {
+      // Align with backend expectation: { medications: [...], reportId: null }
+      const payload = {
+        medications: [{
+          name: reminderData.medicationName,
+          dosage: reminderData.dosage,
+          unit: reminderData.unit,
+          times: reminderData.remindTimes,
+          days: reminderData.durationDays
+        }],
+        reportId: null,
+        timezoneOffset: new Date().getTimezoneOffset()
+      };
+      const { data } = await api.post('reminders', payload);
+      return data;
+    },
+    toggle: async (id: string, active: boolean) => {
+      const { data } = await api.patch(`reminders/${id}/toggle`, { active });
+      return data;
+    },
+    delete: async (id: string) => {
+      await api.delete(`reminders/${id}`);
     }
   }
 };

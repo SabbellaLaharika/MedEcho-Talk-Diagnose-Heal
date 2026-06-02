@@ -1,0 +1,8 @@
+{
+  "medicineName": "ওষুধের নাম",
+  "dosagePlaceholder": "ডোজ",
+  "daysPlaceholder": "দিন",
+  "noPrescriptionsAdded": "এখনো কোনো প্রেসক্রিপশন যোগ করা হয়নি",
+  "discardDraft": "খসড়া বাতিল করুন",
+  "verifyAndSend": "যাচাই করুন এবং পাঠান"
+}

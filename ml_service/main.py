@@ -159,6 +159,20 @@ def analyze():
     
     # Safely handle input
     raw_text = str(transcript)
+    
+    # ── NEW: Translate transcript to English for analysis if it's not English ──
+    try:
+        # Detect if transcript has non-ascii characters (likely non-English)
+        if any(ord(c) > 127 for c in raw_text):
+            print("[analyze] Non-ASCII detected in transcript, translating to English...")
+            # We don't know the exact lang per line, so we translate the whole block
+            # GoogleTranslator handles auto-detect effectively
+            raw_text = GoogleTranslator(source='auto', target='en').translate(raw_text)
+            print(f"[analyze] Translated transcript: {raw_text[:100]}...")
+    except Exception as e:
+        print(f"[analyze] Translation error: {e}")
+        # Fallback to original text
+
     lines = raw_text.strip().split('\n')
     
     for line in lines:
@@ -196,11 +210,30 @@ def analyze():
         if clean_s and any(key in clean_s.lower() for key in suggestion_keywords):
             suggestions.append(clean_s)
 
-    common_meds = ["paracetamol", "crocin", "dolo", "antibiotic", "amoxicillin", "cough syrup", "cetirizine", "aspirin", "insulin", "metformin", "omeprazole", "pantoprazole", "allegra", "zyrtec", "vicodin", "ibuprofen", "advil", "motrin", "tylenol"]
+    # --- SMART MEDICATION EXTRACTION (Level 1: Dictionary + Level 2: Dosage Patterns) ---
+    common_meds = ["paracetamol", "crocin", "dolo", "antibiotic", "amoxicillin", "cough syrup", "cetirizine", "aspirin", "insulin", "metformin", "omeprazole", "pantoprazole", "allegra", "zyrtec", "vicodin", "ibuprofen", "advil", "motrin", "tylenol", "azithromycin", "vitamin", "zinc", "ascorbic"]
     meds_found = []
+    
+    # Check dictionary
     for m in common_meds:
         if m in doctor_combined.lower() or m in patient_combined.lower():
             meds_found.append(m.capitalize())
+
+    # Check for Dosage Patterns (e.g., "MedicineName 500mg" or "Syrup 5ml")
+    # Matches: [Word] followed by [Number] + [mg|ml|mcg|tablet|cap]
+    dosage_pattern = r'\b([A-Z][a-z]+|[a-z]{3,})\s+(?:\d+(?:\.\d+)?)\s*(?:mg|ml|mcg|tablet|cap|capsule|units)\b'
+    dosage_matches = re.findall(dosage_pattern, doctor_combined, re.IGNORECASE)
+    for dm in dosage_matches:
+        meds_found.append(dm.strip().capitalize())
+
+    # Check for Sentence Context (e.g., "Take [Word]")
+    context_pattern = r'\b(?:take|prescribing|using|apply|starting|dose of)\s+([A-Z][a-z]+|[a-z]{3,})\b'
+    context_matches = re.findall(context_pattern, doctor_combined, re.IGNORECASE)
+    for cm in context_matches:
+        if cm.lower() not in ["dose", "this", "some", "your", "the"]:
+            meds_found.append(cm.strip().capitalize())
+
+    meds_found = list(set(meds_found)) # Remove duplicates
 
     if not suggestions and doctor_combined.strip():
         suggestions = [doctor_combined.strip()]
@@ -262,8 +295,6 @@ def translate():
     
     if target_lang in norm:
         target_lang = norm[target_lang]
-    elif target_lang == 'auto' or target_lang == 'au':
-        target_lang = 'en'
     else:
         target_lang = target_lang[:2]
 
@@ -295,8 +326,6 @@ def translate_batch():
     
     if target_lang in norm:
         target_lang = norm[target_lang]
-    elif target_lang == 'auto' or target_lang == 'au':
-        target_lang = 'en'
     else:
         target_lang = target_lang[:2]
 

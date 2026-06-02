@@ -1,0 +1,19 @@
+{
+  "liveCall": "ప్రత్యక్ష కాల్",
+  "incomingCall": "ఇన్‌కమింగ్ కాల్...",
+  "inCall": "కాల్ లో",
+  "calling": "కాల్ చేస్తోంది...",
+  "endCall": "ముగింపు",
+  "webRtcNote": "WebRTC లింక్ సక్రియం.",
+  "callFrom": "నుండి కాల్",
+  "callingUser": "పిలుస్తోంది",
+  "aiContextReceived": "సందర్భం సమకాలీకరించబడింది.",
+  "micDenied": "మైక్ తిరస్కరించబడింది.",
+  "sttError": "ప్రసంగ లోపం.",
+  "aiServiceError": "AI ఆఫ్‌లైన్.",
+  "unassigned": "కేటాయించబడలేదు",
+  "clinicalConsult": "సంప్రదింపులు",
+  "consultProfessional": "నిపుణుడిని సంప్రదించండి.",
+  "aiMedicalIntake": "AI తీసుకోవడం",
+  "recordFiled": "దాఖలు చేశారు"
+}

@@ -1,0 +1,19 @@
+{
+  "liveCall": "ಲೈವ್ ಕರೆ",
+  "incomingCall": "ಒಳಬರುವ ಕರೆ...",
+  "inCall": "ಕರೆಯಲ್ಲಿ",
+  "calling": "ಕರೆ ಮಾಡಲಾಗುತ್ತಿದೆ...",
+  "endCall": "ಅಂತ್ಯ",
+  "webRtcNote": "WebRTC ಲಿಂಕ್ ಸಕ್ರಿಯವಾಗಿದೆ.",
+  "callFrom": "ನಿಂದ ಕರೆ ಮಾಡಿ",
+  "callingUser": "ಕರೆ ಮಾಡಲಾಗುತ್ತಿದೆ",
+  "aiContextReceived": "ಸಂದರ್ಭವನ್ನು ಸಿಂಕ್ರೊನೈಸ್ ಮಾಡಲಾಗಿದೆ.",
+  "micDenied": "ಮೈಕ್ ನಿರಾಕರಿಸಲಾಗಿದೆ.",
+  "sttError": "ಮಾತಿನ ದೋಷ.",
+  "aiServiceError": "AI ಆಫ್‌ಲೈನ್.",
+  "unassigned": "ನಿಯೋಜಿಸಲಾಗಿಲ್ಲ",
+  "clinicalConsult": "ಸಮಾಲೋಚನೆ",
+  "consultProfessional": "ತಜ್ಞರನ್ನು ಸಂಪರ್ಕಿಸಿ.",
+  "aiMedicalIntake": "AI ಸೇವನೆ",
+  "recordFiled": "ಸಲ್ಲಿಸಲಾಗಿದೆ"
+}

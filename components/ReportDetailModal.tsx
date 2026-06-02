@@ -12,14 +12,29 @@ interface ReportDetailModalProps {
 }
 
 const ReportDetailModal: React.FC<ReportDetailModalProps> = ({ report, user, onClose }) => {
+  const [printLang, setPrintLang] = React.useState(user?.preferredLanguage || 'en');
   const t = getTranslation(user?.preferredLanguage);
+  
   const handlePrint = () => {
     window.print();
   };
 
+  const languages = [
+    { code: 'en', name: 'English' },
+    { code: 'hi', name: 'हिन्दी (Hindi)' },
+    { code: 'te', name: 'తెలుగు (Telugu)' },
+    { code: 'ta', name: 'தமிழ் (Tamil)' },
+    { code: 'mr', name: 'मराठी (Marathi)' },
+    { code: 'bn', name: 'বাংলা (Bengali)' },
+    { code: 'kn', name: 'ಕನ್ನಡ (Kannada)' },
+    { code: 'ml', name: 'മലയാളം (Malayalam)' },
+    { code: 'gu', name: 'ગુજરાતી (Gujarati)' },
+    { code: 'pa', name: 'ਪੰਜਾਬੀ (Punjabi)' },
+  ];
+
   return (
     <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 sm:p-10 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
-       <style>{`
+      <style>{`
          @media print {
            body * { visibility: hidden !important; }
            #printable-area-modal, #printable-area-modal * { visibility: visible !important; }
@@ -38,33 +53,44 @@ const ReportDetailModal: React.FC<ReportDetailModalProps> = ({ report, user, onC
          }
        `}</style>
 
-       <div className="bg-white w-full max-w-4xl max-h-[95vh] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
-         <div className="p-6 bg-slate-100 flex justify-between items-center flex-shrink-0 no-print">
-           <div className="flex items-center space-x-2">
-             <div className="p-2 bg-slate-800 text-white rounded-lg">
-               <PrinterIcon className="w-4 h-4" />
-             </div>
-             <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{t.docViewer}</h3>
-           </div>
-           <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-all">
-             <XMarkIcon className="w-6 h-6 text-slate-500" />
-           </button>
-         </div>
-
-         <div className="flex-1 overflow-y-auto p-4 sm:p-10 bg-slate-200/30 custom-scrollbar">
-            <div id="printable-area-modal">
-              <ClinicalReportPaper report={report} user={user} idSuffix="-modal" />
+      <div className="bg-white w-full max-w-4xl max-h-[95vh] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+        <div className="p-6 bg-slate-100 flex justify-between items-center flex-shrink-0 no-print">
+          <div className="flex items-center space-x-2">
+            <div className="p-2 bg-slate-800 text-white rounded-lg">
+              <PrinterIcon className="w-4 h-4" />
             </div>
-         </div>
+            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{t.docViewer}</h3>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-all">
+            <XMarkIcon className="w-6 h-6 text-slate-500" />
+          </button>
+        </div>
 
-         <div className="p-8 bg-white border-t flex space-x-4 no-print">
-           <button onClick={handlePrint} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center space-x-3">
-             <PrinterIcon className="w-4 h-4" />
-             <span>{t.printPdf}</span>
-           </button>
-           <button onClick={onClose} className="flex-1 py-4 bg-white border border-slate-200 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-100 transition-all">{t.close}</button>
-         </div>
-       </div>
+        <div className="flex-1 overflow-y-auto p-4 sm:p-10 bg-slate-200/30 custom-scrollbar">
+          <div id="printable-area-modal">
+            <ClinicalReportPaper report={report} user={user} idSuffix="-modal" lang={printLang} />
+          </div>
+        </div>
+
+        <div className="p-8 bg-white border-t flex flex-wrap gap-4 no-print sm:items-center">
+          <div className="flex items-center space-x-3 bg-slate-50 px-5 py-3 rounded-2xl border border-slate-100 flex-1 sm:flex-none">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.language}:</span>
+            <select 
+              value={printLang}
+              onChange={(e) => setPrintLang(e.target.value)}
+              className="bg-transparent border-none text-[10px] font-black text-indigo-600 uppercase focus:ring-0 cursor-pointer"
+            >
+              {languages.map(l => <option key={l.code} value={l.code}>{l.name}</option>)}
+            </select>
+          </div>
+          
+          <button onClick={handlePrint} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center space-x-3">
+            <PrinterIcon className="w-4 h-4" />
+            <span>{t.printPdf}</span>
+          </button>
+          <button onClick={onClose} className="px-8 py-4 bg-white border border-slate-200 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-100 transition-all">{t.close}</button>
+        </div>
+      </div>
     </div>
   );
 };

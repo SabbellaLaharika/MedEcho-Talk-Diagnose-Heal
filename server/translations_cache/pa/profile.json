@@ -1,0 +1,20 @@
+{
+  "coreDemographics": "ਕੋਰ ਜਨਸੰਖਿਆ",
+  "bloodGroup": "ਬਲੱਡ ਗਰੁੱਪ",
+  "selectBloodGroup": "ਬਲੱਡ ਗਰੁੱਪ ਚੁਣੋ",
+  "selectGender": "ਲਿੰਗ ਚੁਣੋ",
+  "dateOfBirth": "ਜਨਮ ਤਾਰੀਖ",
+  "contactInfrastructure": "ਬੁਨਿਆਦੀ ਢਾਂਚੇ ਨਾਲ ਸੰਪਰਕ ਕਰੋ",
+  "primaryEmail": "ਪ੍ਰਾਇਮਰੀ ਈਮੇਲ",
+  "mobileContact": "ਮੋਬਾਈਲ ਸੰਪਰਕ",
+  "residentialAddress": "ਰਿਹਾਇਸ਼ੀ ਪਤਾ",
+  "medicalProfileId": "ਮੈਡੀਕਲ ਪ੍ਰੋਫਾਈਲ ਆਈ.ਡੀ",
+  "enterAddress": "ਆਪਣਾ ਪੂਰਾ ਰਿਹਾਇਸ਼ੀ ਪਤਾ ਦਰਜ ਕਰੋ...",
+  "editProfile": "ਨਿੱਜੀ ਪ੍ਰੋਫਾਈਲ ਨੂੰ ਸੰਪਾਦਿਤ ਕਰੋ",
+  "profileSyncDesc": "ਤੁਹਾਡਾ ਮੈਡੀਕਲ ਪ੍ਰੋਫਾਈਲ ਸਮਕਾਲੀ ਕੀਤਾ ਗਿਆ ਹੈ।",
+  "securityStatus": "ਸੁਰੱਖਿਆ ਸਥਿਤੀ",
+  "systemAuthenticated": "ਸਿਸਟਮ ਪ੍ਰਮਾਣਿਤ",
+  "changePassword": "ਪਾਸਵਰਡ ਬਦਲੋ",
+  "securityDesc": "AES-256 ਪ੍ਰੋਟੋਕੋਲ ਦੀ ਵਰਤੋਂ ਕਰਕੇ ਕਲੀਨਿਕਲ ਡੇਟਾ ਨੂੰ ਐਨਕ੍ਰਿਪਟ ਕੀਤਾ ਗਿਆ ਹੈ।",
+  "updateProfileFail": "ਪ੍ਰੋਫਾਈਲ ਅੱਪਡੇਟ ਕਰਨ ਵਿੱਚ ਅਸਫਲ"
+}

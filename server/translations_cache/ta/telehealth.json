@@ -1,0 +1,19 @@
+{
+  "liveCall": "நேரடி அழைப்பு",
+  "incomingCall": "உள்வரும் அழைப்பு...",
+  "inCall": "அழைப்பில்",
+  "calling": "அழைக்கிறது...",
+  "endCall": "முடிவு",
+  "webRtcNote": "WebRTC இணைப்பு செயலில் உள்ளது.",
+  "callFrom": "இருந்து அழைப்பு",
+  "callingUser": "அழைப்பு",
+  "aiContextReceived": "சூழல் ஒத்திசைக்கப்பட்டது.",
+  "micDenied": "மைக் மறுக்கப்பட்டது.",
+  "sttError": "பேச்சு பிழை.",
+  "aiServiceError": "AI ஆஃப்லைன்.",
+  "unassigned": "ஒதுக்கப்படாதது",
+  "clinicalConsult": "ஆலோசனை",
+  "consultProfessional": "நிபுணர் ஆலோசனை.",
+  "aiMedicalIntake": "AI உட்கொள்ளல்",
+  "recordFiled": "தாக்கல் செய்யப்பட்டது"
+}

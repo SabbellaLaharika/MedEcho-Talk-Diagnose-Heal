@@ -1,0 +1,20 @@
+{
+  "coreDemographics": "కోర్ డెమోగ్రాఫిక్స్",
+  "bloodGroup": "బ్లడ్ గ్రూప్",
+  "selectBloodGroup": "బ్లడ్ గ్రూప్ ఎంచుకోండి",
+  "selectGender": "లింగాన్ని ఎంచుకోండి",
+  "dateOfBirth": "పుట్టిన తేదీ",
+  "contactInfrastructure": "మౌలిక సదుపాయాలను సంప్రదించండి",
+  "primaryEmail": "ప్రాథమిక ఇమెయిల్",
+  "mobileContact": "మొబైల్ పరిచయం",
+  "residentialAddress": "నివాస చిరునామా",
+  "medicalProfileId": "వైద్య ప్రొఫైల్ ID",
+  "enterAddress": "మీ పూర్తి నివాస చిరునామాను నమోదు చేయండి...",
+  "editProfile": "వ్యక్తిగత ప్రొఫైల్‌ను సవరించండి",
+  "profileSyncDesc": "మీ మెడికల్ ప్రొఫైల్ సింక్రొనైజ్ చేయబడింది.",
+  "securityStatus": "భద్రతా స్థితి",
+  "systemAuthenticated": "సిస్టమ్ ప్రామాణీకరించబడింది",
+  "changePassword": "పాస్‌వర్డ్ మార్చండి",
+  "securityDesc": "AES-256 ప్రోటోకాల్‌లను ఉపయోగించి క్లినికల్ డేటా ఎన్‌క్రిప్ట్ చేయబడింది.",
+  "updateProfileFail": "ప్రొఫైల్‌ను నవీకరించడంలో విఫలమైంది"
+}

@@ -12,3 +12,5 @@ PyPDF2
 pytesseract
 Pillow
 PyMuPDF
+SpeechRecognition
+pydub

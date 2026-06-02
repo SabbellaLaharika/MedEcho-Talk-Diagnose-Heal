@@ -1,0 +1,19 @@
+{
+  "liveCall": "লাইভ কল",
+  "incomingCall": "ইনকামিং কল...",
+  "inCall": "কলে",
+  "calling": "কল করা হচ্ছে...",
+  "endCall": "শেষ",
+  "webRtcNote": "WebRTC লিঙ্ক সক্রিয়।",
+  "callFrom": "থেকে কল করুন",
+  "callingUser": "কলিং",
+  "aiContextReceived": "প্রসঙ্গ সিঙ্ক্রোনাইজ করা হয়েছে।",
+  "micDenied": "মাইক অস্বীকার করেছে।",
+  "sttError": "বক্তৃতা ত্রুটি।",
+  "aiServiceError": "এআই অফলাইন।",
+  "unassigned": "আনঅ্যাসাইন করা হয়েছে",
+  "clinicalConsult": "পরামর্শ",
+  "consultProfessional": "বিশেষজ্ঞের সাথে পরামর্শ করুন।",
+  "aiMedicalIntake": "এআই ইনটেক",
+  "recordFiled": "ফাইল করা হয়েছে"
+}

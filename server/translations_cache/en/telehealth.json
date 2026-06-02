@@ -1,0 +1,19 @@
+{
+  "liveCall": "Live Call",
+  "incomingCall": "Incoming call...",
+  "inCall": "In call",
+  "calling": "Calling...",
+  "endCall": "End",
+  "webRtcNote": "WebRTC Link Active.",
+  "callFrom": "Call from",
+  "callingUser": "Calling",
+  "aiContextReceived": "Context synchronized.",
+  "micDenied": "Mic denied.",
+  "sttError": "Speech error.",
+  "aiServiceError": "AI offline.",
+  "unassigned": "Unassigned",
+  "clinicalConsult": "Consultation",
+  "consultProfessional": "Consult expert.",
+  "aiMedicalIntake": "AI Intake",
+  "recordFiled": "Filed"
+}

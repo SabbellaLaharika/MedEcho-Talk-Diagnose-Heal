@@ -1,0 +1,20 @@
+{
+  "coreDemographics": "कोर लोकसंख्याशास्त्र",
+  "bloodGroup": "रक्त गट",
+  "selectBloodGroup": "रक्त गट निवडा",
+  "selectGender": "लिंग निवडा",
+  "dateOfBirth": "जन्मतारीख",
+  "contactInfrastructure": "पायाभूत सुविधांशी संपर्क साधा",
+  "primaryEmail": "प्राथमिक ईमेल",
+  "mobileContact": "मोबाईल संपर्क",
+  "residentialAddress": "निवासी पत्ता",
+  "medicalProfileId": "वैद्यकीय प्रोफाइल आयडी",
+  "enterAddress": "तुमचा संपूर्ण निवासी पत्ता प्रविष्ट करा...",
+  "editProfile": "वैयक्तिक प्रोफाइल संपादित करा",
+  "profileSyncDesc": "तुमचे वैद्यकीय प्रोफाइल समक्रमित केले गेले आहे.",
+  "securityStatus": "सुरक्षा स्थिती",
+  "systemAuthenticated": "प्रणाली प्रमाणीकृत",
+  "changePassword": "पासवर्ड बदला",
+  "securityDesc": "AES-256 प्रोटोकॉल वापरून क्लिनिकल डेटा एन्क्रिप्ट केला जातो.",
+  "updateProfileFail": "प्रोफाइल अपडेट करण्यात अयशस्वी"
+}

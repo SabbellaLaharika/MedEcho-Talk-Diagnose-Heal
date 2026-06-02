@@ -1,0 +1,9 @@
+{
+  "medicationReminderBody": "It is time to take your {medicine}.",
+  "appointmentReminderTitle": "Upcoming Appointment",
+  "appointmentReminderBody": "Session starts in 15 mins.",
+  "appointmentReminderBodyDoc": "Next patient in 15 mins.",
+  "appointmentCancelled": "Appointment Cancelled",
+  "appointmentCancelledBody": "Session cancelled by provider.",
+  "cancellationNoticeSubj": "MedEcho: Cancellation Notice"
+}

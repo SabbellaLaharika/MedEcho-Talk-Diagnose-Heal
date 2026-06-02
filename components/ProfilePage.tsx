@@ -227,16 +227,16 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
                   onChange={e => setFormData({ ...formData, preferredLanguage: e.target.value })}
                   className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl py-4 px-6 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all disabled:opacity-50 appearance-none"
                 >
-                  <option value="en">English (Global)</option>
-                  <option value="hi">Hindi (हिन्दी)</option>
-                  <option value="te">Telugu (తెలుగు)</option>
-                  <option value="ta">Tamil (தமிழ்)</option>
-                  <option value="mr">Marathi (मराठी)</option>
-                  <option value="bn">Bengali (বাংলা)</option>
-                  <option value="kn">Kannada (ಕನ್ನಡ)</option>
-                  <option value="ml">Malayalam (മലയാളം)</option>
-                  <option value="gu">Gujarati (ગુજરાતી)</option>
-                  <option value="pa">Punjabi (ਪੰਜਾਬੀ)</option>
+                  <option value="en">{t.languageGlobal || 'English (Global)'}</option>
+                  <option value="hi">{t.hindiLL || 'Hindi (हिन्दी)'}</option>
+                  <option value="te">{t.teluguLL || 'Telugu (తెలుగు)'}</option>
+                  <option value="ta">{t.tamilLL || 'Tamil (தமிழ்)'}</option>
+                  <option value="mr">{t.marathiLL || 'Marathi (मराठी)'}</option>
+                  <option value="bn">{t.bengaliLL || 'Bengali (বাংলা)'}</option>
+                  <option value="kn">{t.kannadaLL || 'Kannada (ಕನ್ನಡ)'}</option>
+                  <option value="ml">{t.malayalamLL || 'Malayalam (മലയാളം)'}</option>
+                  <option value="gu">{t.gujaratiLL || 'Gujarati (ગુજરાતી)'}</option>
+                  <option value="pa">{t.punjabiLL || 'Punjabi (ਪੰਜਾਬੀ)'}</option>
                 </select>
               </div>
             </div>
@@ -303,18 +303,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdate }) => {
                 <span className="text-sm font-black uppercase tracking-widest"><TranslatedText text={t.systemAuthenticated} lang={user.preferredLanguage} /></span>
               </div>
               <p className="text-xs text-white/40 leading-relaxed font-medium">{t.securityDesc}</p>
-              <button 
+              <button
                 onClick={async () => {
-                  if (window.confirm("We will send a secure OTP to your email to reset your password. You will be logged out to complete this security process. Proceed?")) {
+                  if (window.confirm(t.passwordResetConfirm || "We will send a secure OTP to your email to reset your password. You will be logged out to complete this security process. Proceed?")) {
                     try {
                       await dbService.auth.forgotPassword(user.email);
-                      alert("OTP sent successfully! Please check your email.");
+                      alert(t.otpSuccess || "OTP sent successfully! Please check your email.");
                       // Set pending reset flag to redirect to OTP screen after logout/reload
                       localStorage.setItem('medecho_pending_reset', JSON.stringify({ email: user.email }));
                       dbService.auth.logout();
                       window.location.reload();
-                    } catch(e) {
-                      alert("Failed to initiate password reset.");
+                    } catch (e) {
+                      alert(t.passwordResetFail || "Failed to initiate password reset.");
                     }
                   }
                 }}

@@ -1,0 +1,9 @@
+{
+  "medicationReminderBody": "ਇਹ ਤੁਹਾਡੀ {ਦਵਾਈ} ਲੈਣ ਦਾ ਸਮਾਂ ਹੈ।",
+  "appointmentReminderTitle": "ਆਗਾਮੀ ਮੁਲਾਕਾਤ",
+  "appointmentReminderBody": "ਸੈਸ਼ਨ 15 ਮਿੰਟਾਂ ਵਿੱਚ ਸ਼ੁਰੂ ਹੁੰਦਾ ਹੈ।",
+  "appointmentReminderBodyDoc": "15 ਮਿੰਟਾਂ ਵਿੱਚ ਅਗਲਾ ਮਰੀਜ਼।",
+  "appointmentCancelled": "ਮੁਲਾਕਾਤ ਰੱਦ ਕੀਤੀ ਗਈ",
+  "appointmentCancelledBody": "ਪ੍ਰਦਾਤਾ ਦੁਆਰਾ ਸੈਸ਼ਨ ਰੱਦ ਕੀਤਾ ਗਿਆ।",
+  "cancellationNoticeSubj": "MedEcho: ਰੱਦ ਕਰਨ ਦਾ ਨੋਟਿਸ"
+}

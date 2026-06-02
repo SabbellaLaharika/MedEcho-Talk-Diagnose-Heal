@@ -21,6 +21,7 @@ enum AppointmentStatus {
   CONFIRMED
   COMPLETED
   CANCELLED
+  EXPIRED
 }
 
 enum AppointmentType {
@@ -50,6 +51,7 @@ model User {
   vitalTemperature  String?
   otp               String?   // For forgot password
   otpExpiry         DateTime? // Expiration time for OTP
+  lastSessionId     String?   // For single-session management
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -59,8 +61,10 @@ model User {
   patientReports      Report[]
   doctorReports       Report[]      @relation("DoctorReports")
   notifications       Notification[]
+  pushSubscriptions   PushSubscription[]
   doctorSchedules     DoctorSchedule[] @relation("DoctorSchedules")
   blockedSlots        BlockedSlot[]    @relation("BlockedSlots")
+  reminders           Reminder[]
 
   @@index([role])
 }
@@ -74,6 +78,7 @@ model Appointment {
   status      AppointmentStatus @default(PENDING)
   type        AppointmentType   @default(VIRTUAL)
   meetingLink String?           // For virtual meetings
+  timezoneOffset Int           @default(-330) // Default to IST offset (-330 mins) if not provided
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
@@ -90,7 +95,7 @@ model Report {
   id              String   @id @default(uuid())
   patientId       String
   diagnosis       String
-  confidenceScore Float
+  confidenceScore Float?
   precautions     Json     // Stored as JSON array or object
   chatTranscript  Json     // Stored as JSON object for conversation history
   summary         String?
@@ -105,6 +110,7 @@ model Report {
 
   // Relations
   patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  reminders Reminder[]
 
   @@index([patientId])
   doctor  User? @relation("DoctorReports", fields: [doctorId], references: [id]) 
@@ -116,6 +122,8 @@ model Notification {
   userId    String
   title     String
   message   String
+  type      String?  @default("INFO")
+  metadata  Json?
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
@@ -143,4 +151,46 @@ model BlockedSlot {
   reason    String // "Surgery", "Personal Leave"
 
   doctor User @relation("BlockedSlots", fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+enum MedicationUnit {
+  TABLET
+  CAPSULE
+  ML
+  MG
+  DROPS
+  INJECTION
+}
+
+model Reminder {
+  id             String         @id @default(uuid())
+  userId         String
+  reportId       String?
+  medicationName String
+  dosage         String?
+  unit           MedicationUnit @default(TABLET)
+  remindTimes    String[]       // Array of HH:mm values (e.g., ["08:00", "20:00"])
+  startDate      DateTime       @default(now())
+  endDate        DateTime?
+  isActive       Boolean        @default(true)
+  timezoneOffset Int            @default(-330) // Default to IST offset (-330 mins) if not provided
+  createdAt      DateTime       @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  report Report? @relation(fields: [reportId], references: [id])
+
+  @@index([userId])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

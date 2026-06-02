@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { MedicalReport, User } from '../types';
 import api from '../services/api';
-import { getTranslation } from '../services/translations';
+import { getTranslation, loadTranslations } from '../services/translations';
 import TranslatedText from './TranslatedText';
 import {
   StopIcon,
@@ -20,10 +20,14 @@ interface VirtualDoctorProps {
 
 type Persona = 'Sarah' | 'James' | 'Elena' | 'Marcus';
 const INDIAN_LANGUAGES = [
-  "English", "Hindi", "Telugu", "Tamil", "Bengali", "Marathi", "Gujarati", "Kannada", "Malayalam", "Punjabi"
+  "english", "hindi", "telugu", "tamil", "bengali", "marathi", "gujarati", "kannada", "malayalam", "punjabi"
 ];
 
 const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessionComplete }) => {
+  useEffect(() => {
+    loadTranslations(user.preferredLanguage, 'virtual_clinic');
+  }, [user.preferredLanguage]);
+
   const [isConnecting, setIsConnecting] = useState(false);
   const t = getTranslation(user.preferredLanguage);
   const [isActive, setIsActive] = useState(false);
@@ -355,6 +359,7 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
       date: new Date().toISOString().split('T')[0],
       doctorName: `AI-Doc (${persona})`,
       diagnosis: analysis?.condition || 'Checkup Completed',
+      confidenceScore: analysis?.confidence || 80,
       aiConfidence: analysis?.confidence || 80,
       inputLanguage: language,
       summary: analysis?.summary || transcriptionRef.current || 'Session recorded.',
@@ -366,26 +371,38 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
   };
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto flex flex-col items-center min-h-[calc(100vh-100px)]">
-      {!isActive && !isConnecting && (
-        <div className="w-full max-w-4xl space-y-8 mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
-          <div className="text-center">
-            <h2 className="text-2xl sm:text-4xl font-black text-slate-800 tracking-tight">{t.virtualClinic}</h2>
-            <p className="text-slate-500 text-sm mt-1">{t.talkToAI}</p>
+    <div className="p-3 sm:p-8 bg-[#F8FAFC] min-h-[calc(100vh-80px)] font-sans relative overflow-x-hidden">
+      {/* Background Ambience */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/5 blur-[120px] rounded-full -mr-64 -mt-64 pointer-events-none"></div>
+
+
+      {!isActive && (
+        <div className="relative z-10 max-w-4xl mx-auto space-y-4 sm:space-y-12 mb-6 sm:mb-20">
+          <div className="text-center space-y-2 sm:space-y-4 pt-4 sm:pt-10">
+            <h1 className="text-2xl sm:text-6xl font-black text-slate-800 tracking-tight leading-none">
+              <TranslatedText text={t.virtualClinic} lang={user.preferredLanguage} />
+            </h1>
+            <p className="text-slate-500 text-[10px] sm:text-sm mt-1">
+              <TranslatedText text={t.talkToAI} lang={user.preferredLanguage} />
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-              <h3 className="text-sm font-black text-slate-700 flex items-center space-x-2 mb-4">
-                <GlobeAltIcon className="w-4 h-4 text-blue-600" />
-                <span>1. <TranslatedText text={t.language} lang={user.preferredLanguage} /></span>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
+            <div className="glass-panel p-3 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-sm border border-white/40">
+              <h3 className="text-[9px] sm:text-sm font-black text-slate-700 flex items-center space-x-2 mb-3 sm:mb-6">
+                <GlobeAltIcon className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-blue-600" />
+                <span className="uppercase tracking-wider">1. <TranslatedText text={t.language} lang={user.preferredLanguage} /></span>
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
+
                 {INDIAN_LANGUAGES.map(lang => (
                   <button
                     key={lang}
                     onClick={() => setLanguage(lang)}
-                    className={`px-3 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${language === lang ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-50 text-slate-400'}`}
+                    className={`px-1 py-1.5 sm:px-3 sm:py-3 rounded-lg sm:rounded-2xl text-[7px] sm:text-[10px] font-black uppercase tracking-wider transition-all duration-300 hover-lift ${language === lang
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/20'
+                      : 'bg-white/50 text-slate-500 border border-slate-100 hover:bg-white hover:text-blue-600 hover:border-blue-100'}`}
                   >
                     <TranslatedText text={lang} lang={user.preferredLanguage} />
                   </button>
@@ -393,90 +410,100 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-              <h3 className="text-sm font-black text-slate-700 flex items-center space-x-2 mb-4">
-                <UserCircleIcon className="w-4 h-4 text-indigo-600" />
-                <span>2. {t.selectSpecialist}</span>
+            <div className="glass-panel p-3 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-sm border border-white/40">
+              <h3 className="text-[9px] sm:text-sm font-black text-slate-700 flex items-center space-x-2 mb-3 sm:mb-6">
+                <UserCircleIcon className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-indigo-600" />
+                <span className="uppercase tracking-wider">2. <TranslatedText text={t.selectSpecialist} lang={user.preferredLanguage} /></span>
               </h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-4">
+
                 {(Object.keys(personas) as Persona[]).map((name) => (
                   <button
                     key={name}
                     onClick={() => setPersona(name)}
-                    className={`relative rounded-2xl overflow-hidden border-2 transition-all ${persona === name ? 'border-indigo-600 ring-4 ring-indigo-100' : 'border-slate-50'}`}
+                    className={`relative rounded-xl sm:rounded-3xl overflow-hidden border-2 transition-all duration-500 hover-lift ${persona === name ? 'border-indigo-500 ring-2 sm:ring-8 ring-indigo-500/10 scale-105 z-10' : 'border-white/50 grayscale-[0.3]'}`}
                   >
-                    <img src={personas[name].img} alt={name} className="w-full h-20 object-cover" />
-                    <div className="absolute inset-0 bg-black/40 flex items-end p-2">
-                      <span className="text-white font-black text-[9px] uppercase">
+                    <img src={personas[name].img} alt={name} className="w-full h-12 sm:h-24 object-cover" />
+
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-1.5 sm:p-3">
+                      <span className="text-white font-black text-[7px] sm:text-[10px] uppercase tracking-widest">
                         <TranslatedText text={name} lang={user.preferredLanguage} />
                       </span>
                     </div>
                   </button>
+
                 ))}
               </div>
             </div>
           </div>
+
         </div>
       )}
 
-      <div className="relative w-full max-w-5xl aspect-[4/2] sm:aspect-[16/9] bg-[#ebeced] rounded-[2.5rem] sm:rounded-[3rem] shadow-2xl overflow-hidden border-[6px] sm:border-[8px] border-white group mx-auto">
+      <div className="relative w-full max-w-5xl aspect-[4/3] sm:aspect-video bg-[#ebeced] rounded-[2rem] sm:rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden border-[4px] sm:border-[8px] border-white group mx-auto premium-shadow">
         <video
           ref={didVideoRef}
           autoPlay
           playsInline
-          className={`w-full h-full object-contain transition-all duration-1000 ${streamConnected ? 'opacity-100' : 'opacity-0'} absolute inset-0 z-10`}
+          className={`w-full h-full object-cover sm:object-contain transition-all duration-1000 ${streamConnected ? 'opacity-100' : 'opacity-0'} absolute inset-0 z-10`}
         />
 
         <img
           src={personas[persona].img}
           alt="Doc"
-          className={`w-full h-full object-contain transition-all duration-1000 ${isActive ? 'scale-100' : 'brightness-90'} ${streamConnected ? 'opacity-0' : 'opacity-100'} absolute inset-0 z-0`}
+          className={`w-full h-full object-contain transition-all duration-1000 ${isActive ? 'scale-105' : 'scale-100 brightness-90'} ${streamConnected ? 'opacity-0' : 'opacity-100'} absolute inset-0 z-0`}
         />
 
         {/* HUD UI - Responsive stacking */}
         <div className="absolute inset-x-6 sm:inset-x-12 top-6 sm:top-12 flex flex-col space-y-3 items-start pointer-events-none z-10">
-          <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-white text-[9px] font-black uppercase tracking-widest">
-            {language} Mode
+          <div className="bg-black/30 backdrop-blur-xl px-4 py-2 rounded-full border border-white/20 text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-xl">
+            <TranslatedText text={language} lang={user.preferredLanguage} /> <TranslatedText text={t.languageMode} lang={user.preferredLanguage} />
           </div>
         </div>
 
         {/* Top Right HUD - Listening Indicator */}
         {isActive && isUserSpeaking && (
-          <div className="absolute top-6 sm:top-12 right-6 sm:right-12 flex items-center space-x-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 z-20 pointer-events-none">
-            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
-            <span className="text-white text-[9px] font-black uppercase tracking-widest">Listening</span>
+          <div className="absolute top-4 sm:top-12 right-4 sm:right-12 flex items-center space-x-2 sm:space-x-3 bg-red-500/20 backdrop-blur-xl px-3 py-1.5 sm:px-5 sm:py-2.5 rounded-full border border-red-500/30 z-20 pointer-events-none shadow-lg">
+            <div className="w-1.5 h-1.5 sm:w-2.5 sm:h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.8)]"></div>
+            <span className="text-white text-[8px] sm:text-[10px] font-black uppercase tracking-widest">
+              <TranslatedText text={t.listening} lang={user.preferredLanguage} />
+            </span>
           </div>
         )}
 
         {/* Live Subtitles (Bottom Center) */}
-        <div className="absolute bottom-4 sm:bottom-6 inset-x-0 flex justify-center pointer-events-none z-30 px-4 sm:px-8 transition-all duration-500">
+        <div className="absolute bottom-4 sm:bottom-10 inset-x-0 flex justify-center pointer-events-none z-30 px-4 sm:px-12 transition-all duration-500">
           {chatOverlay.length > 0 && (
             <div
-              className={`max-w-2xl w-full px-5 py-3 sm:px-6 sm:py-4 rounded-[2rem] backdrop-blur-md border border-white/10 shadow-2xl flex items-center space-x-4 ${chatOverlay[chatOverlay.length - 1].sender.includes('Doc')
-                ? 'bg-blue-900/60 text-blue-50'
-                : 'bg-black/60 text-slate-200'
+              className={`max-w-3xl w-full px-4 py-2 sm:px-8 sm:py-5 rounded-[1.2rem] sm:rounded-[2.5rem] backdrop-blur-2xl border shadow-2xl flex items-center space-x-3 sm:space-x-5 transition-all duration-500 transform translate-y-0 scale-100 ${chatOverlay[chatOverlay.length - 1].sender.includes('Doc')
+                ? 'bg-blue-600/20 border-blue-400/30 text-white'
+                : 'bg-black/40 border-white/10 text-slate-100'
                 }`}
             >
               <div className="flex-shrink-0">
                 {chatOverlay[chatOverlay.length - 1].sender.includes('Doc') ? (
-                  <img src={personas[persona].img} className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-blue-400/50 shadow-lg" alt="Doc" />
+                  <div className="relative">
+                    <img src={personas[persona].img} className="w-8 h-8 sm:w-16 sm:h-16 rounded-xl sm:rounded-3xl object-cover border-2 border-blue-400 shadow-xl" alt="Doc" />
+                    <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-green-500 border border-white rounded-full"></div>
+                  </div>
                 ) : (
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-700/80 flex items-center justify-center border-2 border-slate-500/50 shadow-lg">
-                    <UserCircleIcon className="w-6 h-6 text-slate-300" />
+                  <div className="w-8 h-8 sm:w-16 sm:h-16 rounded-xl sm:rounded-3xl bg-slate-800/80 flex items-center justify-center border-2 border-slate-600 shadow-xl">
+                    <UserCircleIcon className="w-5 h-5 sm:w-8 sm:h-8 text-slate-300" />
                   </div>
                 )}
               </div>
-              <div className="flex-1 text-left">
-                <span className="opacity-60 text-[9px] uppercase tracking-widest block mb-0.5 font-black">
+              <div className="flex-1 text-left min-w-0">
+                <span className={`text-[7px] sm:text-[10px] uppercase tracking-[0.2em] block mb-0 font-black ${chatOverlay[chatOverlay.length - 1].sender.includes('Doc') ? 'text-blue-300' : 'text-slate-400'}`}>
                   {chatOverlay[chatOverlay.length - 1].sender}
                 </span>
-                <p className="text-[12px] sm:text-[14px] font-semibold leading-relaxed tracking-wide">
-                  "{chatOverlay[chatOverlay.length - 1].text}"
+                <p className="text-[10px] sm:text-[16px] font-bold leading-tight sm:leading-relaxed tracking-wide text-shadow-sm truncate sm:whitespace-normal">
+                  {chatOverlay[chatOverlay.length - 1].text}
                 </p>
               </div>
             </div>
           )}
         </div>
+
 
         {isActive && (
           <div className="absolute bottom-8 inset-x-0 flex items-end justify-center space-x-1 h-12 px-10">
@@ -491,24 +518,31 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
         )}
 
         {!isActive && !isConnecting && (
-          <div className="absolute inset-0 flex items-center justify-center p-6 mt-60 z-30">
+          <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-6 z-30">
             <button
               onClick={startSession}
-              className="bg-white/95 p-6 sm:p-10 rounded-[2rem] sm:rounded-[4rem] shadow-2xl text-center active:scale-95 transition-all w-full sm:w-auto"
+              className="glass-panel p-6 sm:p-14 rounded-[2rem] sm:rounded-[4rem] shadow-2xl text-center active:scale-95 transition-all w-full sm:w-auto hover-lift border-white/60"
             >
-              <VideoCameraIcon className="w-10 h-10 sm:w-12 sm:h-12 text-blue-600 mx-auto mb-4" />
-              <h3 className="text-xl sm:text-3xl font-black text-slate-800">{t.startCheckup}</h3>
-              <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2">
-                <TranslatedText text="MedEcho AI Ready" lang={user.preferredLanguage} />
+              <div className="w-12 h-12 sm:w-24 sm:h-24 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-[1.5rem] sm:rounded-[2rem] flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-xl shadow-blue-500/40">
+                <VideoCameraIcon className="w-6 h-6 sm:w-12 sm:h-12 text-white" />
+              </div>
+              <h3 className="text-xl sm:text-4xl font-black text-slate-800 tracking-tight">
+                <TranslatedText text={t.startCheckup} lang={user.preferredLanguage} />
+              </h3>
+              <p className="text-blue-600 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[10px] mt-2 sm:mt-4">
+                <TranslatedText text={t.medEchoLogo || "MedEcho AI Ready"} lang={user.preferredLanguage} />
               </p>
             </button>
           </div>
         )}
 
+
         {isConnecting && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md text-white p-6 text-center z-50">
             <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
-            <p className="text-xs font-black uppercase mt-6 tracking-widest">Connecting Session...</p>
+            <p className="text-xs font-black uppercase mt-6 tracking-widest">
+              <TranslatedText text={t.connecting} lang={user.preferredLanguage} />
+            </p>
           </div>
         )}
 
@@ -516,9 +550,9 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-lg text-white p-6 text-center z-50">
             <div className="w-16 h-16 border-[6px] border-blue-400/20 border-t-blue-400 rounded-full animate-spin mb-6"></div>
             <h4 className="text-xl font-black uppercase tracking-widest animate-pulse">
-              Connecting Dr. {persona}...
+              <TranslatedText text={t.connecting} lang={user.preferredLanguage} /> Dr. {persona}...
             </h4>
-            <p className="text-[10px] text-blue-200 mt-2 font-bold uppercase">Establishing Real-Time WebRTC Link</p>
+            <p className="text-[10px] text-blue-200 mt-2 font-bold uppercase"><TranslatedText text={t.establishingLink} lang={user.preferredLanguage} /></p>
           </div>
         )}
 
@@ -526,10 +560,10 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-xl text-white p-8 text-center z-[60]">
             <div className="w-20 h-20 border-8 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-8 shadow-[0_0_15px_rgba(99,102,241,0.5)]"></div>
             <h4 className="text-2xl font-black uppercase tracking-widest text-indigo-100 animate-pulse">
-              Generating Final Report
+              <TranslatedText text={t.generatingReport} lang={user.preferredLanguage} />
             </h4>
             <p className="text-xs text-indigo-300 mt-3 font-bold uppercase tracking-widest">
-              AI is analyzing your spoken symptoms...
+              <TranslatedText text={t.analyzingSymptoms} lang={user.preferredLanguage} />
             </p>
           </div>
         )}
@@ -538,11 +572,11 @@ const VirtualDoctor: React.FC<VirtualDoctorProps> = ({ patientId, user, onSessio
       {isActive && (
         <button
           onClick={endSession}
-          className="mt-8 bg-rose-500 text-white font-black py-4 px-10 rounded-[2rem] flex items-center space-x-3 shadow-xl active:scale-95 transition-all"
+          className="mt-10 bg-gradient-to-r from-rose-600 to-rose-700 text-white font-black py-4 px-12 rounded-[2rem] flex items-center space-x-3 shadow-xl shadow-rose-500/20 active:scale-95 transition-all hover-lift"
         >
           <StopIcon className="w-6 h-6" />
-          <span className="uppercase tracking-widest text-xs">
-            <TranslatedText text="Finish & Analyze" lang={user.preferredLanguage} />
+          <span className="uppercase tracking-[0.2em] text-xs">
+            <TranslatedText text={t.finishAndAnalyze} lang={user.preferredLanguage} />
           </span>
         </button>
       )}

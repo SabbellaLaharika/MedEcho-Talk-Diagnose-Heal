@@ -20,7 +20,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { HeartIcon } from '@heroicons/react/24/solid';
 import ClinicalReportPaper from './ClinicalReportPaper';
-import { getTranslation, translateString, translateClinical, loadTranslations } from '../services/translations';
+import { getTranslation, translateString, loadTranslations } from '../services/translations';
 import TranslatedText from './TranslatedText';
 import api from '../services/api';
 
@@ -33,10 +33,10 @@ interface ReportsListProps {
 
 type TabType = 'AI' | 'CONSULTATION' | 'UPLOADED';
 
-const TAB_CONFIG: { key: TabType; label: string; icon: React.ReactNode; color: string; bg: string; border: string }[] = [
+const TAB_CONFIG: { key: TabType; labelKey: string; icon: React.ReactNode; color: string; bg: string; border: string }[] = [
   {
     key: 'AI',
-    label: 'MedEcho AI',
+    labelKey: 'medEchoAi',
     icon: <SparklesIcon className="w-4 h-4" />,
     color: 'text-indigo-600',
     bg: 'bg-indigo-50',
@@ -44,7 +44,7 @@ const TAB_CONFIG: { key: TabType; label: string; icon: React.ReactNode; color: s
   },
   {
     key: 'CONSULTATION',
-    label: 'Consultation',
+    labelKey: 'consultation',
     icon: <UserGroupIcon className="w-4 h-4" />,
     color: 'text-emerald-600',
     bg: 'bg-emerald-50',
@@ -52,7 +52,7 @@ const TAB_CONFIG: { key: TabType; label: string; icon: React.ReactNode; color: s
   },
   {
     key: 'UPLOADED',
-    label: 'Uploaded',
+    labelKey: 'uploaded',
     icon: <FolderOpenIcon className="w-4 h-4" />,
     color: 'text-amber-600',
     bg: 'bg-amber-50',
@@ -106,7 +106,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
       window.location.reload();
     } catch (err) {
       console.error('Delete failed:', err);
-      alert('Failed to delete report. Please try again.');
+      alert(t.deleteReportFail || 'Failed to delete report. Please try again.');
     } finally {
       setIsDeleting(false);
       setDeleteConfirmId(null);
@@ -158,7 +158,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
     if (!uploadFile && !uploadDiagnosis) return;
     // File size guard: 10MB
     if (uploadFile && uploadFile.size > 10 * 1024 * 1024) {
-      setUploadError('File is too large. Maximum size is 10MB.');
+      setUploadError(t.fileTooLarge || 'File is too large. Maximum size is 10MB.');
       return;
     }
     setUploadError('');
@@ -167,11 +167,11 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
       const formData = new FormData();
       formData.append('patientId', user.role === 'DOCTOR' ? (selectedPatientId || user.id) : user.id);
       if (uploadFile) formData.append('file', uploadFile);
-      formData.append('diagnosis', uploadDiagnosis || uploadFile?.name || 'External Report');
+      formData.append('diagnosis', uploadDiagnosis || uploadFile?.name || (t.externalReport || 'External Report'));
       formData.append('notes', uploadNotes);
 
       const isDoctor = user.role === 'DOCTOR';
-      const uploadType = isDoctor ? 'CONSULTATION' : 'UPLOADED';
+      const uploadType = 'UPLOADED';
 
       formData.append('reportType', uploadType);
       if (isDoctor) formData.append('doctorId', user.id);
@@ -186,7 +186,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
           id: data.id,
           patientId: data.patientId,
           doctorId: data.doctorId,
-          doctorName: data.doctor?.name || 'Self',
+          doctorName: data.doctor?.name || (t.selfName || 'Self'),
           date: new Date().toISOString().split('T')[0],
           diagnosis: data.diagnosis,
           summary: data.summary,
@@ -224,23 +224,27 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
   const TypeBadge = ({ type }: { type?: string }) => {
     if (type === 'CONSULTATION') return (
       <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[8px] font-black border border-emerald-100 uppercase tracking-widest">
-        <TranslatedText text="Consultation" lang={user.preferredLanguage} />
+        <TranslatedText text={t.consultation || "Consultation"} lang={user.preferredLanguage} />
       </span>
     );
     if (type === 'UPLOADED') return (
       <span className="bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full text-[8px] font-black border border-amber-100 uppercase tracking-widest">
-        <TranslatedText text="Uploaded" lang={user.preferredLanguage} />
+        <TranslatedText text={t.uploaded || "Uploaded"} lang={user.preferredLanguage} />
       </span>
     );
     return (
       <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full text-[8px] font-black border border-indigo-100 uppercase tracking-widest">
-        AI
+        <TranslatedText text={t.medEchoAi || "MedEcho AI"} lang={user.preferredLanguage} />
       </span>
     );
   };
 
   return (
-    <div className="p-4 sm:p-8 max-w-[1400px] mx-auto h-[calc(100vh-100px)] flex flex-col space-y-5">
+    <div className="p-4 sm:p-8 max-w-[1400px] mx-auto h-[calc(100vh-80px)] flex flex-col space-y-5 relative">
+      {/* Decorative Aura Backgrounds */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/10 blur-[120px] rounded-full -mr-64 -mt-64 pointer-events-none"></div>
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/5 blur-[100px] rounded-full -ml-40 -mb-40 pointer-events-none"></div>
+      
       {/* Header */}
       <div className="flex justify-between items-start flex-shrink-0">
         <div>
@@ -255,10 +259,10 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
           disabled={user.role === 'DOCTOR' && !selectedPatientId}
           onClick={() => setIsUploadOpen(true)}
           className={`flex items-center space-x-2 px-5 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-lg ${user.role === 'DOCTOR' && !selectedPatientId ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-slate-900 text-white hover:bg-slate-700'}`}
-          title={user.role === 'DOCTOR' && !selectedPatientId ? 'Select a patient first to upload a report' : ''}
+          title={user.role === 'DOCTOR' && !selectedPatientId ? t.selectPatientToUpload : ''}
         >
           <CloudArrowUpIcon className="w-4 h-4" />
-          <span><TranslatedText text="Upload Report" lang={user.preferredLanguage} /></span>
+          <span><TranslatedText text={t.uploadReport} lang={user.preferredLanguage} /></span>
         </button>
       </div>
 
@@ -271,7 +275,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
             className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-[10px] uppercase tracking-widest transition-all ${getTabStyle(tab.key)}`}
           >
             {tab.icon}
-            <span><TranslatedText text={tab.label} lang={user.preferredLanguage} /></span>
+            <span><TranslatedText text={tab.labelKey} lang={user.preferredLanguage} /></span>
             <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-black ${activeTab === tab.key ? 'bg-white/60' : 'bg-slate-200 text-slate-500'}`}>
               {badgeCount(tab.key)}
             </span>
@@ -311,12 +315,12 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                       <TranslatedText text={p.name} lang={user.preferredLanguage} />
                     </p>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-                      Patient Records
+                      <TranslatedText text={t.patientRecords} lang={user.preferredLanguage} />
                     </p>
                   </div>
                 </button>
               )) : (
-                <div className="text-center py-10 text-slate-400 uppercase text-[10px] font-black">No patients found</div>
+                <div className="text-center py-10 text-slate-400 uppercase text-[10px] font-black">{t.noPatientsFound || 'No patients found'}</div>
               )
             ) : (
               <>
@@ -325,25 +329,27 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                     onClick={() => { setSelectedPatientId(null); setSelectedReport(null); }}
                     className="mb-3 w-full text-left text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-600 flex items-center bg-indigo-50/50 p-2 rounded-xl"
                   >
-                    &larr; Back to Patients List
+                    &larr; {t.backToPatientsList || 'Back to Patients List'}
                   </button>
                 )}
                 {filteredReports.map(report => (
                   <button
                     key={report.id}
                     onClick={() => setSelectedReport(report)}
-                    className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${activeReport?.id === report.id ? 'border-slate-800 bg-white shadow-md' : 'border-transparent bg-slate-50 hover:bg-white hover:border-slate-200'}`}
+                    className={`w-full p-4 rounded-2xl border-2 text-left transition-all group relative overflow-hidden ${activeReport?.id === report.id ? 'border-indigo-500 bg-white shadow-md shadow-indigo-100' : 'border-transparent bg-slate-50/80 backdrop-blur-sm hover:bg-white hover:border-slate-200 hover:shadow-sm'}`}
                   >
+                   {activeReport?.id === report.id && (
+                     <div className="absolute -right-2 -top-2 w-12 h-12 bg-gradient-to-br from-indigo-500 to-rose-500 blur-xl opacity-20 pointer-events-none"></div>
+                   )}
                     <div className="flex justify-between items-start mb-1.5">
                       <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight leading-tight flex-1 pr-1">
-                        <TranslatedText text={report.diagnosis} lang={user.preferredLanguage} isClinical={true} />
+                        <TranslatedText text={report.diagnosis} lang={user.preferredLanguage} />
                       </h3>
                       <TypeBadge type={report.reportType} />
                     </div>
                     <div className="flex items-center justify-between mt-2">
-                      <div className={`flex items-center space-x-1 text-[9px] font-bold uppercase tracking-wider ${
-                        report.reportType === 'UPLOADED' ? 'text-amber-500' : 'text-slate-400'
-                      }`}>
+                      <div className={`flex items-center space-x-1 text-[9px] font-bold uppercase tracking-wider ${report.reportType === 'UPLOADED' ? 'text-amber-500' : 'text-slate-400'
+                        }`}>
                         {getFileIcon(report.fileUrl, report.fileName)}
                         <span>{report.fileName ? report.fileName.slice(0, 18) : report.date}</span>
                       </div>
@@ -365,13 +371,13 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                       <>
                         <CloudArrowUpIcon className="w-10 h-10 text-slate-300" />
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                          <TranslatedText text="No uploaded reports" lang={user.preferredLanguage} />
+                          <TranslatedText text={t.noUploadedReports} lang={user.preferredLanguage} />
                         </p>
                         <button
                           onClick={() => setIsUploadOpen(true)}
                           className="px-4 py-2 bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-600 transition-all"
                         >
-                          <TranslatedText text="Upload Now" lang={user.preferredLanguage} />
+                          <TranslatedText text={t.uploadNow} lang={user.preferredLanguage} />
                         </button>
                       </>
                     ) : (
@@ -388,7 +394,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
         </div>
 
         {/* Right: Detail */}
-        <div className="flex-1 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm flex flex-col overflow-hidden">
+        <div className="flex-1 bg-white/80 backdrop-blur-2xl border border-white/80 rounded-[3rem] shadow-[0_32px_128px_-16px_rgba(0,0,0,0.1)] flex flex-col overflow-hidden relative">
           {activeReport ? (
             <>
               <div className="p-8 border-b border-slate-50 flex justify-between items-center">
@@ -415,7 +421,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                   <section>
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                        <TranslatedText text="Attached File" lang={user.preferredLanguage} />
+                        <TranslatedText text={t.attachedFile} lang={user.preferredLanguage} />
                       </h4>
                       <div className="flex items-center space-x-2">
                         {/* Expand full screen */}
@@ -433,7 +439,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                           className="flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-indigo-700 transition-all"
                         >
                           <ArrowDownTrayIcon className="w-3.5 h-3.5" />
-                          <span>Download</span>
+                          <span>{t.download || 'Download'}</span>
                         </a>
                         {/* Delete (uploaded only) */}
                         {activeReport.reportType === 'UPLOADED' && (
@@ -442,7 +448,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                             className="flex items-center space-x-1.5 px-3 py-1.5 bg-red-50 text-red-600 text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-red-100 border border-red-200 transition-all"
                           >
                             <TrashIcon className="w-3.5 h-3.5" />
-                            <span>Delete</span>
+                            <span>{t.delete || 'Delete'}</span>
                           </button>
                         )}
                       </div>
@@ -463,20 +469,21 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                 )}
 
                 {/* Diagnosis */}
-                <section>
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
+                <section className="relative overflow-hidden bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-[2.5rem] p-6 sm:p-8 text-white shadow-xl shadow-indigo-200/50">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[80px] rounded-full pointer-events-none -mr-32 -mt-32"></div>
+                  <h4 className="text-[10px] font-black text-indigo-200 uppercase tracking-[0.2em] mb-4 relative z-10">
                     <TranslatedText text={t.predictedCondition} lang={user.preferredLanguage} />
                   </h4>
-                  <div className="flex items-center space-x-6">
-                    <div className="p-4 bg-slate-50 rounded-2xl text-slate-800 animate-pulse border border-slate-100">
+                  <div className="flex items-center space-x-6 relative z-10">
+                    <div className="p-4 bg-white/10 backdrop-blur-md rounded-2xl text-white border border-white/20 shadow-inner">
                       <HeartIcon className="w-8 h-8" />
                     </div>
                     <div className="flex items-center space-x-4 flex-wrap gap-2">
-                      <h3 className="text-3xl font-black text-slate-900 tracking-tight">
-                        <TranslatedText text={activeReport.diagnosis} lang={user.preferredLanguage} isClinical={true} />
+                      <h3 className="text-3xl font-black text-white tracking-tight">
+                        <TranslatedText text={activeReport.diagnosis} lang={user.preferredLanguage} />
                       </h3>
                       {activeReport.aiConfidence != null && activeReport.aiConfidence > 0 && (
-                        <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-xs font-black border border-indigo-100 uppercase tracking-widest">
+                        <span className="bg-emerald-500/20 text-emerald-100 px-3 py-1 rounded-full text-xs font-black border border-emerald-400/30 uppercase tracking-widest backdrop-blur-sm">
                           {t.confidence}: {activeReport.aiConfidence}%
                         </span>
                       )}
@@ -488,7 +495,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                 {activeReport.summary && (
                   <section>
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">
-                      <TranslatedText text="Summary / Notes" lang={user.preferredLanguage} />
+                      <TranslatedText text={t.observations} lang={user.preferredLanguage} />
                     </h4>
                     <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 rounded-2xl p-5 border border-slate-100">
                       <TranslatedText text={activeReport.summary} lang={user.preferredLanguage} />
@@ -504,31 +511,31 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                     </h4>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {activeReport.vitals.bp && (
-                        <div className="bg-rose-50 p-4 rounded-2xl border border-rose-100 flex flex-col items-center text-center">
-                          <span className="text-lg mb-1">❤️</span>
-                          <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest mb-0.5">BP</p>
+                        <div className="bg-gradient-to-br from-rose-50 to-white p-4 rounded-2xl border border-rose-100 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-all">
+                          <span className="text-xl mb-1 filter drop-shadow-sm">❤️</span>
+                          <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest mb-0.5"><TranslatedText text={t.bpm || 'BP'} lang={user.preferredLanguage} /></p>
                           <p className="text-sm font-black text-rose-700">{activeReport.vitals.bp}</p>
                         </div>
                       )}
                       {activeReport.vitals.weight && (
-                        <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col items-center text-center">
-                          <span className="text-lg mb-1">⚖️</span>
-                          <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-0.5"><TranslatedText text="Weight" lang={user.preferredLanguage} /></p>
+                        <div className="bg-gradient-to-br from-blue-50 to-white p-4 rounded-2xl border border-blue-100 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-all">
+                          <span className="text-xl mb-1 filter drop-shadow-sm">⚖️</span>
+                          <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-0.5"><TranslatedText text={t.weight} lang={user.preferredLanguage} /></p>
                           <p className="text-sm font-black text-blue-700">{activeReport.vitals.weight}</p>
                         </div>
                       )}
                       {activeReport.vitals.glucose && (
-                        <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex flex-col items-center text-center">
-                          <span className="text-lg mb-1">🔥</span>
+                        <div className="bg-gradient-to-br from-amber-50 to-white p-4 rounded-2xl border border-amber-100 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-all">
+                          <span className="text-xl mb-1 filter drop-shadow-sm">🔥</span>
                           <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-0.5">
-                            <TranslatedText text="Glucose" lang={user.preferredLanguage} /></p>
+                            <TranslatedText text={t.glucose} lang={user.preferredLanguage} /></p>
                           <p className="text-sm font-black text-amber-700">{activeReport.vitals.glucose}</p>
                         </div>
                       )}
                       {activeReport.vitals.temperature && (
-                        <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 flex flex-col items-center text-center">
-                          <span className="text-lg mb-1">🌡️</span>
-                          <p className="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-0.5"><TranslatedText text="Temp" lang={user.preferredLanguage} /></p>
+                        <div className="bg-gradient-to-br from-purple-50 to-white p-4 rounded-2xl border border-purple-100 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-all">
+                          <span className="text-xl mb-1 filter drop-shadow-sm">🌡️</span>
+                          <p className="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-0.5"><TranslatedText text={t.temperature} lang={user.preferredLanguage} /></p>
                           <p className="text-sm font-black text-purple-700">{activeReport.vitals.temperature}</p>
                         </div>
                       )}
@@ -607,7 +614,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                       className="flex items-center space-x-2 px-4 py-3 bg-red-50 text-red-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-red-100 border border-red-200 transition-all"
                     >
                       <TrashIcon className="w-4 h-4" />
-                      <span>Delete</span>
+                      <span>{t.delete || 'Delete'}</span>
                     </button>
                   )}
                 </div>
@@ -626,7 +633,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
             <div className="flex-1 flex flex-col items-center justify-center space-y-4 text-slate-300">
               <DocumentTextIcon className="w-20 h-20" />
               <p className="font-black uppercase tracking-[0.3em] text-xs leading-none">
-                <TranslatedText text="Select a report to view details" lang={user.preferredLanguage} />
+                <TranslatedText text={t.docViewer} lang={user.preferredLanguage} />
               </p>
             </div>
           )}
@@ -683,7 +690,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                     <TranslatedText text="Upload Report" lang={user.preferredLanguage} />
                   </h3>
                   <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-                    <TranslatedText text="PDF, JPG, PNG up to 10MB" lang={user.preferredLanguage} />
+                    <TranslatedText text={t.fileLimitHint} lang={user.preferredLanguage} />
                   </p>
                 </div>
               </div>
@@ -697,7 +704,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                 <div className="flex flex-col items-center space-y-3 py-10">
                   <CheckCircleIcon className="w-16 h-16 text-emerald-500" />
                   <p className="font-black text-slate-800 uppercase tracking-widest text-sm">
-                    <TranslatedText text="Uploaded Successfully!" lang={user.preferredLanguage} />
+                    {t.uploadSuccess || "Uploaded Successfully!"}
                   </p>
                 </div>
               ) : (
@@ -708,9 +715,8 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                     onDragLeave={() => setIsDragging(false)}
                     onDrop={handleFileDrop}
                     onClick={() => fileInputRef.current?.click()}
-                    className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
-                      isDragging ? 'border-amber-400 bg-amber-50' : uploadFile ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-slate-50 hover:border-slate-400'
-                    }`}
+                    className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${isDragging ? 'border-amber-400 bg-amber-50' : uploadFile ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-slate-50 hover:border-slate-400'
+                      }`}
                   >
                     <input
                       ref={fileInputRef}
@@ -746,9 +752,9 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                       <>
                         <CloudArrowUpIcon className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                         <p className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                          <TranslatedText text="Drag & drop or click to browse" lang={user.preferredLanguage} />
+                          <TranslatedText text={t.dragDropPrompt} lang={user.preferredLanguage} />
                         </p>
-                        <p className="text-[9px] text-slate-400 mt-1">PDF, JPG, PNG — max 10MB</p>
+                        <p className="text-[9px] text-slate-400 mt-1"><TranslatedText text={t.fileLimitNote} lang={user.preferredLanguage} /></p>
                       </>
                     )}
                   </div>
@@ -763,13 +769,13 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                   {/* Diagnosis / Title */}
                   <div>
                     <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
-                      <TranslatedText text="Report Title / Diagnosis" lang={user.preferredLanguage} />
+                      <TranslatedText text={t.diagnosisReport} lang={user.preferredLanguage} />
                     </label>
                     <input
                       type="text"
                       value={uploadDiagnosis}
                       onChange={e => setUploadDiagnosis(e.target.value)}
-                      placeholder="e.g. Blood Test, X-Ray, Prescription..."
+                      placeholder={t.diagnosisPlaceholder || "e.g. Blood Test, X-Ray, Prescription..."}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-400 transition-all"
                     />
                   </div>
@@ -777,13 +783,13 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                   {/* Notes */}
                   <div>
                     <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
-                      <TranslatedText text="Notes (optional)" lang={user.preferredLanguage} />
+                      <TranslatedText text={t.notesOptional} lang={user.preferredLanguage} />
                     </label>
                     <textarea
                       value={uploadNotes}
                       onChange={e => setUploadNotes(e.target.value)}
                       rows={3}
-                      placeholder="Any additional notes about this report..."
+                      placeholder={t.additionalNotesPlaceholder}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-400 transition-all resize-none"
                     />
                   </div>
@@ -796,9 +802,9 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                       className={`flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center space-x-2 ${isUploading || (!uploadFile && !uploadDiagnosis) ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-amber-500 text-white hover:bg-amber-600 shadow-lg'}`}
                     >
                       {isUploading ? (
-                        <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Uploading...</span></>
+                        <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span><TranslatedText text={t.uploading} lang={user.preferredLanguage} /></span></>
                       ) : (
-                        <><CloudArrowUpIcon className="w-4 h-4" /><span><TranslatedText text="Upload" lang={user.preferredLanguage} /></span></>
+                        <><CloudArrowUpIcon className="w-4 h-4" /><span><TranslatedText text={t.upload} lang={user.preferredLanguage} /></span></>
                       )}
                     </button>
                     <button
@@ -842,8 +848,8 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
               <ExclamationTriangleIcon className="w-8 h-8 text-red-500" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Delete Report?</h3>
-              <p className="text-xs text-slate-400 font-bold mt-2">This action cannot be undone. The file and its data will be permanently removed.</p>
+              <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight"><TranslatedText text={t.deleteConfirmTitle} lang={user.preferredLanguage} /></h3>
+              <p className="text-xs text-slate-400 font-bold mt-2"><TranslatedText text={t.deleteConfirmBody} lang={user.preferredLanguage} /></p>
             </div>
             <div className="flex space-x-3">
               <button
@@ -851,13 +857,13 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                 disabled={isDeleting}
                 className="flex-1 py-3 bg-red-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-red-700 transition-all disabled:opacity-50"
               >
-                {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+                {isDeleting ? <TranslatedText text={t.deleting} lang={user.preferredLanguage} /> : <TranslatedText text={t.yesDelete} lang={user.preferredLanguage} />}
               </button>
               <button
                 onClick={() => setDeleteConfirmId(null)}
                 className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
               >
-                Cancel
+                <TranslatedText text={t.cancel} lang={user.preferredLanguage} />
               </button>
             </div>
           </div>

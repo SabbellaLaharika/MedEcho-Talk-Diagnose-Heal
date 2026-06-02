@@ -1,0 +1,19 @@
+{
+  "liveCall": "ਲਾਈਵ ਕਾਲ",
+  "incomingCall": "ਇਨਕਮਿੰਗ ਕਾਲ...",
+  "inCall": "ਕਾਲ ਵਿੱਚ",
+  "calling": "ਕਾਲ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ...",
+  "endCall": "ਅੰਤ",
+  "webRtcNote": "WebRTC ਲਿੰਕ ਕਿਰਿਆਸ਼ੀਲ।",
+  "callFrom": "ਤੋਂ ਕਾਲ ਕਰੋ",
+  "callingUser": "ਕਾਲ ਕਰ ਰਿਹਾ ਹੈ",
+  "aiContextReceived": "ਸੰਦਰਭ ਸਮਕਾਲੀ।",
+  "micDenied": "ਮਾਈਕ ਨੇ ਇਨਕਾਰ ਕੀਤਾ।",
+  "sttError": "ਬੋਲੀ ਗਲਤੀ।",
+  "aiServiceError": "AI ਔਫਲਾਈਨ।",
+  "unassigned": "ਅਸਾਈਨ ਨਹੀਂ ਕੀਤਾ ਗਿਆ",
+  "clinicalConsult": "ਸਲਾਹ-ਮਸ਼ਵਰਾ",
+  "consultProfessional": "ਮਾਹਰ ਨਾਲ ਸਲਾਹ ਕਰੋ.",
+  "aiMedicalIntake": "ਏਆਈ ਇਨਟੇਕ",
+  "recordFiled": "ਦਾਇਰ ਕੀਤੀ"
+}

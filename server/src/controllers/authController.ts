@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { sendEmail } from '../services/emailService';
+import crypto from 'crypto';
 
-const prisma = new PrismaClient();
 
 export const register = async (req: Request, res: Response) => {
     try {
@@ -40,7 +40,8 @@ export const register = async (req: Request, res: Response) => {
             finalUsername = userRole === 'DOCTOR' ? `${prefix}${String(nextNum).padStart(3, '0')}` : `${prefix}${String(nextNum).padStart(5, '0')}`;
         }
 
-        const user = await prisma.user.create({
+        const sessionId = crypto.randomUUID();
+        const user = await (prisma.user as any).create({
             data: {
                 email,
                 passwordHash: hashedPassword,
@@ -48,15 +49,19 @@ export const register = async (req: Request, res: Response) => {
                 username: finalUsername,
                 role: userRole as any,
                 preferredLanguage: preferredLanguage || 'en',
+                lastSessionId: sessionId
             },
         });
 
+
+
         const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET as string, {
-            expiresIn: '1d',
+            expiresIn: '7d',
         });
 
         const { passwordHash, ...userWithoutPassword } = user;
-        res.status(201).json({ token, user: userWithoutPassword });
+        res.status(201).json({ token, user: userWithoutPassword, sessionId });
+
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -86,12 +91,24 @@ export const login = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
 
-        const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET as string, {
-            expiresIn: '1d',
+        const sessionId = crypto.randomUUID();
+        await (prisma.user as any).update({
+            where: { id: user.id },
+            data: { lastSessionId: sessionId }
         });
 
+
         const { passwordHash, ...userWithoutPassword } = user;
-        res.json({ token, user: userWithoutPassword });
+        // Include sessionId in the user object for convenience
+        (userWithoutPassword as any).lastSessionId = sessionId;
+
+        const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET as string, {
+            expiresIn: '7d',
+        });
+
+        res.json({ token, user: userWithoutPassword, sessionId });
+
+
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });

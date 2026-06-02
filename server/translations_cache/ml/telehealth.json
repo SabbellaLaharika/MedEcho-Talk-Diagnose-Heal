@@ -1,0 +1,19 @@
+{
+  "liveCall": "തത്സമയ കോൾ",
+  "incomingCall": "ഇൻകമിംഗ് കോൾ...",
+  "inCall": "കോളിൽ",
+  "calling": "വിളിക്കുന്നു...",
+  "endCall": "അവസാനിക്കുന്നു",
+  "webRtcNote": "WebRTC ലിങ്ക് സജീവമാണ്.",
+  "callFrom": "നിന്ന് വിളിക്കുക",
+  "callingUser": "വിളിക്കുന്നു",
+  "aiContextReceived": "സന്ദർഭം സമന്വയിപ്പിച്ചു.",
+  "micDenied": "മൈക്ക് നിരസിച്ചു.",
+  "sttError": "സംഭാഷണ പിശക്.",
+  "aiServiceError": "AI ഓഫ്‌ലൈൻ.",
+  "unassigned": "അസൈൻ ചെയ്തിട്ടില്ല",
+  "clinicalConsult": "കൂടിയാലോചന",
+  "consultProfessional": "വിദഗ്ദ്ധനെ സമീപിക്കുക.",
+  "aiMedicalIntake": "AI ഇൻടേക്ക്",
+  "recordFiled": "ഫയൽ ചെയ്തു"
+}

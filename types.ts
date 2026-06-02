@@ -80,6 +80,7 @@ export interface MedicalReport {
   diagnosis: string;
   prescription: string[];
   medications?: string[];
+  confidenceScore?: number;
   aiConfidence?: number;
   inputLanguage?: string;
   symptoms?: string[];
@@ -109,8 +110,19 @@ export interface AppNotification {
   userId: string;
   title: string;
   message: string;
-  type: 'REMINDER' | 'SUCCESS' | 'ALERT';
+  type: 'REMINDER' | 'SUCCESS' | 'ALERT' | 'CALL' | 'CALL_NUDGE';
   timestamp: Date;
   isRead: boolean;
   appointmentId?: string;
+  metadata?: any;
+}
+
+export type MedicationUnit = 'TABLET' | 'CAPSULE' | 'ML' | 'MG' | 'DROPS' | 'INJECTION';
+
+export interface Prescription {
+  name: string;
+  dosage: string;
+  unit: MedicationUnit;
+  times: string[];
+  days: number;
 }
