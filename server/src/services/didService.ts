@@ -44,7 +44,8 @@ export class DIDService {
   static async createTalk(text: string, source_url: string, language: string, gender: string = 'female') {
     try {
       const voiceMap = gender === 'male' ? MALE_VOICE_MAPPING : FEMALE_VOICE_MAPPING;
-      const voiceId = voiceMap[language] || voiceMap["English"];
+      const formattedLanguage = language ? (language.charAt(0).toUpperCase() + language.slice(1).toLowerCase()) : "English";
+      const voiceId = voiceMap[formattedLanguage] || voiceMap["English"];
       
       const response = await axios.post(`${DID_API_URL}/talks`, {
         source_url: source_url,
@@ -131,7 +132,8 @@ export class DIDService {
   static async sendText(streamId: string, sessionId: string, text: string, language: string, gender: string = 'female') {
     try {
       const voiceMap = gender === 'male' ? MALE_VOICE_MAPPING : FEMALE_VOICE_MAPPING;
-      const voiceId = voiceMap[language] || voiceMap["English"];
+      const formattedLanguage = language ? (language.charAt(0).toUpperCase() + language.slice(1).toLowerCase()) : "English";
+      const voiceId = voiceMap[formattedLanguage] || voiceMap["English"];
       const response = await axios.post(`${DID_API_URL}/talks/streams/${streamId}`, {
         script: {
           type: 'text',

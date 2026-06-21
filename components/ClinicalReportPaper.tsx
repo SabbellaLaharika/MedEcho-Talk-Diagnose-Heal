@@ -200,7 +200,7 @@ const ClinicalReportPaper: React.FC<ClinicalReportPaperProps> = ({ report, user,
                   {Object.entries(report.history).map(([k, v]) => (
                     <tr key={k} className="border-b border-slate-50">
                       <td className="py-2 font-bold uppercase text-[9px] text-slate-500 w-1/2">
-                        <TranslatedText text={t[k.toLowerCase()] || k} lang={targetLang} />
+                        <TranslatedText text={k.toLowerCase()} lang={targetLang} />
                       </td>
                       <td className="py-2 text-slate-700 capitalize text-[11px]">
                         {typeof v === 'string' ? (

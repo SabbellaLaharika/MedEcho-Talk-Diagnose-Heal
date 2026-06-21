@@ -387,7 +387,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
                       {isSelected && <CheckCircleIcon className="w-4 h-4" />}
                     </button>
                     <span className="font-black text-sm uppercase tracking-wider text-slate-800">
-                      <TranslatedText text={t[DAY_KEYS[dayIndex]]} lang={doctor.preferredLanguage} />
+                      <TranslatedText text={DAY_KEYS[dayIndex]} lang={doctor.preferredLanguage} />
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -515,7 +515,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
               >
                 {BLOCK_REASON_KEYS.map(rKey => (
                   <option key={rKey} value={rKey}>
-                    <TranslatedText text={t[rKey]} lang={doctor.preferredLanguage} />
+                    <TranslatedText text={rKey} lang={doctor.preferredLanguage} />
                   </option>
                 ))}
               </select>
@@ -544,7 +544,7 @@ const DoctorScheduleManager: React.FC<DoctorScheduleManagerProps> = ({ doctor })
                     <div>
                       <p className="font-black text-slate-800 text-sm">{slot.date} @ {slot.startTime} - {slot.endTime}</p>
                       <p className="text-[9px] font-bold text-rose-500 uppercase tracking-widest">
-                        <TranslatedText text={t[slot.reason]} lang={doctor.preferredLanguage} />
+                        <TranslatedText text={slot.reason} lang={doctor.preferredLanguage} />
                       </p>
                     </div>
                   </div>

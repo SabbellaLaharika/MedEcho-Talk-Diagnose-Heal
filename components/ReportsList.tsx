@@ -590,7 +590,7 @@ const ReportsList: React.FC<ReportsListProps> = ({ reports, user, onReportUpload
                           {Object.entries(activeReport.history).map(([key, val], idx) => (
                             <tr key={key} className={idx % 2 === 0 ? 'bg-transparent' : 'bg-slate-50/30'}>
                               <td className="py-3 px-6 text-xs font-black text-slate-800 uppercase tracking-widest w-1/3">
-                                <TranslatedText text={t[key.toLowerCase()] || key} lang={user.preferredLanguage} />
+                                <TranslatedText text={key.toLowerCase()} lang={user.preferredLanguage} />
                               </td>
                               <td className="py-3 px-6 text-xs font-bold text-slate-600">
                                 <TranslatedText text={typeof val === 'string' ? val : String(val)} lang={user.preferredLanguage} />

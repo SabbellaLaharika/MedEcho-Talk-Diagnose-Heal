@@ -214,7 +214,7 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, onBooki
       time: selectedTime,
       type
     };
-    
+
     // Instead of showing modal immediately, attempt booking
     try {
       const success = await onBook(summary);
@@ -230,11 +230,6 @@ const AppointmentBooking: React.FC<AppointmentBookingProps> = ({ onBook, onBooki
   };
 
   const confirmFinalBooking = () => {
-    if (bookedAptSummary) {
-      onBook(bookedAptSummary);
-      // Emit to server so others see this slot as taken
-      socketRef.current?.emit("new_appointment", bookedAptSummary);
-    }
     setShowSuccessModal(false);
     if (onBookingComplete) onBookingComplete();
   };
