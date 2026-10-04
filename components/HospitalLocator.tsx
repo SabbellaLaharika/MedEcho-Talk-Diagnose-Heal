@@ -4,8 +4,7 @@ import {
   BeakerIcon, BuildingOffice2Icon, HomeModernIcon, PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
 import { User } from '../types';
-import { getTranslation, translateString, loadTranslations } from '../services/translations';
-import api from '../services/api';
+import { loadTranslations } from '../services/translations';
 import TranslatedText from './TranslatedText';
 
 interface HospitalLocatorProps {
@@ -35,20 +34,38 @@ const TAB_KEYS: Record<string, string> = {
 };
 
 const HospitalLocator: React.FC<HospitalLocatorProps> = ({ user }) => {
-  const t = getTranslation(user?.preferredLanguage);
-
-  useEffect(() => {
-    loadTranslations(user?.preferredLanguage, 'hospitals');
-  }, [user?.preferredLanguage]);
   const [activeTab, setActiveTab] = useState<'MAJOR' | 'MINOR' | 'LABS'>('MAJOR');
   const [uLoc, setULoc] = useState<{ lat: number, lng: number } | null>(null);
+  const [translationsLoaded, setTranslationsLoaded] = useState(false);
 
-  // Translations are now handled by TranslatedText component in JSX
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadHospitalTranslations = async () => {
+      try {
+        await loadTranslations(user?.preferredLanguage, 'hospitals');
+        if (!cancelled) {
+          setTranslationsLoaded(true);
+        }
+      } catch (error) {
+        console.error('Failed to load hospital translations:', error);
+        if (!cancelled) {
+          setTranslationsLoaded(true);
+        }
+      }
+    };
+
+    loadHospitalTranslations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.preferredLanguage]);
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       (p) => setULoc({ lat: p.coords.latitude, lng: p.coords.longitude }),
-      () => console.log("Loc blocked")
+      () => console.log('Location access blocked')
     );
   }, []);
 
@@ -61,6 +78,14 @@ const HospitalLocator: React.FC<HospitalLocatorProps> = ({ user }) => {
     return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1);
   };
 
+  if (!translationsLoaded) {
+    return (
+      <div className="p-6 bg-white rounded-[2rem] shadow-lg border border-slate-100 text-center text-slate-400">
+        <p className="text-sm font-medium">Loading healthcare facilities...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 bg-white rounded-[2rem] shadow-lg border border-slate-100">
       <div className="flex flex-wrap gap-2 mb-6">
@@ -68,7 +93,7 @@ const HospitalLocator: React.FC<HospitalLocatorProps> = ({ user }) => {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 text-slate-600'}`}
           >
             <TranslatedText text={TAB_KEYS[tab]} lang={user?.preferredLanguage} />
           </button>
@@ -83,11 +108,13 @@ const HospitalLocator: React.FC<HospitalLocatorProps> = ({ user }) => {
                 <h3 className="font-black text-slate-800 text-lg truncate group-hover:text-indigo-600 transition-colors">
                   <TranslatedText text={item.name} lang={user?.preferredLanguage} />
                 </h3>
-                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest"><TranslatedText text={item.type} lang={user?.preferredLanguage} /></span>
+                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+                  <TranslatedText text={item.type} lang={user?.preferredLanguage} />
+                </span>
               </div>
               {getDist(item.coords.lat, item.coords.lng) && (
                 <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md shrink-0">
-                  {getDist(item.coords.lat, item.coords.lng)} <TranslatedText text={t.km} lang={user?.preferredLanguage} />
+                  {getDist(item.coords.lat, item.coords.lng)} <TranslatedText text="km" lang={user?.preferredLanguage} />
                 </span>
               )}
             </div>
@@ -99,10 +126,10 @@ const HospitalLocator: React.FC<HospitalLocatorProps> = ({ user }) => {
                 href={`tel:${item.contact}`}
                 className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-center text-[10px] font-black uppercase tracking-widest hover:bg-black transition-colors"
               >
-                <TranslatedText text={t.call} lang={user?.preferredLanguage} />
+                <TranslatedText text="call" lang={user?.preferredLanguage} />
               </a>
               <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.name + " " + item.location)}`}
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.name + ' ' + item.location)}`}
                 target="_blank"
                 rel="noreferrer"
                 className="px-4 bg-indigo-50 text-indigo-600 py-2.5 rounded-xl flex items-center justify-center hover:bg-indigo-100 transition-colors"
